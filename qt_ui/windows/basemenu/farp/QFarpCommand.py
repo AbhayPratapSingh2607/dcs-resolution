@@ -26,6 +26,7 @@ from game.squadrons.detachments import (
     detachment_errors,
     detachments_at,
     free_farp_slots,
+    is_en_route,
     max_detachment_size,
     recall_detachment,
 )
@@ -104,9 +105,15 @@ class QFarpCommand(QFrame):
     def _status_text(self) -> str:
         total = self.farp.total_aircraft_parking(ParkingType(True, True, True))
         used = total - free_farp_slots(self.farp)
+        en_route = sum(
+            d.owned_aircraft for d in detachments_at(self.farp) if is_en_route(d)
+        )
+        slots = f"Helicopter slots: {used}/{total} in use"
+        if en_route:
+            slots += f" ({en_route} en route, arriving next turn)"
         lines = [
             f"<b>{self.farp.kind.display_name} FARP</b>",
-            f"Helicopter slots: {used}/{total} in use",
+            slots,
             f"Upkeep: ${self.farp.upkeep_per_turn}M per turn",
         ]
         return "<br/>".join(lines)
@@ -157,15 +164,27 @@ class QFarpCommand(QFrame):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         row.setLayout(layout)
-        layout.addWidget(
-            QLabel(
+        if is_en_route(det):
+            text = (
+                f"{det} - {det.owned_aircraft}x {det.aircraft.display_name}, "
+                f"{len(det.active_pilots)} pilots - en route from "
+                f"{det.location}, arriving next turn"
+            )
+            button_text = "Cancel"
+            tooltip = f"Cancel the move; the helicopters stay with {det.parent}."
+        else:
+            text = (
                 f"{det} - {det.owned_aircraft}x {det.aircraft.display_name} "
                 f"({det.untasked_aircraft} untasked), "
                 f"{len(det.active_pilots)} pilots"
-            ),
-            stretch=1,
-        )
-        recall = QPushButton("Recall")
+            )
+            button_text = "Recall"
+            tooltip = f"Send the helicopters back to {det.parent}."
+        label = QLabel(text)
+        label.setWordWrap(True)
+        layout.addWidget(label, stretch=1)
+        recall = QPushButton(button_text)
+        recall.setToolTip(tooltip)
         recall.clicked.connect(lambda: self._recall(det))
         layout.addWidget(recall, alignment=Qt.AlignmentFlag.AlignRight)
         return row
