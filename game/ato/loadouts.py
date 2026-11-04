@@ -44,9 +44,11 @@ def _loads_with_numeric_table_keys(
     if constants:
         tablestr = re.sub(
             r"\[\s*([A-Za-z_]\w*)\s*\](?=\s*=)",
-            lambda match: f"[{constants[match.group(1)]}]"
-            if match.group(1) in constants
-            else match.group(0),
+            lambda match: (
+                f"[{constants[match.group(1)]}]"
+                if match.group(1) in constants
+                else match.group(0)
+            ),
             tablestr,
         )
     return _lua_loads(
