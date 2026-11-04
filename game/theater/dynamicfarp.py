@@ -224,10 +224,11 @@ class DynamicFarp(Fob):
         state.pop("expires_on_turn", None)
         self.__dict__.update(state)
         if "capacity" not in state:
+            # Older saves: work out the capacity from the saved pad lists.
             self.capacity = (
-                len(self.helipads)
-                + 4 * len(self.helipads_quad)
-                + len(self.helipads_invisible)
+                len(state.get("helipads", []))
+                + 4 * len(state.get("helipads_quad", []))
+                + len(state.get("helipads_invisible", []))
             )
         # Pad positions are derived from the layout data, which may have changed
         # since the FARP was established. Re-derive them on load so the pads always
