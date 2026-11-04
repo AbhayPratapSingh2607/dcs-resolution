@@ -555,7 +555,6 @@ class SupportPage(KneeboardPage):
         jtacs: List[JtacInfo],
         start_time: datetime.datetime,
         dark_kneeboard: bool,
-        dynamic_runways: Optional[List[RunwayData]] = None,
     ) -> None:
         self.flight = flight
         self.package_flights = package_flights
@@ -563,7 +562,6 @@ class SupportPage(KneeboardPage):
         self.awacs = awacs
         self.tankers = tankers
         self.jtacs = jtacs
-        self.dynamic_runways = dynamic_runways or []
         self.start_time = start_time
         self.dark_kneeboard = dark_kneeboard
         flight_name = self.flight.custom_name if self.flight.custom_name else "Flight"
@@ -676,27 +674,6 @@ class SupportPage(KneeboardPage):
                 ]
             )
         writer.table(jtacs, headers=["Callsign", "Region", "Laser Code", "FREQ"])
-
-        # Carriers and FARPs: landing points that are units rather than airfields,
-        # including player-built FARPs.
-        if self.dynamic_runways:
-            writer.heading("Carriers and FARPs")
-            writer.table(
-                [
-                    [
-                        KneeboardPageWriter.wrap_line(runway.airfield_name, 28),
-                        self.format_frequency(runway.atc),
-                        (
-                            f"{runway.tacan} {runway.tacan_callsign or ''}".strip()
-                            if runway.tacan
-                            else ""
-                        ),
-                        str(runway.icls) if runway.icls else "",
-                    ]
-                    for runway in self.dynamic_runways
-                ],
-                headers=["Name", "ATC", "TCN", "ICLS"],
-            )
 
         writer.write(path)
 
@@ -942,7 +919,6 @@ class KneeboardGenerator(MissionInfoGenerator):
                 self.jtacs,
                 zoned_time,
                 self.dark_kneeboard,
-                self.dynamic_runways,
             ),
         ]
 

@@ -20,8 +20,6 @@ from .controlpoint import ControlPointType, Fob
 from .player import Player
 
 if TYPE_CHECKING:
-    from game.runways import RunwayData
-    from game.weather.conditions import Conditions
     from .conflicttheater import ConflictTheater
 
 
@@ -285,19 +283,6 @@ class DynamicFarp(Fob):
         if self.is_fat_cow:
             return settings.fat_cow_farp_upkeep
         return settings.wet_wing_farp_upkeep
-
-    def active_runway(
-        self,
-        theater: ConflictTheater,
-        conditions: Conditions,
-        dynamic_runways: dict[str, RunwayData],
-    ) -> RunwayData:
-        """The FARP's briefing entry (name and ATC frequency), registered by the
-        mission generator like a carrier's."""
-        runway = dynamic_runways.get(self.full_name)
-        if runway is not None:
-            return runway
-        return self.stub_runway_data()
 
     @property
     def symbol_set_and_entity(self) -> tuple[SymbolSet, Entity]:

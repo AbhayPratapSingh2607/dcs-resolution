@@ -902,8 +902,6 @@ class HelipadGenerator:
         self.helipads: list[StaticGroup] = []
         #: ATC frequency of a player-built FARP, allocated per mission.
         self.atc: Optional[RadioFrequency] = None
-        #: Briefing/kneeboard entry for a player-built FARP, listed with carriers.
-        self.runway: Optional[RunwayData] = None
 
     def _dynamic_pad_name(self, index: int) -> str:
         """Name of a player-built FARP's landing spot, as shown in the DCS ATC
@@ -1333,15 +1331,9 @@ end"""
 
     def generate(self) -> None:
         if isinstance(self.cp, DynamicFarp):
-            # Player-built FARPs are listed with the carriers in the briefing and
-            # kneeboard, with an ATC frequency that their pads broadcast on.
+            # Each player-built FARP gets one ATC frequency that all its pads
+            # broadcast on.
             self.atc = self._allocate_dynamic_farp_atc(self.cp)
-            self.runway = RunwayData(
-                f"{self.cp.name} ({self.cp.kind.display_name})",
-                self.cp.farp_heading,
-                "",
-                atc=self.atc,
-            )
         if isinstance(self.cp, DynamicFarp) and self.cp.is_fat_cow:
             self.generate_fatcow(self.cp)
             return
@@ -1950,8 +1942,6 @@ class TgoGenerator:
             )
             helipad_gen.generate()
             self.helipads[cp] = helipad_gen.helipads
-            if helipad_gen.runway is not None:
-                self.runways[cp.full_name] = helipad_gen.runway
 
             # Generate Highway Strip slots
             ground_spawn_roadbase_gen = GroundSpawnRoadbaseGenerator(

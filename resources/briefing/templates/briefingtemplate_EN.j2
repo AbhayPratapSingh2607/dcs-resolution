@@ -97,8 +97,7 @@ Carriers and FARPs:
 {{ runway.airfield_name}}
 --------------------------------------------------
 RADIO : {{ runway.atc }}
-{% if runway.tacan %}TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
-{% endif %}
+TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
 {% if runway.icls %}ICLS Channel: {{ runway.icls }}
 {% endif %}
 

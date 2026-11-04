@@ -93,8 +93,7 @@ DCS Retribution 第 {{ game.turn }} 回合
 {{ runway.airfield_name}}
 --------------------------------------------------
 无线电 : {{ runway.atc }}
-{% if runway.tacan %}TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
-{% endif %}
+TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
 {% if runway.icls %}ILS/ICLS频道: {{ runway.icls }}
 {% endif %}
 
