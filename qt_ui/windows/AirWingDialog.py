@@ -53,6 +53,12 @@ class SquadronDelegate(TwoColumnRowDelegate):
         elif (row, column) == (0, 1):
             return squadron.aircraft.display_name
         elif (row, column) == (1, 0):
+            if squadron.parent is not None:
+                # Detachments are stationed at a FARP on loan from their parent.
+                return (
+                    f"{squadron.location.name} - detachment of "
+                    f"{squadron.parent.name} ({squadron.parent.location.name})"
+                )
             if squadron.destination is not None:
                 return (
                     f"{squadron.location.name} - transfer ordered to "

@@ -23,6 +23,7 @@ from game.transfers import PendingTransfers
 if TYPE_CHECKING:
     from .campaignloader import CampaignAirWingConfig
     from .data.doctrine import Doctrine
+    from .farps import FarpManager
     from .factions.faction import Faction
     from .game import Game
     from .lasercodes import LaserCodeRegistry
@@ -75,6 +76,12 @@ class Coalition:
     def opponent(self) -> Coalition:
         assert self._opponent is not None
         return self._opponent
+
+    @property
+    def farps(self) -> FarpManager:
+        from game.farps import FarpManager
+
+        return FarpManager(self)
 
     @property
     def threat_zone(self) -> ThreatZones:
@@ -150,6 +157,10 @@ class Coalition:
         `Game.finish_turn`.
         """
         self.air_wing.end_turn()
+        # Detachments that flew in to reinforce one already at a FARP join it.
+        from game.squadrons.detachments import merge_arrived_detachments
+
+        merge_arrived_detachments(self.air_wing)
         self.budget += Income(self.game, self.player).total
 
         # Need to recompute before transfers and deliveries to account for captures.

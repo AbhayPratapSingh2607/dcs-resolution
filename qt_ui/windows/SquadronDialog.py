@@ -159,6 +159,9 @@ class SquadronDestinationComboBox(QComboBox):
         for control_point in self.theater.control_points_for(self.squadron.player):
             if control_point == self.squadron.location:
                 continue
+            if control_point.is_dynamic_farp:
+                # FARPs are staffed with detachments from the FARP's base menu.
+                continue
             if not control_point.can_operate(self.squadron.aircraft):
                 continue
             ac_type = self.squadron.aircraft.dcs_unit_type
@@ -299,8 +302,18 @@ class SquadronDialog(QDialog):
         self.aircraft_stats_label = QLabel(self._aircraft_stats_text())
         left_column.addWidget(self.aircraft_stats_label)
 
+        if self.squadron.is_detachment:
+            left_column.addWidget(
+                QLabel(
+                    f"Detachment of {self.squadron.parent} stationed at "
+                    f"{self.squadron.location}. "
+                    "Recall it from the FARP's base menu."
+                )
+            )
+
         # Buying aircraft is only meaningful for the player's own squadrons.
-        if self.squadron.player.is_blue:
+        # Detachments are reinforced through their parent squadron instead.
+        if self.squadron.player.is_blue and not self.squadron.is_detachment:
             self.purchase_adapter: AircraftPurchaseAdapter = AircraftPurchaseAdapter(
                 self.squadron.location
             )
@@ -357,6 +370,8 @@ class SquadronDialog(QDialog):
             self.on_destination_changed
         )
         button_panel.addWidget(self.transfer_destination)
+        if squadron_model.squadron.is_detachment:
+            self.transfer_destination.setEnabled(False)
 
         button_panel.addStretch()
         layout.addLayout(button_panel)

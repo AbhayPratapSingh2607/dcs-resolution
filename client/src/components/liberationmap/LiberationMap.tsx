@@ -6,6 +6,7 @@ import EmitterHighlightToggle from "../airdefenserangelayer/EmitterHighlightTogg
 import CombatLayer from "../combatlayer";
 import ControlPointsLayer from "../controlpointslayer";
 import CullingExclusionZones from "../cullingexclusionzones/CullingExclusionZones";
+import FarpPlacement from "../farpplacement";
 import FlightPlansLayer from "../flightplanslayer";
 import FrontLinesLayer from "../frontlineslayer";
 import Iadsnetworklayer from "../iadsnetworklayer";
@@ -32,6 +33,7 @@ export default function LiberationMap() {
     <MapContainer zoom={map.current?.getZoom() ?? 8} zoomControl={false} ref={map}>
       <ScaleControl />
       <LeafletRuler />
+      <FarpPlacement />
       <LayersControl collapsed={false}>
         <LayersControl.BaseLayer name="Imagery Clarity" checked>
           <BasemapLayer name="ImageryClarity" />

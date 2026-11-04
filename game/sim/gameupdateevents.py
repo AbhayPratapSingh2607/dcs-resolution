@@ -36,6 +36,7 @@ class GameUpdateEvents:
     deleted_front_lines: set[UUID] = field(default_factory=set)
     updated_tgos: set[TheaterGroundObject] = field(default_factory=set)
     updated_control_points: set[ControlPoint] = field(default_factory=set)
+    deleted_control_points: set[UUID] = field(default_factory=set)
     updated_iads: set[IadsNetworkNode] = field(default_factory=set)
     deleted_iads_connections: set[UUID] = field(default_factory=set)
     updated_supply_routes: bool = False
@@ -128,6 +129,11 @@ class GameUpdateEvents:
 
     def update_control_point(self, control_point: ControlPoint) -> GameUpdateEvents:
         self.updated_control_points.add(control_point)
+        return self
+
+    def delete_control_point(self, control_point: ControlPoint) -> GameUpdateEvents:
+        self.updated_control_points.discard(control_point)
+        self.deleted_control_points.add(control_point.id)
         return self
 
     def update_iads_node(self, iads_node: IadsNetworkNode) -> GameUpdateEvents:

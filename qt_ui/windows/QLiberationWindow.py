@@ -82,6 +82,9 @@ class QLiberationWindow(QMainWindow):
                 lambda tgo: self.tgo_info_signal.emit(tgo),
                 lambda cp: self.control_point_info_signal.emit(cp),
                 lambda flight: self.select_flight_signal.emit(flight),
+                lambda: GameUpdateSignal.get_instance().updateBudget(
+                    self.game_model.game
+                ),
             )
         )
         Dialog.set_game(self.game_model)

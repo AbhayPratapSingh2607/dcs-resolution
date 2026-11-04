@@ -20,6 +20,11 @@ export const controlPointsSlice = createSlice({
         state.controlPoints[cp.id] = cp;
       }
     },
+    deleteControlPoint: (state, action: PayloadAction<string[]>) => {
+      for (const id of action.payload) {
+        delete state.controlPoints[id];
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(gameLoaded, (state, action) => {
@@ -28,7 +33,7 @@ export const controlPointsSlice = createSlice({
           acc[curr.id] = curr;
           return acc;
         },
-        {}
+        {},
       );
     });
     builder.addCase(gameUnloaded, (state) => {
@@ -37,7 +42,8 @@ export const controlPointsSlice = createSlice({
   },
 });
 
-export const { updateControlPoint } = controlPointsSlice.actions;
+export const { updateControlPoint, deleteControlPoint } =
+  controlPointsSlice.actions;
 
 export const selectControlPoints = (state: RootState) => state.controlPoints;
 

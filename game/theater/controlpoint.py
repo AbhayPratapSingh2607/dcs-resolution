@@ -742,6 +742,13 @@ class ControlPoint(MissionTarget, SidcDescribable, ABC):
         return False
 
     @property
+    def is_dynamic_farp(self) -> bool:
+        """
+        :return: Whether this control point is a player-established FARP
+        """
+        return False
+
+    @property
     def is_offmap(self) -> bool:
         return False
 

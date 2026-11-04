@@ -33,18 +33,20 @@ class QBudgetBox(QGroupBox):
         :param budget: Current money available
         :param reward: Planned reward for next turn
         """
-        self.finances.setText(
-            str(round(budget, 2)) + "M (+" + str(round(reward, 2)) + "M)"
-        )
+        sign = "+" if reward >= 0 else ""
+        self.finances.setText(f"{round(budget, 2)}M ({sign}{round(reward, 2)}M)")
 
     def setGame(self, game):
         if game is None:
             return
 
         self.game = game
-        self.setBudget(
-            self.game.blue.budget, Income(self.game, player=Player.BLUE).total
+        # Net change next turn: income minus the upkeep of player-built FARPs.
+        net = (
+            Income(self.game, player=Player.BLUE).total
+            - self.game.blue.farps.total_upkeep
         )
+        self.setBudget(self.game.blue.budget, net)
         self.finances.setEnabled(True)
 
     def openFinances(self):

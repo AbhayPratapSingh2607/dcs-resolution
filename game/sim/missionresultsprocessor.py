@@ -52,6 +52,8 @@ class MissionResultsProcessor:
                 self.commit_front_line_battle_impact(debriefing, events)
             with logged_duration("commit_captures"):
                 self.commit_captures(debriefing, events)
+            with logged_duration("commit_farp_losses"):
+                self.commit_farp_losses(debriefing, events)
             with logged_duration("record_carcasses"):
                 self.record_carcasses(debriefing)
 
@@ -200,6 +202,13 @@ class MissionResultsProcessor:
         for captured in debriefing.base_captures:
             logging.info(f"Will run redeploy for {captured.control_point}")
             self.redeploy_units(captured.control_point)
+
+    def commit_farp_losses(
+        self, debriefing: Debriefing, events: GameUpdateEvents
+    ) -> None:
+        killed = debriefing.state_data.killed_ground_units
+        for coalition in (self.game.blue, self.game.red):
+            coalition.farps.commit_losses(killed, events)
 
     def record_carcasses(self, debriefing: Debriefing) -> None:
         for destroyed_unit in debriefing.state_data.destroyed_statics:

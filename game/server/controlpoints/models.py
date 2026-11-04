@@ -20,6 +20,7 @@ class ControlPointJs(BaseModel):
     mobile: bool
     destination: LeafletPoint | None
     sidc: str
+    dynamic_farp_kind: str | None = None
 
     class Config:
         title = "ControlPoint"
@@ -33,6 +34,11 @@ class ControlPointJs(BaseModel):
             blue = True
         else:
             blue = False
+        from game.theater.dynamicfarp import DynamicFarp
+
+        farp_kind = (
+            control_point.kind if isinstance(control_point, DynamicFarp) else None
+        )
         return ControlPointJs(
             id=control_point.id,
             name=control_point.name,
@@ -41,6 +47,7 @@ class ControlPointJs(BaseModel):
             mobile=control_point.moveable and control_point.captured.is_blue,
             destination=destination,
             sidc=str(control_point.sidc()),
+            dynamic_farp_kind=farp_kind.value if farp_kind is not None else None,
         )
 
     @staticmethod
@@ -48,3 +55,20 @@ class ControlPointJs(BaseModel):
         return [
             ControlPointJs.for_control_point(cp) for cp in game.theater.controlpoints
         ]
+
+
+class FarpSiteCheckJs(BaseModel):
+    valid: bool
+    reasons: list[str]
+    cost: int
+
+    class Config:
+        title = "FarpSiteCheck"
+
+
+class NewFarpJs(BaseModel):
+    position: LeafletPoint
+    kind: str
+
+    class Config:
+        title = "NewFarp"

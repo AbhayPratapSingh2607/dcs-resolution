@@ -93,12 +93,13 @@ Porte-avions et FARPS :
 {{ runway.airfield_name}}
 --------------------------------------------------
 RADIO : {{ runway.atc }}
-TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
-{% if runway.icls %}Channel ICLS : {{ runway.icls }}
+{% if runway.tacan %}TACAN : {{ runway.tacan }} {{ runway.tacan_callsign }}
 {% endif %}
+{% if runway.icls %}Channel ICLS : {{ runway.icls }}
 {% endif %}
 
 {% endfor %}
+{% endif %}
 {%- if awacs|length > 0 %}
 AWACS:
 ====================
