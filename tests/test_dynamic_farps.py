@@ -88,7 +88,7 @@ def make_farp(
 
 
 def make_helicopter_type() -> Any:
-    aircraft = MagicMock()
+    aircraft: Any = MagicMock()
     aircraft.helicopter = True
     aircraft.lha_capable = False
     aircraft.capable_of.return_value = True
