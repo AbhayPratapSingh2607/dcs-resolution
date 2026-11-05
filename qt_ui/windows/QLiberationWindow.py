@@ -85,6 +85,7 @@ class QLiberationWindow(QMainWindow):
                 lambda: GameUpdateSignal.get_instance().updateBudget(
                     self.game_model.game
                 ),
+                lambda: GameUpdateSignal.get_instance().atoChanged(),
             )
         )
         Dialog.set_game(self.game_model)
@@ -154,6 +155,14 @@ class QLiberationWindow(QMainWindow):
         GameUpdateSignal.get_instance().gameupdated.connect(self.setGame)
         GameUpdateSignal.get_instance().debriefingReceived.connect(self.onDebriefing)
         GameUpdateSignal.get_instance().game_state_changed.connect(self.onEndGame)
+        # Emitted from the server thread too; connecting a method of this window
+        # makes Qt run the slot on the UI thread.
+        GameUpdateSignal.get_instance().ato_changed.connect(self.onAtoChanged)
+
+    def onAtoChanged(self) -> None:
+        """Reloads the package lists after packages were changed outside them."""
+        self.game_model.ato_model.replace_from_game(player=True)
+        self.game_model.red_ato_model.replace_from_game(player=False)
 
     def initActions(self):
         self.newGameAction = QAction("&New Game", self)
@@ -620,7 +629,7 @@ class QLiberationWindow(QMainWindow):
 
     def showSettingsDialog(self) -> None:
         self.dialog = QSettingsWindow(self.game)
-        self.dialog.finished.connect(self.top_panel.update_farp_buttons)
+        self.dialog.finished.connect(lambda _: self.top_panel.update_farp_buttons())
         self.dialog.show()
 
     def showStatsDialog(self):

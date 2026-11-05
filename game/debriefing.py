@@ -127,6 +127,9 @@ class StateData:
     #: Mangled names of bases that were captured during the mission.
     base_capture_events: List[str]
 
+    #: Ids of player FARPs whose equipment was flown in during the mission.
+    farp_setup_events: List[str]
+
     @classmethod
     def from_json(cls, data: Dict[str, Any], unit_map: UnitMap) -> StateData:
         def clean_unit_list(unit_list: List[Any]) -> List[str]:
@@ -165,6 +168,7 @@ class StateData:
             killed_ground_units=killed_ground_units,
             destroyed_statics=data.get("destroyed_objects_positions", []),
             base_capture_events=data.get("base_capture_events", []),
+            farp_setup_events=[str(e) for e in data.get("farp_setup_events", [])],
         )
 
 

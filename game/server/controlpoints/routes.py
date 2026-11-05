@@ -70,6 +70,8 @@ def establish_farp(
     with EventStream.event_context() as events:
         cp = manager.establish(point, kind, events)
     qt.budget_changed()
+    # The FARP's setup flight is a new package in the player's ATO.
+    qt.ato_changed()
     return ControlPointJs.for_control_point(cp)
 
 
@@ -212,3 +214,5 @@ def dismantle_farp(
     with EventStream.event_context() as events:
         game.blue.farps.dismantle(cp, events)
     qt.budget_changed()
+    # Dismantling removes the FARP's setup flight and flights using the FARP.
+    qt.ato_changed()

@@ -199,6 +199,8 @@ class Coalition:
             self.transfers.order_airlift_assets()
         with logged_duration("Transport planning"):
             self.transfers.plan_transports(self.game.conditions.start_time)
+        with logged_duration("FARP setup planning"):
+            self.farps.plan_setup_flights(self.game.conditions.start_time)
 
         if not is_turn_0:
             self.plan_missions(self.game.conditions.start_time)

@@ -42,6 +42,7 @@ from .luagenerator import LuaGenerator
 from .missiondata import MissionData
 from .rebelliongenerator import RebellionGenerator
 from .motorpoolpopulator import MotorpoolPopulator
+from .farpsetupgenerator import FarpSetupGenerator
 from .tgogenerator import TgoGenerator
 from .triggergenerator import TriggerGenerator
 from .visualsgenerator import VisualsGenerator
@@ -122,6 +123,7 @@ class MissionGenerator:
         # rather than the first player flight with a TGP.
         self.generate_ground_conflicts()
         self.generate_air_units(tgo_generator)
+        FarpSetupGenerator(self.mission, self.game, self.unit_map).generate()
 
         RebellionGenerator(self.mission, self.game).generate()
         TriggerGenerator(self.mission, self.game).generate()

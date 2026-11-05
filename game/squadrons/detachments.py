@@ -68,6 +68,8 @@ def detachment_errors(parent: Squadron, farp: DynamicFarp, count: int) -> list[s
     An empty list means the detachment is allowed.
     """
     errors = []
+    if not farp.established:
+        errors.append(f"{farp} isn't set up yet: its equipment must be flown in.")
     if parent.is_detachment:
         errors.append(f"{parent} is already a detachment.")
     if not parent.aircraft.helicopter:

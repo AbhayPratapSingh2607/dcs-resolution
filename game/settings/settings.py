@@ -1561,6 +1561,9 @@ class Settings:
     enable_frontline_cheats: bool = False
     enable_base_capture_cheat: bool = False
     enable_transfer_cheat: bool = False
+    #: Player FARPs are set up as soon as they're ordered, without a transport
+    #: having to fly their equipment in.
+    enable_instant_farp_cheat: bool = False
     enable_runway_state_cheat: bool = False
     enable_air_wing_adjustments: bool = False
     enable_enemy_buy_sell: bool = False

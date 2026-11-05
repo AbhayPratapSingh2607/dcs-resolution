@@ -52,6 +52,8 @@ class MissionResultsProcessor:
                 self.commit_front_line_battle_impact(debriefing, events)
             with logged_duration("commit_captures"):
                 self.commit_captures(debriefing, events)
+            with logged_duration("commit_farp_setups"):
+                self.commit_farp_setups(debriefing, events)
             with logged_duration("commit_farp_losses"):
                 self.commit_farp_losses(debriefing, events)
             with logged_duration("record_carcasses"):
@@ -202,6 +204,13 @@ class MissionResultsProcessor:
         for captured in debriefing.base_captures:
             logging.info(f"Will run redeploy for {captured.control_point}")
             self.redeploy_units(captured.control_point)
+
+    def commit_farp_setups(
+        self, debriefing: Debriefing, events: GameUpdateEvents
+    ) -> None:
+        delivered = debriefing.state_data.farp_setup_events
+        for coalition in (self.game.blue, self.game.red):
+            coalition.farps.commit_setups(delivered, events)
 
     def commit_farp_losses(
         self, debriefing: Debriefing, events: GameUpdateEvents

@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Iterable, Optional, TYPE_CHECKING
 
 from dcs.mapping import Point
 from shapely.geometry import LineString, Point as ShapelyPoint
 
+from game.ato import Flight, FlightType, Package
 from game.ato.closestairfields import ObjectiveDistanceCache
+from game.ato.flightplans.planningerror import PlanningError
 from game.squadrons.detachments import (
     destroy_detachment,
     detachments_at,
@@ -26,13 +29,16 @@ from game.theater.dynamicfarp import (
     FAT_COW_CAPACITY,
     FATCOW_FUEL_KEYS,
     FarpKind,
+    farp_footprint_radius,
     fatcow_object_name,
 )
+from game.theater.farpterrain import SiteTerrain, UNKNOWN_SITE
 from game.utils import Heading, nautical_miles
 
 if TYPE_CHECKING:
     from game import Game
     from game.coalition import Coalition
+    from game.squadrons import Squadron
     from game.sim import GameUpdateEvents
     from game.theater import ControlPoint
 
@@ -71,7 +77,111 @@ class FarpManager:
 
     @property
     def total_upkeep(self) -> int:
-        return sum(f.upkeep_per_turn for f in self.farps)
+        # Nothing to maintain until the equipment has been delivered.
+        return sum(f.upkeep_per_turn for f in self.farps if f.established)
+
+    @property
+    def instant_setup(self) -> bool:
+        return self.game.settings.enable_instant_farp_cheat
+
+    # Setup flights
+
+    def setup_squadron(self, kind: FarpKind, point: Point) -> Optional[Squadron]:
+        """The nearest squadron that can fly a FARP's equipment in.
+
+        A Fat Cow is set up by a transport helicopter that lands at the site. A Wet
+        Wing is airdropped by a transport plane; if the coalition has none
+        available, a transport helicopter can fly it in instead.
+        """
+        candidates: dict[bool, list[Squadron]] = {True: [], False: []}
+        for squadron in self.coalition.air_wing.iter_squadrons():
+            if squadron.is_detachment or squadron.untasked_aircraft < 1:
+                continue
+            if not squadron.has_available_pilots:
+                continue
+            if not squadron.aircraft.capable_of(FlightType.TRANSPORT):
+                continue
+            candidates[squadron.aircraft.helicopter].append(squadron)
+        preferred = [True] if kind is FarpKind.FAT_COW else [False, True]
+        for helicopter in preferred:
+            if candidates[helicopter]:
+                return min(
+                    candidates[helicopter],
+                    key=lambda s: s.location.position.distance_to_point(point),
+                )
+        return None
+
+    def setup_package(self, farp: DynamicFarp) -> Optional[Package]:
+        for package in self.coalition.ato.packages:
+            if package.target == farp:
+                return package
+        return None
+
+    def plan_setup_flight(
+        self,
+        farp: DynamicFarp,
+        now: datetime,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> Optional[Flight]:
+        """Plans the flight that delivers a FARP's equipment this turn."""
+        squadron = self.setup_squadron(farp.kind, farp.position)
+        if squadron is None:
+            return None
+        package = Package(farp, self.game.db.flights)
+        start_type = squadron.location.required_aircraft_start_type
+        if start_type is None:
+            start_type = self.game.settings.default_start_type
+        flight = Flight(
+            package, squadron, 1, FlightType.TRANSPORT, start_type, divert=None
+        )
+        package.add_flight(flight)
+        try:
+            flight.recreate_flight_plan()
+        except PlanningError:
+            logging.exception(f"Could not plan the setup flight for {farp.name}")
+            package.remove_flight(flight)
+            return None
+        package.set_tot_asap(now)
+        self.coalition.ato.add_package(package)
+        if events is not None:
+            events.new_flight(flight)
+        return flight
+
+    def plan_setup_flights(self, now: datetime) -> None:
+        """Plans setup flights for FARPs still waiting for their equipment.
+
+        Called at the start of each turn, after the ATO has been cleared. With the
+        instant FARP cheat on, waiting FARPs are set up immediately instead.
+        """
+        for farp in self.farps:
+            if farp.established or self.setup_package(farp) is not None:
+                continue
+            if self.instant_setup:
+                farp.establish()
+                continue
+            if self.plan_setup_flight(farp, now) is None:
+                self.game.message(
+                    f"{farp.name} is waiting for a transport",
+                    "No transport aircraft is available to fly the FARP's "
+                    "equipment in this turn.",
+                )
+
+    def commit_setups(self, farp_ids: Iterable[str], events: GameUpdateEvents) -> None:
+        """Establishes FARPs whose equipment was delivered in the mission."""
+        delivered = set(farp_ids)
+        for farp in self.farps:
+            if farp.established or str(farp.id) not in delivered:
+                continue
+            package = self.setup_package(farp)
+            if package is not None and package.flights:
+                farp.setup_aircraft = package.flights[0].unit_type
+            farp.establish()
+            events.update_control_point(farp)
+            self.game.message(
+                f"{farp.name} established",
+                f"The FARP's equipment has been delivered. Upkeep: "
+                f"${farp.upkeep_per_turn}M per turn.",
+            )
 
     def deploy_cost(self, kind: FarpKind) -> int:
         settings = self.game.settings
@@ -120,6 +230,15 @@ class FarpManager:
                 best = distance
         return best
 
+    def site_terrain(self, point: Point, kind: FarpKind) -> SiteTerrain:
+        """What the theater's terrain grid says about the area a FARP of this kind
+        would cover at point."""
+        terrain = self.game.theater.farp_terrain
+        if terrain is None:
+            return UNKNOWN_SITE
+        radius = farp_footprint_radius(kind, self.capacity(kind))
+        return terrain.survey(point, radius)
+
     def check_site(self, point: Point, kind: FarpKind) -> SiteCheck:
         settings = self.game.settings
         theater = self.game.theater
@@ -129,6 +248,21 @@ class FarpManager:
         if not settings.enable_dynamic_farps:
             reasons.append("Dynamic FARPs are disabled in the settings.")
             return check
+        if not self.coalition.player.is_blue:
+            # Only the player establishes FARPs. The AI plans missions for
+            # helicopters stationed at them, but never builds one.
+            reasons.append("Only the player can establish FARPs.")
+            return check
+
+        if not self.instant_setup and self.setup_squadron(kind, point) is None:
+            if kind is FarpKind.FAT_COW:
+                reasons.append(
+                    "No transport helicopter available to fly the equipment in."
+                )
+            else:
+                reasons.append(
+                    "No transport aircraft available to airdrop the equipment."
+                )
 
         if len(self.farps) >= self.max_farps:
             reasons.append(f"Limit of {self.max_farps} FARP(s) reached.")
@@ -136,6 +270,12 @@ class FarpManager:
             reasons.append(f"Not enough money (${check.cost}M needed).")
         if not theater.is_on_land(point):
             reasons.append("FARPs must be built on land.")
+        else:
+            terrain = self.site_terrain(point, kind)
+            if terrain.steep:
+                reasons.append("Terrain too uneven for a FARP.")
+            if terrain.built_up:
+                reasons.append("Too close to a built-up area.")
 
         for cp in theater.controlpoints:
             if cp.position.distance_to_point(point) < MIN_CONTROL_POINT_SPACING.meters:
@@ -187,11 +327,21 @@ class FarpManager:
             suffix += 1
 
     def establish(
-        self, point: Point, kind: FarpKind, events: GameUpdateEvents
+        self,
+        point: Point,
+        kind: FarpKind,
+        events: GameUpdateEvents,
+        now: Optional[datetime] = None,
     ) -> DynamicFarp:
+        """Orders a FARP at point.
+
+        Unless the instant FARP cheat is on, the FARP is only set up once a
+        transport has flown its equipment in (see plan_setup_flight).
+        """
         check = self.check_site(point, kind)
         if not check.valid:
             raise ValueError(" ".join(check.reasons))
+        instant = self.instant_setup
 
         heading = self.game.theater.heading_to_conflict_from(point)
         farp = DynamicFarp(
@@ -203,18 +353,30 @@ class FarpManager:
             kind,
             self.capacity(kind),
             self.game.turn,
+            established=instant,
         )
         farp.finish_init(self.game)
         self.game.theater.add_controlpoint(farp)
         self.coalition.adjust_budget(-check.cost)
         self._control_points_changed(events)
         events.update_control_point(farp)
-        self.game.message(
-            f"{farp.name} established",
-            f"{kind.display_name} FARP established for ${check.cost}M. "
-            f"Upkeep: ${farp.upkeep_per_turn}M per turn.",
-        )
-        logging.info(f"Established {kind.value} FARP {farp.name} at {point}")
+        if instant:
+            self.game.message(
+                f"{farp.name} established",
+                f"{kind.display_name} FARP established for ${check.cost}M. "
+                f"Upkeep: ${farp.upkeep_per_turn}M per turn.",
+            )
+        else:
+            flight = self.plan_setup_flight(
+                farp, now or self.game.conditions.start_time, events
+            )
+            how = "land at" if flight is None or flight.is_helo else "airdrop over"
+            self.game.message(
+                f"{farp.name} ordered",
+                f"{kind.display_name} FARP ordered for ${check.cost}M. A transport "
+                f"must {how} the site to set it up.",
+            )
+        logging.info(f"Ordered {kind.value} FARP {farp.name} at {point}")
         return farp
 
     def dismantle(
@@ -235,6 +397,11 @@ class FarpManager:
         self.game.theater.controlpoints.remove(farp)
         self._control_points_changed(events)
         events.delete_control_point(farp)
+        if not farp.established:
+            # Nothing was delivered, so the deployment cost is returned.
+            cost = self.deploy_cost(farp.kind)
+            self.coalition.adjust_budget(cost)
+            reason = f"{reason} before it was set up (${cost}M refunded)"
         self.game.message(f"{farp.name} {reason}")
         logging.info(f"FARP {farp.name} {reason}")
 

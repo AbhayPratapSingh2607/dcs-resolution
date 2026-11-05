@@ -111,12 +111,36 @@ class QFarpCommand(QFrame):
         slots = f"Helicopter slots: {used}/{total} in use"
         if en_route:
             slots += f" ({en_route} en route, arriving next turn)"
+        if not self.farp.established:
+            return "<br/>".join(
+                [
+                    f"<b>{self.farp.kind.display_name} FARP - awaiting equipment</b>",
+                    self._setup_text(),
+                    "Helicopters can be stationed here once it is set up. Upkeep "
+                    f"(${self.farp.upkeep_per_turn}M per turn) starts then.",
+                ]
+            )
         lines = [
             f"<b>{self.farp.kind.display_name} FARP</b>",
             slots,
             f"Upkeep: ${self.farp.upkeep_per_turn}M per turn",
         ]
         return "<br/>".join(lines)
+
+    def _setup_text(self) -> str:
+        package = self.farp.coalition.farps.setup_package(self.farp)
+        if package is None or not package.flights:
+            return (
+                "No transport is available this turn. One will be tasked when "
+                "available."
+            )
+        flight = package.flights[0]
+        how = "land at" if flight.is_helo else "make a low airdrop pass over"
+        return (
+            f"{flight.unit_type.display_name} from {flight.departure} must {how} "
+            "the site this turn. The FARP is set up at the end of the turn if it "
+            "does."
+        )
 
     def refresh(self) -> None:
         self.status_label.setText(self._status_text())
@@ -251,11 +275,20 @@ class QFarpCommand(QFrame):
         self.refresh()
 
     def _dismantle(self) -> None:
+        if self.farp.established:
+            question = (
+                f"Dismantle {self.farp.name}? Stationed helicopters return to "
+                "their squadrons and the deployment cost is not refunded."
+            )
+        else:
+            question = (
+                f"Cancel {self.farp.name}? Its setup flight is cancelled and the "
+                "deployment cost is refunded."
+            )
         result = QMessageBox.question(
             self,
             "Dismantle FARP",
-            f"Dismantle {self.farp.name}? Stationed helicopters return to their "
-            "squadrons and the deployment cost is not refunded.",
+            question,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if result != QMessageBox.StandardButton.Yes:

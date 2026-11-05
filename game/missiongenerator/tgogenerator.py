@@ -93,8 +93,13 @@ from game.theater import (
     NavalControlPoint,
     Airfield,
 )
+from game.missiongenerator.farpunits import (
+    AIRCRAFT_ROLES,
+    FarpUnit,
+    FarpUnitSet,
+    scenery_for,
+)
 from game.theater.dynamicfarp import (
-    C130_LIVERY,
     DynamicFarp,
     FATCOW_LAYOUT,
     WET_WING_LAYOUT,
@@ -902,6 +907,8 @@ class HelipadGenerator:
         self.helipads: list[StaticGroup] = []
         #: ATC frequency of a player-built FARP, allocated per mission.
         self.atc: Optional[RadioFrequency] = None
+        #: Faction units for a player-built FARP's layout, chosen on first use.
+        self._farp_units: Optional[dict[str, FarpUnit]] = None
 
     def _dynamic_pad_name(self, index: int) -> str:
         """Name of a player-built FARP's landing spot, as shown in the DCS ATC
@@ -1180,28 +1187,38 @@ class HelipadGenerator:
         )
         self._add_air_defense_trigger(manpads, self._farp_radius(FATCOW_LAYOUT))
 
-    def _layout_types(self) -> dict[str, Any]:
-        """DCS types for the roles used in dynamic FARP layouts."""
-        blue = self.cp.captured.is_blue
-        return {
-            "apfc_fuel": Fortification.APFC_fuel,
-            "fuel_depot": Fortification.FARP_Fuel_Depot,
-            "ammo": Fortification.FARP_Ammo_Dump_Coating,
-            "generator": Fortification.M32_10C_01,
-            "extinguisher": Fortification.FireExtinguisher01,
-            "fatcow_helicopter": helicopters.CH_47Fbl1,
-            "transport_plane": planes.C_130,
-            "soldier": (
-                vehicles.Infantry.Soldier_M4_GRG
-                if blue
-                else vehicles.Infantry.Paratrooper_AKS_74
-            ),
-            "manpad": (
-                vehicles.AirDefence.Soldier_stinger
-                if blue
-                else vehicles.AirDefence.SA_18_Igla_S_manpad
-            ),
+    def _layout_types(self) -> dict[str, FarpUnit]:
+        """DCS types (and liveries) for the roles used in dynamic FARP layouts.
+
+        The soldiers, MANPAD team and transport aircraft come from the owning
+        faction and suit the scenery at the site (see farpunits.py).
+        """
+        types = {
+            "apfc_fuel": FarpUnit(Fortification.APFC_fuel),
+            "fuel_depot": FarpUnit(Fortification.FARP_Fuel_Depot),
+            "ammo": FarpUnit(Fortification.FARP_Ammo_Dump_Coating),
+            "generator": FarpUnit(Fortification.M32_10C_01),
+            "extinguisher": FarpUnit(Fortification.FireExtinguisher01),
         }
+        if self._farp_units is None:
+            coalition = self.cp.coalition
+            scenery = self.game.theater.scenery
+            if isinstance(self.cp, DynamicFarp):
+                site = coalition.farps.site_terrain(self.cp.position, self.cp.kind)
+                scenery = scenery_for(site, scenery)
+            unit_set = FarpUnitSet(coalition, scenery)
+            self._farp_units = {
+                role: unit_set.unit_for(role)
+                for role in ("soldier", "manpad", *AIRCRAFT_ROLES)
+            }
+            if isinstance(self.cp, DynamicFarp) and self.cp.setup_aircraft:
+                # Show the aircraft that actually flew the equipment in.
+                role = "fatcow_helicopter" if self.cp.is_fat_cow else "transport_plane"
+                self._farp_units[role] = unit_set.aircraft_unit(
+                    self.cp.setup_aircraft.dcs_unit_type
+                )
+        types.update(self._farp_units)
+        return types
 
     def _place_layout(
         self,
@@ -1223,22 +1240,25 @@ class HelipadGenerator:
             name = name_for(obj.key)
             position = layout_point(origin, heading, obj.forward, obj.right)
             facing = (heading.degrees + obj.heading_offset) % 360
-            if obj.role == "manpad":
+            unit = types[obj.role]
+            if obj.role == "manpad" and issubclass(unit.dcs_type, VehicleType):
                 group = self.m.vehicle_group(
-                    country, name, types[obj.role], position, heading=facing
+                    country, name, unit.dcs_type, position, heading=facing
                 )
+                if unit.livery:
+                    group.units[0].livery_id = unit.livery
                 group.points[0].tasks.append(OptROE(OptROE.Values.WeaponHold))
                 manpads.append(name)
                 continue
             static = self.m.static_group(
                 country=country,
                 name=name,
-                _type=types[obj.role],
+                _type=unit.dcs_type,
                 position=position,
                 heading=facing,
             )
-            if obj.role == "transport_plane":
-                static.units[0].livery_id = C130_LIVERY
+            if unit.livery:
+                static.units[0].livery_id = unit.livery
         return manpads
 
     def _farp_radius(self, objects: list[LayoutObject]) -> float:
@@ -1333,6 +1353,9 @@ end"""
             )
 
     def generate(self) -> None:
+        if isinstance(self.cp, DynamicFarp) and not self.cp.established:
+            # Nothing has been delivered to the site yet.
+            return
         if isinstance(self.cp, DynamicFarp):
             # Each player-built FARP gets one ATC frequency that all its pads
             # broadcast on.

@@ -172,7 +172,9 @@ class QTopPanel(QFrame):
         self.intel_box.set_game(game)
         self.budgetBox.setGame(game)
         self.factionsInfos.setGame(game)
-        self.update_farp_buttons()
+        # The game model may not have switched to the new game yet (its handler
+        # runs after this one), so check the game being loaded.
+        self.update_farp_buttons(game)
 
         self.setControls(True)
 
@@ -185,11 +187,11 @@ class QTopPanel(QFrame):
         else:
             raise RuntimeError(f"game.turn out of bounds!\n  value = {game.turn}")
 
-    def update_farp_buttons(self) -> None:
+    def update_farp_buttons(self, game: Optional[Game] = None) -> None:
         """Shows the FARP buttons only while dynamic FARPs are enabled."""
-        self.farpBox.setVisible(
-            self.game is not None and self.game.settings.enable_dynamic_farps
-        )
+        if game is None:
+            game = self.game
+        self.farpBox.setVisible(game is not None and game.settings.enable_dynamic_farps)
 
     @staticmethod
     def place_farp(kind: FarpKind) -> None:

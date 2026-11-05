@@ -1,5 +1,7 @@
 ---
 name: Afghanistan
+# Scenery of most of the map (desert or woodland), for FARP units.
+scenery: desert
 timezone: +4.5
 daytime:
   dawn: [4, 6]

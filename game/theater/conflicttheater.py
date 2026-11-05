@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Iterator, List, Optional, TYPE_CHECKING, Tuple, Any
 from uuid import UUID
 
+import yaml
 from dcs.mapping import Point
 from dcs.terrain.terrain import Terrain
 from dcs.triggers import TriggerZone
 from shapely import geometry, ops
 
 from .daytimemap import DaytimeMap
+from .farpterrain import FARP_TERRAIN_FILE, FarpTerrain
 from .frontline import FrontLine
 from .iadsnetwork.iadsnetwork import IadsNetwork
 from .landmap import poly_contains, load_landmap
@@ -25,6 +27,9 @@ if TYPE_CHECKING:
 
 
 THEATER_RESOURCE_DIR = Path("resources/theaters")
+
+_FARP_TERRAIN_CACHE: dict[Path, Optional[FarpTerrain]] = {}
+_SCENERY_CACHE: dict[Path, str] = {}
 
 
 class ConflictTheater:
@@ -123,6 +128,36 @@ class ConflictTheater:
                 return True
 
         return False
+
+    @property
+    def farp_terrain(self) -> Optional[FarpTerrain]:
+        """The theater's FARP terrain grid, if it has one.
+
+        Loaded on first use and shared by every theater instance for the same
+        map. It is not stored in the save game.
+        """
+        path = self.landmap_path.with_name(FARP_TERRAIN_FILE)
+        if path not in _FARP_TERRAIN_CACHE:
+            _FARP_TERRAIN_CACHE[path] = FarpTerrain.load(path)
+        return _FARP_TERRAIN_CACHE[path]
+
+    @property
+    def scenery(self) -> str:
+        """The theater's typical scenery, "desert" or "woodland".
+
+        Set by the optional ``scenery`` key of the theater's info.yaml. Used where
+        no land cover data is available.
+        """
+        path = self.landmap_path.with_name("info.yaml")
+        if path not in _SCENERY_CACHE:
+            scenery = "woodland"
+            try:
+                with path.open(encoding="utf-8") as f:
+                    scenery = yaml.safe_load(f).get("scenery", scenery)
+            except OSError:
+                pass
+            _SCENERY_CACHE[path] = scenery
+        return _SCENERY_CACHE[path]
 
     def is_on_land(self, point: Point, ignore_exclusion: bool = False) -> bool:
         if not self.landmap:

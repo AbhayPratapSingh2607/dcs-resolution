@@ -1,5 +1,7 @@
 ---
 name: Iraq
+# Scenery of most of the map (desert or woodland), for FARP units.
+scenery: desert
 timezone: +3
 daytime:
   dawn: [5, 7]

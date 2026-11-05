@@ -7,19 +7,21 @@ captured, and only host helicopter *detachments* split from existing squadrons.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from dcs.mapping import Point
 
 from game.point_with_heading import PointWithHeading
 from game.sidc import Entity, LandInstallationEntity, SymbolSet
-from game.utils import Heading
+from game.utils import Heading, feet, meters
 from .controlpoint import ControlPointType, Fob
 from .player import Player
 
 if TYPE_CHECKING:
+    from game.dcs.aircrafttype import AircraftType
     from .conflicttheater import ConflictTheater
 
 
@@ -151,8 +153,42 @@ WET_WING_LAYOUT: list[LayoutObject] = [
     LayoutObject("manpad", "manpad", C130_POSITION[0] + 50, C130_POSITION[1]),
 ]
 
-#: DCS livery of the Wet Wing's C-130.
-C130_LIVERY = "us air force"
+#: How far the Wet Wing's landing spots lie from the centre of its main pad.
+WET_WING_SPOT_REACH = 85.0
+
+#: Altitude of a transport plane's airdrop pass over a FARP site.
+AIRDROP_ALTITUDE = feet(500)
+#: A plane delivers the equipment by passing within AIRDROP_RADIUS of the site
+#: below this height.
+AIRDROP_MAX_AGL = feet(1000)
+AIRDROP_RADIUS = meters(600)
+#: A helicopter delivers the equipment by landing within this distance.
+SETUP_LANDING_RADIUS = meters(300)
+
+#: Allowance for the size of the objects themselves (the C-130 is ~30m long and
+#: 40m wide; its position is its centre).
+FOOTPRINT_OBJECT_MARGIN = 25.0
+
+
+def farp_footprint_radius(kind: FarpKind, capacity: int) -> float:
+    """Radius around the FARP point that its pads and layout cover, in meters."""
+    if kind is FarpKind.FAT_COW:
+        objects = FATCOW_LAYOUT
+        pads = [math.hypot(forward, right) for forward, right in FATCOW_PADS]
+    else:
+        objects = WET_WING_LAYOUT
+        pads = [0.0]
+        extra = capacity
+        offset = 0.0
+        if capacity >= 4:
+            pads.append(WET_WING_SPOT_REACH)
+            extra -= 4
+            offset = PAD_SPACING * 2
+        pads.extend(offset + i * PAD_SPACING for i in range(extra))
+    reach = max(
+        [math.hypot(obj.forward, obj.right) for obj in objects] + pads,
+    )
+    return reach + FOOTPRINT_OBJECT_MARGIN
 
 
 def layout_point(
@@ -207,6 +243,7 @@ class DynamicFarp(Fob):
         kind: FarpKind,
         capacity: int,
         established_turn: int,
+        established: bool = True,
     ) -> None:
         super().__init__(name, at, theater, owner)
         self.cptype = ControlPointType.FARP
@@ -214,9 +251,17 @@ class DynamicFarp(Fob):
         self.farp_heading = heading
         self.established_turn = established_turn
         self.capacity = capacity
+        #: False until the FARP's equipment has been flown in (see
+        #: FarpManager.plan_setup_flights). A FARP that isn't established yet has
+        #: no pads, so nothing can be stationed at it.
+        self.established = established
+        #: The aircraft that flew the equipment in, shown parked at the FARP.
+        self.setup_aircraft: Optional[AircraftType] = None
         self._layout_pads(capacity)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
+        state.setdefault("established", True)
+        state.setdefault("setup_aircraft", None)
         self.__dict__.update(state)
         # Pad positions are derived from the layout data, which may have changed
         # since the FARP was established. Re-derive them on load so the pads always
@@ -227,12 +272,23 @@ class DynamicFarp(Fob):
         self.helipads_invisible = []
         self._layout_pads(self.capacity)
 
+    def establish(self) -> None:
+        """Marks the FARP's equipment as delivered and lays out its pads."""
+        self.established = True
+        self.helipads = []
+        self.helipads_quad = []
+        self.helipads_invisible = []
+        self._layout_pads(self.capacity)
+
     def _layout_pads(self, capacity: int) -> None:
         """Generates the helipad layout for this FARP.
 
         A Wet Wing gets a 4-pad FARP plus single pads for any additional capacity.
-        A Fat Cow uses its layout's two pads.
+        A Fat Cow uses its layout's two pads. A FARP that isn't established yet has
+        no pads.
         """
+        if not self.established:
+            return
         heading = self.farp_heading
         if self.is_fat_cow:
             for forward, right in FATCOW_PADS:
