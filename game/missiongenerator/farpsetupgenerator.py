@@ -1,8 +1,8 @@
 """Mission scripts that report when a FARP's equipment has been flown in.
 
 A player FARP is only set up once a transport delivers its equipment: a
-helicopter by landing at the site, a plane by an airdrop pass over it (low and
-close). For each FARP waiting for its equipment, a mission start script watches
+helicopter by landing at the site (where it stays), a plane by an airdrop pass
+over it (low and close), which drops cargo bundles at the site. For each FARP waiting for its equipment, a mission start script watches
 the units of its setup flight and records the delivery in ``farp_setup_events``,
 which dcs_retribution.lua writes to the mission's state file.
 """
@@ -84,7 +84,9 @@ class FarpSetupGenerator:
     return dx * dx + dz * dz <= radius * radius
   end
 
-  -- Helicopters (and anything else) deliver by landing at the site.
+  -- Helicopters (and anything else) deliver by landing at the site. DCS often
+  -- sends no land event for an AI landing in an open field, so the poll below
+  -- also checks for setup aircraft on the ground at the site.
   local handler = {{}}
   function handler:onEvent(event)
     if done or event.id ~= world.event.S_EVENT_LAND or not event.initiator then
@@ -98,22 +100,74 @@ class FarpSetupGenerator:
   end
   world.addEventHandler(handler)
 
-  -- Planes deliver with a low airdrop pass over the site.
-  local function checkAirdrop()
+  -- The airdropped equipment lands under parachutes as cargo bundles strung
+  -- out along the plane's track, marked with green smoke.
+  local cargoTypes = {{
+    {{ type = "container_cargo", shape = "bw_container_cargo", mass = 1200 }},
+    {{ type = "ammo_cargo", shape = "ammo_box_cargo", mass = 800 }},
+    {{ type = "fueltank_cargo", shape = "fueltank_cargo", mass = 1000 }},
+    {{ type = "barrels_cargo", shape = "barrels_cargo", mass = 600 }},
+  }}
+  local function dropCargo(unit)
+    local ok, err = pcall(function()
+      local point = unit:getPoint()
+      local velocity = unit:getVelocity()
+      local speed = math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
+      local dx, dz = 1, 0
+      if speed > 1 then dx, dz = velocity.x / speed, velocity.z / speed end
+      local heading = (math.atan2 or math.atan)(dz, dx)
+      local country = unit:getCountry()
+      local descent = 20
+      timer.scheduleFunction(function()
+        for i, cargo in ipairs(cargoTypes) do
+          -- Bundles leave the ramp a second apart and drift on after release.
+          local along = 150 + (i - 1) * 60
+          coalition.addStaticObject(country, {{
+            category = "Cargos",
+            type = cargo.type,
+            shape_name = cargo.shape,
+            mass = cargo.mass,
+            canCargo = false,
+            name = farpName .. " airdrop " .. i,
+            x = point.x + dx * along,
+            y = point.z + dz * along,
+            heading = heading,
+          }})
+        end
+        trigger.action.smoke({{
+          x = point.x + dx * 200,
+          y = land.getHeight({{ x = point.x + dx * 200, y = point.z + dz * 200 }}),
+          z = point.z + dz * 200,
+        }}, trigger.smokeColor.Green)
+      end, nil, timer.getTime() + descent)
+    end)
+    if not ok then env.error(farpName .. " airdrop cargo failed: " .. tostring(err)) end
+  end
+
+  -- Planes deliver with a low airdrop pass over the site; anything on the
+  -- ground at the site has landed there.
+  local function checkDelivery()
     if done then return nil end
     for name, _ in pairs(units) do
       local unit = Unit.getByName(name)
-      if unit and unit:isExist() and unit:inAir()
-          and unit:getDesc().category == Unit.Category.AIRPLANE then
+      if unit and unit:isExist() then
         local point = unit:getPoint()
-        local agl = point.y - land.getHeight({{ x = point.x, y = point.z }})
-        if agl <= dropMaxAgl and within(point, dropRadius) then
-          complete("airdropped")
-          return nil
+        if not unit:inAir() then
+          if within(point, landRadius) then
+            complete("delivered")
+            return nil
+          end
+        elseif unit:getDesc().category == Unit.Category.AIRPLANE then
+          local agl = point.y - land.getHeight({{ x = point.x, y = point.z }})
+          if agl <= dropMaxAgl and within(point, dropRadius) then
+            complete("airdropped")
+            dropCargo(unit)
+            return nil
+          end
         end
       end
     end
     return timer.getTime() + 1
   end
-  timer.scheduleFunction(checkAirdrop, nil, timer.getTime() + 1)
+  timer.scheduleFunction(checkDelivery, nil, timer.getTime() + 1)
 end"""

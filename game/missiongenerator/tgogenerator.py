@@ -97,7 +97,6 @@ from game.missiongenerator.farpunits import (
     AIRCRAFT_ROLES,
     FarpUnit,
     FarpUnitSet,
-    scenery_for,
 )
 from game.theater.dynamicfarp import (
     DynamicFarp,
@@ -909,6 +908,7 @@ class HelipadGenerator:
         self.atc: Optional[RadioFrequency] = None
         #: Faction units for a player-built FARP's layout, chosen on first use.
         self._farp_units: Optional[dict[str, FarpUnit]] = None
+        self._farp_unit_set: Optional[FarpUnitSet] = None
 
     def _dynamic_pad_name(self, index: int) -> str:
         """Name of a player-built FARP's landing spot, as shown in the DCS ATC
@@ -1190,8 +1190,8 @@ class HelipadGenerator:
     def _layout_types(self) -> dict[str, FarpUnit]:
         """DCS types (and liveries) for the roles used in dynamic FARP layouts.
 
-        The soldiers, MANPAD team and transport aircraft come from the owning
-        faction and suit the scenery at the site (see farpunits.py).
+        The MANPAD team and transport aircraft come from the owning faction (see
+        farpunits.py). Soldiers vary by position; see _place_layout.
         """
         types = {
             "apfc_fuel": FarpUnit(Fortification.APFC_fuel),
@@ -1201,15 +1201,10 @@ class HelipadGenerator:
             "extinguisher": FarpUnit(Fortification.FireExtinguisher01),
         }
         if self._farp_units is None:
-            coalition = self.cp.coalition
-            scenery = self.game.theater.scenery
-            if isinstance(self.cp, DynamicFarp):
-                site = coalition.farps.site_terrain(self.cp.position, self.cp.kind)
-                scenery = scenery_for(site, scenery)
-            unit_set = FarpUnitSet(coalition, scenery)
+            unit_set = self._farp_units_set()
             self._farp_units = {
-                role: unit_set.unit_for(role)
-                for role in ("soldier", "manpad", *AIRCRAFT_ROLES)
+                role: unit_set.unit_for(role, self.cp.name)
+                for role in ("manpad", *AIRCRAFT_ROLES)
             }
             if isinstance(self.cp, DynamicFarp) and self.cp.setup_aircraft:
                 # Show the aircraft that actually flew the equipment in.
@@ -1219,6 +1214,11 @@ class HelipadGenerator:
                 )
         types.update(self._farp_units)
         return types
+
+    def _farp_units_set(self) -> FarpUnitSet:
+        if self._farp_unit_set is None:
+            self._farp_unit_set = FarpUnitSet(self.cp.coalition)
+        return self._farp_unit_set
 
     def _place_layout(
         self,
@@ -1240,7 +1240,11 @@ class HelipadGenerator:
             name = name_for(obj.key)
             position = layout_point(origin, heading, obj.forward, obj.right)
             facing = (heading.degrees + obj.heading_offset) % 360
-            unit = types[obj.role]
+            if obj.role == "soldier":
+                # A mix of the faction's infantry, like a front line squad.
+                unit = self._farp_units_set().unit_for("soldier", name)
+            else:
+                unit = types[obj.role]
             if obj.role == "manpad" and issubclass(unit.dcs_type, VehicleType):
                 group = self.m.vehicle_group(
                     country, name, unit.dcs_type, position, heading=facing

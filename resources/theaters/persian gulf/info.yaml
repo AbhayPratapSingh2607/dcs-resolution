@@ -1,8 +1,6 @@
 ---
 name: Persian Gulf
 pydcs_name: PersianGulf
-# Scenery of most of the map (desert or woodland), for FARP units.
-scenery: desert
 timezone: +4
 daytime:
   dawn: [6, 8]
