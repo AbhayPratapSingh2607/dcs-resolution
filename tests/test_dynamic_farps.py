@@ -47,6 +47,7 @@ class FakeAirWing:
 
 def make_world() -> SimpleNamespace:
     settings = Settings()
+    settings.enable_dynamic_farps = True
     # These tests cover detachments arriving instantly, which is what the instant
     # transfer cheat does; without it they fly to the FARP over a turn.
     settings.enable_transfer_cheat = True
@@ -475,20 +476,17 @@ def test_loading_rederives_pads_from_current_layout() -> None:
     expected = [(round(p.x), round(p.y)) for p in farp.helipads_invisible]
 
     state = dict(farp.__dict__)
-    # Older saves: stale pad positions, no stored capacity, and a Fat Cow expiry.
+    # A save made with an older layout: stale pad positions.
     state["helipads_invisible"] = [
         PointWithHeading.from_point(Point(0, 0, TERRAIN), Heading.from_degrees(90)),
         PointWithHeading.from_point(Point(0, -100, TERRAIN), Heading.from_degrees(90)),
     ]
-    del state["capacity"]
-    state["expires_on_turn"] = 4
 
     loaded = DynamicFarp.__new__(DynamicFarp)
     loaded.__setstate__(state)
 
     assert loaded.capacity == 2
     assert [(round(p.x), round(p.y)) for p in loaded.helipads_invisible] == expected
-    assert not hasattr(loaded, "expires_on_turn")
 
 
 def test_lua_string_quotes_farp_names() -> None:

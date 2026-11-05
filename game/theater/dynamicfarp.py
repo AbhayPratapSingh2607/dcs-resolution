@@ -26,15 +26,12 @@ if TYPE_CHECKING:
 class FarpKind(Enum):
     """The two FARP types. They follow the same rules and differ only in how many
     helicopters they can hold, what they cost, and how they look.
-
-    The values are kept from the original "frontline"/"covert" names so existing
-    saves keep loading.
     """
 
     #: "Wet Wing": the larger FARP, set up by a C-130.
-    WET_WING = "frontline"
+    WET_WING = "wet_wing"
     #: "Fat Cow": the smaller FARP, set up by a CH-47.
-    FAT_COW = "covert"
+    FAT_COW = "fat_cow"
 
     @property
     def display_name(self) -> str:
@@ -220,16 +217,7 @@ class DynamicFarp(Fob):
         self._layout_pads(capacity)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        # Fat Cows no longer expire.
-        state.pop("expires_on_turn", None)
         self.__dict__.update(state)
-        if "capacity" not in state:
-            # Older saves: work out the capacity from the saved pad lists.
-            self.capacity = (
-                len(state.get("helipads", []))
-                + 4 * len(state.get("helipads_quad", []))
-                + len(state.get("helipads_invisible", []))
-            )
         # Pad positions are derived from the layout data, which may have changed
         # since the FARP was established. Re-derive them on load so the pads always
         # line up with the props, which are placed from the current layout when the

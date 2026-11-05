@@ -40,6 +40,7 @@ class GameUpdateEventsJs(BaseModel):
     updated_tgos: list[TgoJs]
     updated_control_points: list[ControlPointJs]
     deleted_control_points: set[UUID]
+    farp_placement_kind: str | None
     updated_iads: list[IadsConnectionJs]
     deleted_iads: set[UUID]
     updated_supply_routes: list[SupplyRouteJs]
@@ -117,6 +118,7 @@ class GameUpdateEventsJs(BaseModel):
                 for cp in events.updated_control_points
             ],
             deleted_control_points=events.deleted_control_points,
+            farp_placement_kind=events.farp_placement_kind,
             updated_iads=updated_iads,
             deleted_iads=events.deleted_iads_connections,
             updated_supply_routes=updated_supply_routes,

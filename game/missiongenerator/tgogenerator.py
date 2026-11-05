@@ -1098,7 +1098,10 @@ class HelipadGenerator:
             new_pad.heliport_frequency = pad.heliport_frequency
         new_pad.position = pad.position.point_from_heading(heading_1, distance_1)
         new_pad.position = new_pad.position.point_from_heading(heading_2, distance_2)
-        new_pad.heading = pad.heading
+        if single_pad_name is not None:
+            # Only dynamic FARP pads face the FARP heading; campaign FARP spawn
+            # spots keep their default heading.
+            new_pad.heading = pad.heading
         sg = unitgroup.StaticGroup(self.m.next_group_id(), single_pad_name or name)
         sg.add_unit(new_pad)
         if single_pad_name is not None:

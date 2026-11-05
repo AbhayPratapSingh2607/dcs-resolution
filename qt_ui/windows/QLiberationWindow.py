@@ -620,6 +620,7 @@ class QLiberationWindow(QMainWindow):
 
     def showSettingsDialog(self) -> None:
         self.dialog = QSettingsWindow(self.game)
+        self.dialog.finished.connect(self.top_panel.update_farp_buttons)
         self.dialog.show()
 
     def showStatsDialog(self):

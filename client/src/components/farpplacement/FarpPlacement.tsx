@@ -1,15 +1,19 @@
 import { FarpSiteCheck } from "../../api/_liberationApi";
+import {
+  FarpKind,
+  farpPlacementEnded,
+  selectFarpPlacementKind,
+} from "../../api/farpPlacementSlice";
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import backend from "../../api/backend";
 import "./FarpPlacement.css";
-import L, { LatLng } from "leaflet";
+import { LatLng } from "leaflet";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleMarker, Tooltip, useMap, useMapEvents } from "react-leaflet";
 
-type FarpKind = "frontline" | "covert";
-
 const KIND_LABELS: Record<FarpKind, string> = {
-  frontline: "Wet Wing FARP",
-  covert: "Fat Cow FARP",
+  wet_wing: "Wet Wing FARP",
+  fat_cow: "Fat Cow FARP",
 };
 
 const CHECK_INTERVAL_MS = 150;
@@ -38,61 +42,31 @@ function tooltipLines(
 }
 
 /**
- * Map control and placement mode for establishing player FARPs.
+ * Placement mode for establishing player FARPs.
  *
- * Choosing a FARP type from the control enters placement mode. The site under
+ * Choosing a FARP type from the FARP buttons in the main window's top bar
+ * enters placement mode. The site under
  * the cursor is validated by the server as the mouse moves; clicking a valid
  * site establishes the FARP.
  */
 export default function FarpPlacement() {
   const map = useMap();
-  const [kind, setKind] = useState<FarpKind | null>(null);
+  const dispatch = useAppDispatch();
+  const kind = useAppSelector(selectFarpPlacementKind);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastCheck = useRef<number>(0);
   const pending = useRef<number | null>(null);
-  const setKindRef = useRef(setKind);
-  setKindRef.current = setKind;
 
   const cancel = useCallback(() => {
-    setKind(null);
+    dispatch(farpPlacementEnded());
+  }, [dispatch]);
+
+  // Start each placement (or a switch of FARP type) with a clean marker.
+  useEffect(() => {
     setCandidate(null);
     setError(null);
-  }, []);
-
-  // The leaflet control with the mode buttons. Created once.
-  useEffect(() => {
-    const control = new L.Control({ position: "topleft" });
-    control.onAdd = () => {
-      const container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control farp-placement-control",
-      );
-      L.DomEvent.disableClickPropagation(container);
-      (Object.keys(KIND_LABELS) as FarpKind[]).forEach((k) => {
-        const button = L.DomUtil.create(
-          "a",
-          "farp-placement-button",
-          container,
-        );
-        button.href = "#";
-        button.title =
-          k === "frontline"
-            ? "Establish a Wet Wing FARP (set up by a C-130): more helicopters, costs more"
-            : "Establish a Fat Cow FARP (set up by a CH-47): 2 helicopters, cheaper";
-        button.innerText = k === "frontline" ? "Wet Wing" : "Fat Cow";
-        L.DomEvent.on(button, "click", (e) => {
-          L.DomEvent.preventDefault(e);
-          setKindRef.current((current) => (current === k ? null : k));
-        });
-      });
-      return container;
-    };
-    control.addTo(map);
-    return () => {
-      control.remove();
-    };
-  }, [map]);
+  }, [kind]);
 
   useEffect(() => {
     const container = map.getContainer();

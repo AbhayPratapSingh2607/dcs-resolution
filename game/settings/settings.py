@@ -674,7 +674,7 @@ class Settings:
         "Enable player-established FARPs",
         CAMPAIGN_MANAGEMENT_PAGE,
         DYNAMIC_FARPS_SECTION,
-        default=True,
+        default=False,
         detail=(
             "Allows the player to establish FARPs in friendly territory near the "
             "front line and station helicopter detachments at them. A Wet Wing FARP "
