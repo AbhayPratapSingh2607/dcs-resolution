@@ -94,6 +94,7 @@ from game.theater import (
     Airfield,
 )
 from game.missiongenerator.farpunits import (
+    country_lists,
     AIRCRAFT_ROLES,
     FarpUnit,
     FarpUnitSet,
@@ -1194,7 +1195,7 @@ class HelipadGenerator:
         farpunits.py). Soldiers vary by position; see _place_layout.
         """
         types = {
-            "apfc_fuel": FarpUnit(Fortification.APFC_fuel),
+            "tent": FarpUnit(Fortification.FARP_Tent),
             "fuel_depot": FarpUnit(Fortification.FARP_Fuel_Depot),
             "ammo": FarpUnit(Fortification.FARP_Ammo_Dump_Coating),
             "generator": FarpUnit(Fortification.M32_10C_01),
@@ -1245,9 +1246,12 @@ class HelipadGenerator:
                 unit = self._farp_units_set().unit_for("soldier", name)
             else:
                 unit = types[obj.role]
+            owner = country
+            if issubclass(unit.dcs_type, VehicleType):
+                owner = self._country_listing(unit.dcs_type, country)
             if obj.role == "manpad" and issubclass(unit.dcs_type, VehicleType):
                 group = self.m.vehicle_group(
-                    country, name, unit.dcs_type, position, heading=facing
+                    owner, name, unit.dcs_type, position, heading=facing
                 )
                 if unit.livery:
                     group.units[0].livery_id = unit.livery
@@ -1255,15 +1259,47 @@ class HelipadGenerator:
                 manpads.append(name)
                 continue
             static = self.m.static_group(
-                country=country,
+                country=owner,
                 name=name,
                 _type=unit.dcs_type,
                 position=position,
                 heading=facing,
             )
+            # pydcs names a static's unit "<group name> object", which reads like
+            # it points to some other object. Use the plain name.
+            static.units[0].name = name
             if unit.livery:
                 static.units[0].livery_id = unit.livery
         return manpads
+
+    def _country_listing(
+        self, dcs_type: Type[VehicleType], country: Country
+    ) -> Country:
+        """The country to place a FARP ground unit under, so the Mission Editor
+        shows it as what it is.
+
+        That's the faction's country if it lists the unit (see country_lists).
+        Otherwise it's the Combined Joint Task Forces country of the same side,
+        which lists nearly everything, e.g. the Georgian M4 FARP soldiers of a USA
+        faction.
+        """
+        if country_lists(country, dcs_type):
+            return country
+        cjtf: Country
+        if self.cp.coalition.player.is_blue:
+            side, cjtf = "blue", CombinedJointTaskForcesBlue()
+        else:
+            side, cjtf = "red", CombinedJointTaskForcesRed()
+        coalition = self.m.coalition[side]
+        if (existing := coalition.country(cjtf.name)) is not None:
+            return existing
+        neutrals = self.m.coalition["neutrals"]
+        if neutrals.country(cjtf.name) is not None:
+            return neutrals.swap_country(coalition, cjtf.name)
+        if self.m.country(cjtf.name) is not None:
+            # It's on the other side; the faction's country is the best we have.
+            return country
+        return coalition.add_country(cjtf)
 
     def _farp_radius(self, objects: list[LayoutObject]) -> float:
         """Radius around the FARP point that covers its layout and pads, plus a

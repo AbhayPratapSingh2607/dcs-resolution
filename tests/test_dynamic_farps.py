@@ -514,18 +514,12 @@ def test_fat_cow_destroyed_when_its_fuel_is_killed() -> None:
     world = make_world()
     farp = make_farp(world, FarpKind.FAT_COW, capacity=2)
     manager = manager_with_farp(world, farp)
-    assert FarpManager.fuel_depot_names(farp) == {
-        "FARP Viper fatcow apfc_fuel object",
-        "FARP Viper fatcow fuel object",
-    }
+    assert FarpManager.fuel_depot_names(farp) == {"FARP Viper fatcow fuel"}
 
-    manager.commit_losses(["FARP Viper fatcow fuel object"], GameUpdateEvents())
+    manager.commit_losses(["FARP Viper fatcow tent"], GameUpdateEvents())
     assert farp in world.game.theater.controlpoints
 
-    manager.commit_losses(
-        ["FARP Viper fatcow fuel object", "FARP Viper fatcow apfc_fuel object"],
-        GameUpdateEvents(),
-    )
+    manager.commit_losses(["FARP Viper fatcow fuel"], GameUpdateEvents())
     assert farp not in world.game.theater.controlpoints
 
 

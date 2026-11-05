@@ -454,13 +454,11 @@ class FarpManager:
     def fuel_depot_names(farp: DynamicFarp) -> set[str]:
         """Unit names of the FARP's fuel statics, as HelipadGenerator creates them.
 
-        pydcs names a static's unit "<group name> object".
+        pydcs names a static's unit "<group name> object". The Fat Cow layout's
+        statics are named like their group instead (see TgoGenerator._place_layout).
         """
         if farp.is_fat_cow:
-            return {
-                f"{fatcow_object_name(farp.name, key)} object"
-                for key in FATCOW_FUEL_KEYS
-            }
+            return {fatcow_object_name(farp.name, key) for key in FATCOW_FUEL_KEYS}
         names = set()
         for pad_type, pads in (
             ("SINGLE_HELIPAD", farp.helipads),

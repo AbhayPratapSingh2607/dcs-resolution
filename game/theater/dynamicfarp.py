@@ -113,8 +113,8 @@ FATCOW_LAYOUT: list[LayoutObject] = [
     # The CH-47 that flew in and set up the FARP, facing the front line with its
     # ramp toward the generator and helipads.
     LayoutObject("chinook", "fatcow_helicopter", *CHINOOK_POSITION),
-    # Fuel between the two pads.
-    LayoutObject("apfc_fuel", "apfc_fuel", -100, -10),
+    # Fuel and a tent between the two pads.
+    LayoutObject("tent", "tent", -100, -10),
     LayoutObject("fuel", "fuel_depot", -100, 10),
     # Ammo just behind the fuel, so the Fat Cow can rearm like the Wet Wing.
     LayoutObject("ammo", "ammo", -115, 0),
@@ -132,7 +132,7 @@ FATCOW_LAYOUT: list[LayoutObject] = [
 
 #: Layout objects that hold the FARP's fuel. Destroying all of them destroys the
 #: FARP.
-FATCOW_FUEL_KEYS = ("apfc_fuel", "fuel")
+FATCOW_FUEL_KEYS = ("fuel",)
 
 
 # Wet Wing (the larger FARP, set up by a C-130)
@@ -149,6 +149,9 @@ WET_WING_LAYOUT: list[LayoutObject] = [
     # Guards clear of the C-130's nose, ramp and 40m wingspan.
     *guard_ring(C130_POSITION, front_back=22, side=26),
     LayoutObject("generator", "generator", 35, -15),
+    # A tent beside the generator, on the side clear of the landing spots (which
+    # are ahead, behind and to the right of the main pad).
+    LayoutObject("tent", "tent", 35, -35),
     # Stinger team ahead of the C-130's nose.
     LayoutObject("manpad", "manpad", C130_POSITION[0] + 50, C130_POSITION[1]),
 ]
