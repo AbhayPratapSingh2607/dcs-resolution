@@ -98,6 +98,7 @@ class ModSettings:
     oh_6: bool = False
     oh_6_vietnamassetpack: bool = False
     uh_60l: bool = False
+    armed_blackhawk: bool = False
     jas39_gripen: bool = False
     sk_60: bool = False
     mam: bool = False

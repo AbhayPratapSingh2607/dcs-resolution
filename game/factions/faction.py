@@ -35,6 +35,10 @@ from game.dcs.shipunittype import ShipUnitType
 from game.dcs.unittype import UnitType
 from pydcs_extensions import inject_F15I, eject_F15I, eject_F4E, inject_F4E
 from pydcs_extensions.f16i_idf.f16i_idf import inject_F16I, eject_F16I
+from pydcs_extensions.uh60l.armedblackhawk import (
+    eject_armed_blackhawk,
+    inject_armed_blackhawk,
+)
 
 if TYPE_CHECKING:
     from game.theater.start_generator import ModSettings
@@ -442,6 +446,11 @@ class Faction:
             self.remove_aircraft("UH-60L")
             self.remove_aircraft("UH-60L_DAP")
             self.remove_aircraft("KC130J")
+        # Mod settings saved before the option existed have no attribute for it.
+        if mod_settings.uh_60l and getattr(mod_settings, "armed_blackhawk", False):
+            inject_armed_blackhawk()
+        else:
+            eject_armed_blackhawk()
         if not mod_settings.fa18ef_tanker:
             self.remove_aircraft("FA-18ET")
             self.remove_aircraft("FA-18FT")

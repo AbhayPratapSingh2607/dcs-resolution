@@ -193,6 +193,7 @@ class PretenseFlightGroupConfigurator(FlightGroupConfigurator):
                 target,
             )
 
+        loadout = loadout.for_aircraft(self.flight.unit_type)
         for pylon_number, weapon in loadout.pylons.items():
             if weapon is None:
                 continue
