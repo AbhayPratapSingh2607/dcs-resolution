@@ -34,6 +34,7 @@ from qt_ui.windows.AirWingDialog import AirWingDialog
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
 from qt_ui.windows.PendingTransfersDialog import PendingTransfersDialog
 from qt_ui.windows.QWaitingForMissionResultWindow import QWaitingForMissionResultWindow
+from qt_ui.windows.farplosses import report_lost_farps
 
 
 class QTopPanel(QFrame):
@@ -206,12 +207,13 @@ class QTopPanel(QFrame):
         self.dialog.show()
 
     def passTurn(self):
-        with logged_duration("Skipping turn"):
-            self.game.pass_turn(no_action=True)
-            GameUpdateSignal.get_instance().updateGame(self.game)
-            state = self.game_model.game.check_win_loss()
-            GameUpdateSignal.get_instance().gameStateChanged(state)
-            self.proceedButton.setEnabled(True)
+        with report_lost_farps(self.game, self.window()):
+            with logged_duration("Skipping turn"):
+                self.game.pass_turn(no_action=True)
+                GameUpdateSignal.get_instance().updateGame(self.game)
+                state = self.game_model.game.check_win_loss()
+                GameUpdateSignal.get_instance().gameStateChanged(state)
+                self.proceedButton.setEnabled(True)
 
     def negative_start_packages(self, now: datetime) -> List[Package]:
         packages = []

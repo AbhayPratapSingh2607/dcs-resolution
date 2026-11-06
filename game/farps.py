@@ -33,19 +33,30 @@ from game.theater.dynamicfarp import (
     fatcow_object_name,
 )
 from game.theater.farpterrain import SiteTerrain, UNKNOWN_SITE
-from game.utils import Heading, nautical_miles
+from game.utils import Heading, meters, nautical_miles
 
 if TYPE_CHECKING:
     from game import Game
     from game.coalition import Coalition
     from game.squadrons import Squadron
     from game.sim import GameUpdateEvents
-    from game.theater import ControlPoint
+    from game.theater import ControlPoint, FrontLine
 
 #: Minimum spacing between a FARP and any other control point.
 MIN_CONTROL_POINT_SPACING = nautical_miles(3)
 #: Minimum spacing between a FARP and any ground object.
 MIN_TGO_SPACING = nautical_miles(1)
+
+
+@dataclass(frozen=True)
+class FrontSituation:
+    """Where a point is relative to its nearest front line."""
+
+    front_line: FrontLine
+    #: Distance in meters to where the front currently is.
+    distance: float
+    #: Whether the front has moved past the point, putting it on the enemy side.
+    behind_enemy_lines: bool
 
 
 @dataclass
@@ -216,19 +227,55 @@ class FarpManager:
             return None
         return min(candidates, key=lambda cp: cp.position.distance_to_point(point))
 
-    def distance_to_front_line(self, point: Point) -> Optional[float]:
-        """Distance in meters from point to the closest active front line."""
+    def front_situation(self, point: Point) -> Optional[FrontSituation]:
+        """Where point is relative to the nearest front line, or None if there's
+        no active front.
+
+        A front sits at a point on the route between two bases, moving along it as
+        the battle goes, and the ground war spreads out across the route from there
+        (see _front_segment). The point is behind
+        enemy lines when, measured along that route, it's past the front on the
+        enemy's side.
+        """
+        best: Optional[FrontSituation] = None
         target = ShapelyPoint(point.x, point.y)
-        best: Optional[float] = None
         for front_line in self.game.theater.conflicts():
+            front = self._front_segment(front_line)
+            distance = front.distance(target)
+            if best is not None and distance >= best.distance:
+                continue
             coords = [(p.x, p.y) for p in front_line.points]
-            if len(coords) < 2:
-                distance = front_line.position.distance_to_point(point)
-            else:
-                distance = LineString(coords).distance(target)
-            if best is None or distance < best:
-                best = distance
+            behind = False
+            if len(coords) >= 2:
+                progress = LineString(coords).project(ShapelyPoint(point.x, point.y))
+                past_front = progress > front_line.blue_route_progress
+                behind = past_front if self.coalition.player.is_blue else not past_front
+            best = FrontSituation(front_line, distance, behind)
         return best
+
+    def _front_segment(self, front_line: FrontLine) -> LineString:
+        """Where the ground war is: a line across the route through the front's
+        current position, as wide as the front line width setting and clipped to
+        land, like the mission generator lays out the front."""
+        from game.missiongenerator.frontlineconflictdescription import (
+            FrontLineConflictDescription,
+        )
+
+        center = front_line.current_position
+        across = front_line.blue_forward_heading.right
+        half_width = int(self.game.settings.max_frontline_width * 1000 / 2)
+        ends = [
+            FrontLineConflictDescription.extend_ground_position(
+                center, half_width, heading, self.game.theater
+            )
+            for heading in (across, across.opposite)
+        ]
+        return LineString([(p.x, p.y) for p in ends])
+
+    def distance_to_front_line(self, point: Point) -> Optional[float]:
+        """Distance in meters from point to where the nearest front line is."""
+        situation = self.front_situation(point)
+        return situation.distance if situation is not None else None
 
     def site_terrain(self, point: Point, kind: FarpKind) -> SiteTerrain:
         """What the theater's terrain grid says about the area a FARP of this kind
@@ -286,10 +333,11 @@ class FarpManager:
                 reasons.append(f"Too close to {tgo.obj_name}.")
                 break
 
-        front_distance = self.distance_to_front_line(point)
-        if front_distance is None:
+        situation = self.front_situation(point)
+        if situation is None:
             reasons.append("There is no active front line.")
             return check
+        front_distance = situation.distance
 
         owner = self.nearest_territory_owner(point)
         if owner is None:
@@ -300,6 +348,8 @@ class FarpManager:
         # configured distance band from the front.
         if not owner.is_friendly(self.coalition.player):
             reasons.append("FARPs must be in friendly territory.")
+        elif situation.behind_enemy_lines:
+            reasons.append("FARPs must be on our side of the front line.")
         min_dist = nautical_miles(settings.farp_min_frontline_distance)
         max_dist = nautical_miles(settings.farp_max_frontline_distance)
         if front_distance < min_dist.meters:
@@ -430,15 +480,19 @@ class FarpManager:
         self.game.compute_threat_zones(events)
 
     def end_turn(self, events: GameUpdateEvents) -> None:
-        """Deducts upkeep and evacuates overrun FARPs.
+        """Deducts upkeep, evacuates overrun FARPs and warns about threatened ones.
 
         Called after the turn counter has advanced and base captures have been
         committed.
         """
         for farp in self.farps:
-            owner = self.nearest_territory_owner(farp.position)
-            if owner is not None and not owner.is_friendly(self.coalition.player):
-                self.dismantle(farp, events, reason="evacuated (overrun)")
+            if (cause := self._overrun_cause(farp)) is not None:
+                self.dismantle(
+                    farp,
+                    events,
+                    reason=f"lost: {cause}. Its helicopters fell back to base",
+                )
+        self._warn_about_nearby_fronts()
 
         upkeep = self.total_upkeep
         if upkeep:
@@ -449,6 +503,36 @@ class FarpManager:
         while self.coalition.budget < 0 and self.farps:
             newest = max(self.farps, key=lambda f: f.established_turn)
             self.dismantle(newest, events, reason="abandoned (no funds for upkeep)")
+
+    def _overrun_cause(self, farp: DynamicFarp) -> Optional[str]:
+        """Why the enemy has taken the FARP's ground, or None if it hasn't: its
+        nearest base was captured, or the front line moved past it.
+
+        The FARP and its equipment are lost (no refund); the helicopters stationed
+        there escape to their home base.
+        """
+        owner = self.nearest_territory_owner(farp.position)
+        if owner is not None and not owner.is_friendly(self.coalition.player):
+            return f"{owner.name} was captured"
+        situation = self.front_situation(farp.position)
+        if situation is not None and situation.behind_enemy_lines:
+            return "the front line moved past it"
+        return None
+
+    def _warn_about_nearby_fronts(self) -> None:
+        """Warns about FARPs the front line has come within the minimum building
+        distance of. Only being overrun costs the FARP."""
+        min_dist = nautical_miles(self.game.settings.farp_min_frontline_distance)
+        for farp in self.farps:
+            situation = self.front_situation(farp.position)
+            if situation is None or situation.distance >= min_dist.meters:
+                continue
+            self.game.message(
+                f"{farp.name} is threatened",
+                f"The front line is {meters(situation.distance).nautical_miles:.1f}nm "
+                f"from "
+                f"{farp.name}. If it moves past the FARP, the FARP will be lost.",
+            )
 
     @staticmethod
     def fuel_depot_names(farp: DynamicFarp) -> set[str]:

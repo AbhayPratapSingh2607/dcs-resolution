@@ -317,8 +317,12 @@ def test_cannot_relocate_squadron_to_farp() -> None:
 # FarpManager
 
 
-def manager_with_farp(world: SimpleNamespace, farp: DynamicFarp) -> FarpManager:
-    world.game.theater = SimpleNamespace(controlpoints=[farp])
+def manager_with_farp(
+    world: SimpleNamespace, farp: DynamicFarp, front_lines: list[Any] | None = None
+) -> FarpManager:
+    world.game.theater = SimpleNamespace(
+        controlpoints=[farp], conflicts=lambda: iter(front_lines or []), landmap=None
+    )
     world.game.compute_threat_zones = lambda events: None
     return FarpManager(cast(Any, world.coalition))
 
@@ -375,6 +379,87 @@ def test_end_turn_evacuates_overrun_farps_of_both_types() -> None:
         manager.end_turn(GameUpdateEvents())
 
         assert farp not in world.game.theater.controlpoints, kind
+
+
+def make_front_line(progress: float) -> Any:
+    """A front on a straight 40km route from a blue base at x=-20km to a red base
+    at x=+20km, ``progress`` meters from the blue base. FARPs are made at x=0."""
+    route = [Point(-20000, 0, TERRAIN), Point(20000, 0, TERRAIN)]
+    return SimpleNamespace(
+        points=iter(route),
+        blue_route_progress=progress,
+        current_position=Point(-20000 + progress, 0, TERRAIN),
+        blue_forward_heading=Heading.from_degrees(0),
+    )
+
+
+def test_farp_is_lost_when_the_front_moves_past_it() -> None:
+    world = make_world()
+    farp = make_farp(world)
+    # The front is 5km behind the FARP (toward the blue base).
+    manager = manager_with_farp(world, farp, [make_front_line(15000)])
+    parent = make_squadron(world, make_home_base(), make_helicopter_type())
+    create_detachment(parent, farp, 2)
+    budget = world.coalition.budget
+
+    manager.end_turn(GameUpdateEvents())
+
+    assert farp not in world.game.theater.controlpoints
+    # The helicopters escaped back to their squadron. The FARP is neither refunded
+    # nor charged upkeep.
+    assert parent.owned_aircraft == 8
+    assert world.coalition.budget == budget
+    assert any("front line moved past it" in m for m in world.game.messages)
+
+
+def test_farp_near_the_front_is_warned_about_but_kept() -> None:
+    world = make_world()
+    farp = make_farp(world)
+    # The front is 2km ahead of the FARP, inside the 3nm minimum.
+    manager = manager_with_farp(world, farp, [make_front_line(22000)])
+
+    manager.end_turn(GameUpdateEvents())
+
+    assert farp in world.game.theater.controlpoints
+    assert f"{farp.name} is threatened" in world.game.messages
+
+
+def test_farp_well_behind_the_front_is_left_alone() -> None:
+    world = make_world()
+    farp = make_farp(world)
+    # The front is 10km ahead of the FARP.
+    manager = manager_with_farp(world, farp, [make_front_line(30000)])
+
+    manager.end_turn(GameUpdateEvents())
+
+    assert farp in world.game.theater.controlpoints
+    assert not any("threatened" in m for m in world.game.messages)
+
+
+def test_front_situation_measures_to_where_the_front_is() -> None:
+    world = make_world()
+    farp = make_farp(world)
+    manager = manager_with_farp(world, farp, [make_front_line(30000)])
+
+    situation = manager.front_situation(Point(0, 0, TERRAIN))
+
+    assert situation is not None
+    # 10km to the front itself, although the route runs right through the FARP.
+    assert situation.distance == pytest.approx(10000)
+    assert not situation.behind_enemy_lines
+
+
+def test_front_distance_is_to_the_whole_width_of_the_front() -> None:
+    world = make_world()
+    farp = make_farp(world)
+    manager = manager_with_farp(world, farp, [make_front_line(30000)])
+
+    # 30km to the side of the route, level with the front: on the front line
+    # itself (80km wide by default), not 30km from it.
+    situation = manager.front_situation(Point(10000, 30000, TERRAIN))
+
+    assert situation is not None
+    assert situation.distance == pytest.approx(0, abs=1)
 
 
 def test_farp_limit_is_shared_by_both_types() -> None:

@@ -87,6 +87,20 @@ class FrontLine(MissionTarget):
     def _compute_position(self) -> Point:
         return self.point_along_route_from_blue(self._blue_route_progress)
 
+    @property
+    def current_position(self) -> Point:
+        """Where the front is now, from the bases' current strength.
+
+        ``position`` is only updated at the end of the turn, so this can differ
+        from it while the turn's results are being processed.
+        """
+        return self._compute_position()
+
+    @property
+    def blue_route_progress(self) -> float:
+        """How far along the route from the blue base the front is, in meters."""
+        return self._blue_route_progress
+
     def update_position(self) -> None:
         self.position = self._compute_position()
 
