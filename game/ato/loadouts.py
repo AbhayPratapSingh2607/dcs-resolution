@@ -224,6 +224,23 @@ class Loadout:
                 continue
 
     @staticmethod
+    def display_name(aircraft: AircraftType, name: str) -> str:
+        """The name to show for a payload: the label the payload file gives it in
+        the mission editor (its ``displayName``), if it has one, else its name.
+
+        Mods like the CJS Super Hornet give their payloads short internal names
+        ("AIM-9X*2, AIM-120C*2, FUEL*1") and descriptive labels ("- USN Adv.
+        Extended Range CAP (...)"). Loadouts are still identified by name.
+        """
+        payloads = aircraft.dcs_unit_type.load_payloads() or {}
+        label = payloads.get(name, {}).get("displayName")
+        if not isinstance(label, str):
+            label = name
+        # The mod's labels start with "- " to sort them first in the editor.
+        label = label.strip().lstrip("-").strip()
+        return label or name
+
+    @staticmethod
     def valid_payload(pylons: Dict[int, Dict[str, str]]) -> bool:
         for p in pylons.values():
             if Weapon.with_clsid(p["CLSID"]) is None:

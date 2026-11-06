@@ -324,14 +324,15 @@ class QFlightCreator(QDialog):
             return
         else:
             self.loadout_selector.setDisabled(False)
-        for loadout in Loadout.iter_for_aircraft(ac_type):
-            self.loadout_selector.addItem(loadout.name, loadout)
-        for loadout in Loadout.default_loadout_names_for(
-            self.task_selector.currentData()
-        ):
-            index = self.loadout_selector.findText(loadout)
-            if index != -1:
-                self.loadout_selector.setCurrentIndex(index)
+        loadouts = list(Loadout.iter_for_aircraft(ac_type))
+        for loadout in loadouts:
+            self.loadout_selector.addItem(
+                Loadout.display_name(ac_type, loadout.name), loadout
+            )
+        names = [loadout.name for loadout in loadouts]
+        for name in Loadout.default_loadout_names_for(self.task_selector.currentData()):
+            if name in names:
+                self.loadout_selector.setCurrentIndex(names.index(name))
                 break
 
 
