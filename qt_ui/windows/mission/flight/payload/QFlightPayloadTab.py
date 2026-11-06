@@ -28,13 +28,21 @@ class DcsLoadoutSelector(QComboBox):
     def __init__(self, flight: Flight, member: FlightMember) -> None:
         super().__init__()
         for loadout in Loadout.iter_for(flight):
-            self.addItem(loadout.name, loadout)
+            self.addItem(Loadout.display_name(flight.unit_type, loadout.name), loadout)
         self.model().sort(0)
         self.setDisabled(member.loadout.is_custom)
         if member.loadout.is_custom:
-            self.setCurrentText(Loadout.default_for(flight).name)
+            self.select_loadout(Loadout.default_for(flight).name)
         else:
-            self.setCurrentText(member.loadout.name)
+            self.select_loadout(member.loadout.name)
+
+    def select_loadout(self, name: str) -> None:
+        """Selects the loadout by name; items show the payload's display name."""
+        for index in range(self.count()):
+            loadout = self.itemData(index)
+            if loadout is not None and loadout.name == name:
+                self.setCurrentIndex(index)
+                return
 
 
 class FlightMemberSelector(QSpinBox):
@@ -220,14 +228,14 @@ class QFlightPayloadTab(QFrame):
         self.member_selector.setMaximum(self.flight.count - 1)
 
     def reload_from_flight(self) -> None:
-        self.loadout_selector.setCurrentText(
+        self.loadout_selector.select_loadout(
             self.member_selector.selected_member.loadout.name
         )
 
     def rebind_to_selected_member(self) -> None:
         member = self.member_selector.selected_member
         self.property_editor.set_flight_member(member)
-        self.loadout_selector.setCurrentText(member.loadout.name)
+        self.loadout_selector.select_loadout(member.loadout.name)
         self.loadout_selector.setDisabled(member.loadout.is_custom)
         self.livery_selector.setCurrentIndex(
             self.livery_selector.findData(member.livery)

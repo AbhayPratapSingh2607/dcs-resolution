@@ -41,3 +41,15 @@ tasks:
   SEAD: 600
   SEAD Escort: 550
   SEAD Sweep: 500
+# Station labels from the CJS Super Hornet mod's mission editor loadout screen.
+pylon_names:
+  1: "3B"
+  2: "2"
+  3: "3A"
+  4: "5 | 4"
+  5: "6"
+  6: "8 | 7"
+  7: "9A"
+  8: "10"
+  9: "9B"
+  10: "INT"

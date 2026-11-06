@@ -2,7 +2,7 @@ import logging
 import operator
 from typing import Optional
 
-from PySide6.QtWidgets import QComboBox, QWidget, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt
 
@@ -12,6 +12,7 @@ from game.ato.flightmember import FlightMember
 from game.ato.loadouts import Loadout
 from game.data.weapons import Pylon, Weapon
 from .QWeaponSettingsDialog import QWeaponSettingsDialog
+from .weaponmenu import CategorizedWeaponCombo, display_name
 
 
 class QPylonEditor(QWidget):
@@ -31,7 +32,7 @@ class QPylonEditor(QWidget):
         layout.setSpacing(5)
 
         # Create combobox for weapon selection
-        self.weapon_combo = QComboBox()
+        self.weapon_combo = CategorizedWeaponCombo()
         current = self.flight_member.loadout.pylons.get(self.pylon.number)
 
         self.weapon_combo.addItem("None", None)
@@ -43,7 +44,7 @@ class QPylonEditor(QWidget):
             weapons = pylon.allowed
         allowed = sorted(weapons, key=operator.attrgetter("name"))
         for i, weapon in enumerate(allowed):
-            self.weapon_combo.addItem(weapon.name, weapon)
+            self.weapon_combo.addItem(display_name(weapon), weapon)
             if current == weapon:
                 self.weapon_combo.setCurrentIndex(i + 1)
 
@@ -124,7 +125,7 @@ class QPylonEditor(QWidget):
                 self.has_added_clean_item = True
         return weapon
 
-    def matching_weapon_name(self, loadout: Loadout) -> str:
+    def matching_weapon(self, loadout: Loadout) -> Optional[Weapon]:
         if self.game.settings.restrict_weapons_by_date:
             # Always apply target overrides for AI, only for players if setting is enabled
             should_apply_overrides = (
@@ -138,15 +139,12 @@ class QPylonEditor(QWidget):
                 self.flight.squadron.coalition.faction,
                 target,
             )
-        weapon = self.weapon_from_loadout(loadout)
-        if weapon is None:
-            return "None"
-        return weapon.name
+        return self.weapon_from_loadout(loadout)
 
     def set_flight_member(self, flight_member: FlightMember) -> None:
         self.flight_member = flight_member
         self.set_from(self.flight_member.loadout)
 
     def set_from(self, loadout: Loadout) -> None:
-        self.weapon_combo.setCurrentText(self.matching_weapon_name(loadout))
+        self.weapon_combo.select_data(self.matching_weapon(loadout))
         self.update_settings_button_visibility()

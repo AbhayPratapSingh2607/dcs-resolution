@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache, cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Iterator, Optional, TYPE_CHECKING, Type
@@ -255,6 +255,11 @@ class AircraftType(UnitType[Type[FlyingType]]):
     #: that declare no block.
     property_date_gate: PropertyDateGate = PropertyDateGate()
 
+    #: Station labels as the mission editor shows them, by pylon number (e.g. the
+    #: Super Hornet's pylon 4 is station "5 | 4"). Pylons without one are shown by
+    #: number.
+    pylon_names: dict[int, str] = field(default_factory=dict)
+
     _by_name: ClassVar[dict[str, AircraftType]] = {}
     _by_unit_type: ClassVar[dict[type[FlyingType], list[AircraftType]]] = defaultdict(
         list
@@ -268,6 +273,10 @@ class AircraftType(UnitType[Type[FlyingType]]):
         # Update any existing models with new data on load.
         updated = AircraftType.named(state["variant_id"])
         self.__dict__.update(updated.__dict__)
+
+    def pylon_name(self, number: int) -> str:
+        """The station label for the pylon, as the mission editor shows it."""
+        return self.pylon_names.get(number, str(number))
 
     def __post_init__(self) -> None:
         enrich = {}
@@ -626,6 +635,10 @@ class AircraftType(UnitType[Type[FlyingType]]):
             property_date_gate=PropertyDateGate.from_data(
                 data.get("date_gated_properties")
             ),
+            pylon_names={
+                int(number): str(label)
+                for number, label in (data.get("pylon_names") or {}).items()
+            },
         )
 
     @classmethod

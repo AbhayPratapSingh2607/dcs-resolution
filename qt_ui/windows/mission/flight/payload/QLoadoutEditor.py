@@ -41,7 +41,8 @@ class QLoadoutEditor(QGroupBox):
         layout = QGridLayout(self)
 
         for i, pylon in enumerate(Pylon.iter_pylons(self.flight.unit_type)):
-            label = QLabel(f"<b>{pylon.number}</b>")
+            label = QLabel(f"<b>{self.flight.unit_type.pylon_name(pylon.number)}</b>")
+            label.setToolTip(f"Pylon {pylon.number}")
             label.setSizePolicy(
                 QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             )
