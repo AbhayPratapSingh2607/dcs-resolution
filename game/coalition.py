@@ -23,6 +23,7 @@ from game.transfers import PendingTransfers
 if TYPE_CHECKING:
     from .campaignloader import CampaignAirWingConfig
     from .data.doctrine import Doctrine
+    from .farps import FarpManager
     from .factions.faction import Faction
     from .game import Game
     from .lasercodes import LaserCodeRegistry
@@ -79,6 +80,12 @@ class Coalition:
     def opponent(self) -> Coalition:
         assert self._opponent is not None
         return self._opponent
+
+    @property
+    def farps(self) -> FarpManager:
+        from game.farps import FarpManager
+
+        return FarpManager(self)
 
     @property
     def threat_zone(self) -> ThreatZones:
@@ -163,6 +170,10 @@ class Coalition:
 
         CsarService(self.game).advance_turn_for(self)
         self.air_wing.end_turn()
+        # Detachments that flew in to reinforce one already at a FARP join it.
+        from game.squadrons.detachments import merge_arrived_detachments
+
+        merge_arrived_detachments(self.air_wing)
         self.budget += Income(self.game, self.player).total
 
         # Need to recompute before transfers and deliveries to account for captures.
@@ -201,6 +212,8 @@ class Coalition:
             self.transfers.order_airlift_assets()
         with logged_duration("Transport planning"):
             self.transfers.plan_transports(self.game.conditions.start_time)
+        with logged_duration("FARP setup planning"):
+            self.farps.plan_setup_flights(self.game.conditions.start_time)
 
         if not is_turn_0:
             self.plan_missions(self.game.conditions.start_time)

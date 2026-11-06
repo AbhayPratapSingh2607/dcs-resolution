@@ -70,6 +70,11 @@ class ObjectiveDistanceCache:
         cls.theater = theater
 
     @classmethod
+    def invalidate(cls) -> None:
+        """Drops cached results, e.g. after control points were added or removed."""
+        cls.closest_airfields = {}
+
+    @classmethod
     def get_closest_airfields(cls, location: MissionTarget) -> ClosestAirfields:
         if cls.theater is None:
             raise RuntimeError("Call ObjectiveDistanceCache.set_theater before using")

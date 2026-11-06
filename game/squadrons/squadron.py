@@ -89,6 +89,12 @@ class Squadron:
         init=False, hash=False, compare=False, default=False
     )
 
+    #: For detachments stationed at a dynamic FARP, the squadron the aircraft and
+    #: pilots were split from. None for regular squadrons.
+    parent: Optional[Squadron] = field(
+        init=False, hash=False, compare=False, default=None
+    )
+
     def __setstate__(self, state: dict[str, Any]) -> None:
         if "id" not in state:
             state["id"] = uuid4()
@@ -105,6 +111,8 @@ class Squadron:
         if "csar_auto_assign_seeded" not in state:
             # Pre-CSAR save: let the migrator opt this squadron in once.
             state["csar_auto_assign_seeded"] = False
+        if "parent" not in state:
+            state["parent"] = None
         self.__dict__.update(state)
 
     def __str__(self) -> str:
@@ -126,6 +134,10 @@ class Squadron:
     @property
     def player(self) -> Player:
         return self.coalition.player
+
+    @property
+    def is_detachment(self) -> bool:
+        return self.parent is not None
 
     @property
     def base_skill(self) -> Skill:
@@ -325,6 +337,8 @@ class Squadron:
 
     @property
     def pilot_limit(self) -> int:
+        if self.is_detachment:
+            return self.max_size
         return self.settings.squadron_pilot_limit
 
     @property
@@ -333,6 +347,9 @@ class Squadron:
 
     @property
     def replenish_count(self) -> int:
+        if self.is_detachment:
+            # Detachments are reinforced by their parent squadron, not by recruiting.
+            return 0
         return min(
             self.settings.squadron_replenishment_rate,
             self._number_of_unfilled_pilot_slots,
@@ -536,6 +553,9 @@ class Squadron:
         return self.owned_aircraft + self.pending_deliveries
 
     def has_aircraft_capacity_for(self, n: int) -> bool:
+        if self.is_detachment:
+            # Detachments can't purchase aircraft; reinforce via the parent squadron.
+            return False
         if not self.settings.enable_squadron_aircraft_limits:
             return True
         remaining = self.max_size - self.owned_aircraft - self.pending_deliveries
@@ -561,6 +581,10 @@ class Squadron:
             )
             return
 
+        if destination.is_dynamic_farp or self.is_detachment:
+            raise RuntimeError(
+                "Squadrons can't relocate to or from FARPs. Use detachments instead."
+            )
         parking_type = ParkingType().from_squadron(self)
         if self.expected_size_next_turn > destination.unclaimed_parking(parking_type):
             raise RuntimeError(f"Not enough parking for {self} at {destination}.")

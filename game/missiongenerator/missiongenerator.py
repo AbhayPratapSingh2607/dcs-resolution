@@ -43,6 +43,7 @@ from .luagenerator import LuaGenerator
 from .missiondata import MissionData
 from .rebelliongenerator import RebellionGenerator
 from .motorpoolpopulator import MotorpoolPopulator
+from .farpsetupgenerator import FarpSetupGenerator
 from .tgogenerator import TgoGenerator
 from .triggergenerator import TriggerGenerator
 from .visualsgenerator import VisualsGenerator
@@ -127,6 +128,7 @@ class MissionGenerator:
         # groups have to exist before flight waypoints are built.
         CsarGenerator(self.mission, self.game, self.mission_data).generate()
         self.generate_air_units(tgo_generator)
+        FarpSetupGenerator(self.mission, self.game, self.unit_map).generate()
 
         RebellionGenerator(self.mission, self.game).generate()
         TriggerGenerator(self.mission, self.game).generate()

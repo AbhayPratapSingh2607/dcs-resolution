@@ -357,6 +357,11 @@ class Game:
         # since the coalition-specific finalization handles transit network updates and
         # transfer processing. If in the other order, units may be delivered to captured
         # bases, and freshly delivered units will spawn one leg through their journey.
+        # FARP upkeep, expiry and overrun checks. Runs after captures were committed
+        # and before air wings finish the turn.
+        self.blue.farps.end_turn(events)
+        self.red.farps.end_turn(events)
+
         self.blue.end_turn()
         self.red.end_turn()
 

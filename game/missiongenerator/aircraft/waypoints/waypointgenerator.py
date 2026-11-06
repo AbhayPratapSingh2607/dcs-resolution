@@ -14,6 +14,7 @@ from dcs.triggers import Event, TriggerOnce, TriggerRule
 from dcs.unitgroup import FlyingGroup
 
 from game.ato import Flight, FlightWaypoint, FlightType
+from game.ato.flightplans.farpsetup import FarpSetupFlightPlan
 from game.ato.flightstate import InFlight, WaitingForStart
 from game.ato.flightwaypointtype import FlightWaypointType
 from game.ato.starttype import StartType
@@ -29,6 +30,7 @@ from .casingress import CasIngressBuilder
 from .csarpickup import CsarPickupBuilder
 from .deadingress import DeadIngressBuilder
 from .default import DefaultWaypointBuilder
+from .farpsitelanding import FarpSiteLandingBuilder
 from .holdpoint import HoldPointBuilder
 from .joinpoint import JoinPointBuilder
 from .landingpoint import LandingPointBuilder
@@ -196,6 +198,10 @@ class WaypointGenerator:
             FlightWaypointType.TARGET_POINT: TargetBuilder,
         }
         builder = builders.get(waypoint.waypoint_type, DefaultWaypointBuilder)
+        if waypoint.waypoint_type is FlightWaypointType.DROPOFF_ZONE and isinstance(
+            self.flight.flight_plan, FarpSetupFlightPlan
+        ):
+            builder = FarpSiteLandingBuilder
         return builder(
             waypoint,
             self.group,

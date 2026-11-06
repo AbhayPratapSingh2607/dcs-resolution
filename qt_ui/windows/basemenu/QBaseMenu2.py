@@ -377,6 +377,8 @@ class QBaseMenu2(QDialog):
         ):
             carrier_type = self.cp.get_carrier_group_type(always_supercarrier=True)
             return f"./resources/ui/units/ships/{carrier_type.id}.png"
+        elif self.cp.is_dynamic_farp:
+            return "./resources/ui/heliport.png"
         elif self.cp.cptype == ControlPointType.FOB and self.cp.has_helipads:
             return "./resources/ui/heliport.png"
         elif self.cp.cptype == ControlPointType.FOB:

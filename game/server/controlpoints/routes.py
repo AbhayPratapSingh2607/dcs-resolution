@@ -6,9 +6,10 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from starlette.responses import Response
 
 from game import Game
+from game.theater.dynamicfarp import DynamicFarp, FarpKind
 from game.theater.player import Player
-from .models import ControlPointJs
-from ..dependencies import GameContext
+from .models import ControlPointJs, FarpSiteCheckJs, NewFarpJs
+from ..dependencies import GameContext, QtCallbacks, QtContext
 from ..leaflet import LeafletPoint
 
 router: APIRouter = APIRouter(prefix="/control-points")
@@ -21,6 +22,57 @@ def list_control_points(
     game: Game = Depends(GameContext.require),
 ) -> list[ControlPointJs]:
     return ControlPointJs.all_in_game(game)
+
+
+def _parse_farp_kind(kind: str) -> FarpKind:
+    try:
+        return FarpKind(kind)
+    except ValueError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=f"Unknown FARP kind: {kind}"
+        )
+
+
+@router.get(
+    "/farp-site-check",
+    operation_id="check_farp_site",
+    response_model=FarpSiteCheckJs,
+)
+def check_farp_site(
+    lat: float, lng: float, kind: str, game: Game = Depends(GameContext.require)
+) -> FarpSiteCheckJs:
+    point = Point.from_latlng(LatLng(lat, lng), game.theater.terrain)
+    check = game.blue.farps.check_site(point, _parse_farp_kind(kind))
+    return FarpSiteCheckJs(valid=check.valid, reasons=check.reasons, cost=check.cost)
+
+
+@router.post(
+    "/farps",
+    operation_id="establish_farp",
+    response_model=ControlPointJs,
+)
+def establish_farp(
+    farp: NewFarpJs = Body(..., title="farp"),
+    game: Game = Depends(GameContext.require),
+    qt: QtCallbacks = Depends(QtContext.get),
+) -> ControlPointJs:
+    point = Point.from_latlng(
+        LatLng(farp.position.lat, farp.position.lng), game.theater.terrain
+    )
+    kind = _parse_farp_kind(farp.kind)
+    manager = game.blue.farps
+    check = manager.check_site(point, kind)
+    if not check.valid:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=" ".join(check.reasons))
+
+    from .. import EventStream
+
+    with EventStream.event_context() as events:
+        cp = manager.establish(point, kind, events)
+    qt.budget_changed()
+    # The FARP's setup flight is a new package in the player's ATO.
+    qt.ato_changed()
+    return ControlPointJs.for_control_point(cp)
 
 
 @router.get(
@@ -131,3 +183,36 @@ def cancel_travel(cp_id: UUID, game: Game = Depends(GameContext.require)) -> Non
 
     with EventStream.event_context() as events:
         events.update_control_point(cp)
+
+
+@router.delete(
+    "/{cp_id}/farp",
+    operation_id="dismantle_farp",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+def dismantle_farp(
+    cp_id: UUID,
+    game: Game = Depends(GameContext.require),
+    qt: QtCallbacks = Depends(QtContext.get),
+) -> None:
+    try:
+        cp = game.theater.find_control_point_by_id(cp_id)
+    except KeyError:
+        cp = None
+    if not isinstance(cp, DynamicFarp):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Game has no dynamic FARP with ID {cp_id}",
+        )
+    if not cp.captured.is_blue:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail=f"{cp} is not owned by the player"
+        )
+    from .. import EventStream
+
+    with EventStream.event_context() as events:
+        game.blue.farps.dismantle(cp, events)
+    qt.budget_changed()
+    # Dismantling removes the FARP's setup flight and flights using the FARP.
+    qt.ato_changed()

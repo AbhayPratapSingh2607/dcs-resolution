@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Any, Union, Tuple, Optional, List
+from typing import Any, Union, Tuple, Optional, List, Type
 
 from dcs import Mission
 from dcs.country import Country
@@ -18,8 +18,9 @@ from dcs.planes import (
     M_2000C,
 )
 from dcs.point import PointAction
+from dcs.unittype import FlyingType
 from dcs.ships import KUZNECOW
-from dcs.terrain import NoParkingSlotError, Sinai, ParkingSlot
+from dcs.terrain import Airport, NoParkingSlotError, Sinai, ParkingSlot
 from dcs.terrain.sinai.airports import Nevatim, Ramon_Airbase
 from dcs.unitgroup import (
     FlyingGroup,
@@ -376,6 +377,12 @@ class FlightGroupSpawner:
         # player is generating the mission for multiplayer (which would need a new
         # option).
         self.flight.unit_type.dcs_unit_type.load_payloads()
+        if self.start_type is not StartType.RUNWAY:
+            parking_slots = usable_parking_slots(
+                airfield.airport,
+                self.flight.unit_type.dcs_unit_type,
+                parking_slots,
+            )
         return self.mission.flight_group_from_airport(
             country=self.country,
             name=name,
@@ -640,3 +647,42 @@ class FlightGroupSpawner:
             return DcsStartType.Runway
         else:
             return self.dcs_start_type()
+
+
+#: Slots that share a name this close together are one physical spot (bad
+#: terrain data, e.g. Ramat David's spot 02 has six entries in one shelter).
+DUPLICATE_SLOT_DISTANCE = 30
+#: Parking with this little headroom is usually a hardened shelter. An AI
+#: helicopter lifting off from inside one hits the roof.
+SHELTER_HEIGHT = 7
+
+
+def usable_parking_slots(
+    airport: Airport,
+    aircraft_type: Type[FlyingType],
+    slots: Optional[List[ParkingSlot]] = None,
+) -> List[ParkingSlot]:
+    """The free slots to spawn aircraft_type in, best first.
+
+    Never offers two entries for the same physical spot, and puts helicopters
+    in the open before any shelter.
+    """
+    if slots is None:
+        slots = airport.free_parking_slots(aircraft_type)
+
+    def same_spot(a: ParkingSlot, b: ParkingSlot) -> bool:
+        return (
+            a.slot_name == b.slot_name
+            and a.position.distance_to_point(b.position) < DUPLICATE_SLOT_DISTANCE
+        )
+
+    taken = [s for s in airport.parking_slots if s.unit_id is not None]
+    usable: List[ParkingSlot] = []
+    for slot in slots:
+        if any(same_spot(slot, other) for other in taken + usable):
+            continue
+        usable.append(slot)
+
+    if aircraft_type.helicopter:
+        usable.sort(key=lambda s: s.height is not None and s.height < SHELTER_HEIGHT)
+    return usable

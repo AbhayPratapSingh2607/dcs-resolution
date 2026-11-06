@@ -31,6 +31,7 @@ from game.server import EventStream
 from game.sim import GameUpdateEvents
 from qt_ui.simcontroller import SimController
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
+from qt_ui.windows.farplosses import report_lost_farps
 
 
 class DebriefingFileWrittenSignal(QObject):
@@ -223,16 +224,17 @@ class QWaitingForMissionResultWindow(QDialog):
         progress.setAutoReset(False)
         progress.show()
         QApplication.processEvents()
-        try:
-            with logged_duration("Turn processing"):
-                self.sim_controller.process_results(self.debriefing)
-                self.game.pass_turn()
+        with report_lost_farps(self.game, self.parentWidget()):
+            try:
+                with logged_duration("Turn processing"):
+                    self.sim_controller.process_results(self.debriefing)
+                    self.game.pass_turn()
 
-                GameUpdateSignal.get_instance().sendDebriefing(self.debriefing)
-                GameUpdateSignal.get_instance().updateGame(self.game)
-        finally:
-            progress.close()
-        self.close()
+                    GameUpdateSignal.get_instance().sendDebriefing(self.debriefing)
+                    GameUpdateSignal.get_instance().updateGame(self.game)
+            finally:
+                progress.close()
+            self.close()
 
     def closeEvent(self, evt):
         super(QWaitingForMissionResultWindow, self).closeEvent(evt)

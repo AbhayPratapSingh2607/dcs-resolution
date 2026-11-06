@@ -160,6 +160,8 @@ class TransitNetworkBuilder:
             cp
             for cp in self.control_points
             if cp.is_friendly(for_player) and cp.runway_is_operational()
+            # Dynamic FARPs only host helicopter detachments, never ground units.
+            and not cp.is_dynamic_farp
         }
 
     def build(self) -> TransitNetwork:

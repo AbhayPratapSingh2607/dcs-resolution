@@ -8,13 +8,25 @@ create the pydcs groups and statics for those areas and add them to the mission.
 
 from __future__ import annotations
 
+import copy
 import logging
+import math
 import random
 from collections import defaultdict
-from typing import Any, Dict, Iterator, List, Optional, TYPE_CHECKING, Type, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    TYPE_CHECKING,
+    Type,
+    Tuple,
+)
 
 import dcs.vehicles
-from dcs import Mission, Point, unitgroup
+from dcs import Mission, Point, helicopters, planes, unitgroup, vehicles
 from dcs.action import DoScript, SceneryDestructionZone
 from dcs.condition import MapObjectIsDead
 from dcs.countries import *
@@ -52,7 +64,7 @@ from dcs.triggers import (
     TriggerZone,
     TriggerZoneQuadPoint,
 )
-from dcs.unit import Unit, InvisibleFARP, BaseFARP, SingleHeliPad, FARP
+from dcs.unit import Unit, InvisibleFARP, BaseFARP, SingleHeliPad, FARP, FarpSingle01
 from dcs.unitgroup import MovingGroup, ShipGroup, StaticGroup, VehicleGroup
 from dcs.unittype import ShipType, VehicleType
 from dcs.vehicles import vehicle_map, Unarmed, Fortification as VehicleFortification
@@ -80,6 +92,21 @@ from game.theater import (
     TheaterUnit,
     NavalControlPoint,
     Airfield,
+)
+from game.missiongenerator.farpunits import (
+    country_lists,
+    AIRCRAFT_ROLES,
+    FarpUnit,
+    FarpUnitSet,
+)
+from game.theater.dynamicfarp import (
+    DynamicFarp,
+    FATCOW_LAYOUT,
+    WET_WING_LAYOUT,
+    LayoutObject,
+    fatcow_object_name,
+    layout_point,
+    pad_fire_crew,
 )
 from game.theater.theatergroundobject import (
     CarrierGroundObject,
@@ -849,6 +876,16 @@ class LhaGenerator(GenericCarrierGenerator):
         )
 
 
+#: Extra distance beyond a FARP's furthest object that still counts as engaging
+#: the FARP, in meters.
+FARP_DEFENSE_MARGIN = 60.0
+
+
+def _lua_string(value: str) -> str:
+    """Quotes a string as a Lua string literal."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 class HelipadGenerator:
     """
     Generates helipads for given control point
@@ -868,6 +905,30 @@ class HelipadGenerator:
         self.radio_registry = radio_registry
         self.tacan_registry = tacan_registry
         self.helipads: list[StaticGroup] = []
+        #: ATC frequency of a player-built FARP, allocated per mission.
+        self.atc: Optional[RadioFrequency] = None
+        #: Faction units for a player-built FARP's layout, chosen on first use.
+        self._farp_units: Optional[dict[str, FarpUnit]] = None
+        self._farp_unit_set: Optional[FarpUnitSet] = None
+
+    def _dynamic_pad_name(self, index: int) -> str:
+        """Name of a player-built FARP's landing spot, as shown in the DCS ATC
+        menu: "FARP Anvil Pad 1", "FARP Anvil Pad 2", ..."""
+        return f"{self.cp.name} Pad {index + 1}"
+
+    def _pad_frequency(self) -> Optional[RadioFrequency]:
+        if self.atc is not None:
+            return self.atc
+        if isinstance(self.cp, RadioFrequencyContainer):
+            return self.cp.frequency
+        return None
+
+    def _allocate_dynamic_farp_atc(self, farp: DynamicFarp) -> RadioFrequency:
+        if farp.frequency is not None:
+            if farp.frequency not in self.radio_registry.allocated_channels:
+                self.radio_registry.reserve(farp.frequency)
+            return farp.frequency
+        return self.radio_registry.alloc_uhf()
 
     def create_helipad(
         self, i: int, helipad: PointWithHeading, helipad_type: str
@@ -883,17 +944,44 @@ class HelipadGenerator:
                 self.game.coalition_for(self.cp.captured).faction.country.name
             )
 
+        # Internal name, also used for the pad's fuel/ammo/windsock statics (and so
+        # by the FARP destruction check).
         name = f"{self.cp.name} {helipad_type} {i}"
-        logging.info("Generating helipad static : " + name)
+        # The heliport's own name, which DCS shows in the ATC menu. Player-built
+        # FARPs use "FARP Anvil" for the main pad and "FARP Anvil Pad N" for the
+        # landing spots.
+        heliport_name = name
+        if self.cp.is_dynamic_farp:
+            if helipad_type == "FARP":
+                heliport_name = self.cp.name
+            else:
+                # Extra landing spots, numbered after the 4 around the main pad.
+                heliport_name = self._dynamic_pad_name(
+                    4 * len(self.cp.helipads_quad) + i
+                )
+        logging.info("Generating helipad static : " + heliport_name)
         terrain = self.m.terrain
         if helipad_type == "SINGLE_HELIPAD":
             pad = SingleHeliPad(
                 unit_id=self.m.next_unit_id(), name=name, terrain=terrain
             )
             number_of_pads = 1
+        elif helipad_type == "FARP" and self.cp.is_dynamic_farp:
+            # Player-built frontline FARPs: an invisible FARP as the main pad, with
+            # real "PAD single" helipads as the landing spots.
+            pad = InvisibleFARP(
+                unit_id=self.m.next_unit_id(), name=heliport_name, terrain=terrain
+            )
+            number_of_pads = 4
         elif helipad_type == "FARP":
             pad = FARP(unit_id=self.m.next_unit_id(), name=name, terrain=terrain)
             number_of_pads = 4
+        elif self.cp.is_dynamic_farp:
+            # Extra landing spots of player-built FARPs are "PAD single" helipads.
+            pad = FarpSingle01(
+                unit_id=self.m.next_unit_id(), name=heliport_name, terrain=terrain
+            )
+            number_of_pads = 1
         else:
             pad = InvisibleFARP(
                 unit_id=self.m.next_unit_id(), name=name, terrain=terrain
@@ -903,59 +991,54 @@ class HelipadGenerator:
         pad.heading = helipad.heading.degrees
 
         # Set FREQ
-        if isinstance(self.cp, RadioFrequencyContainer) and self.cp.frequency:
+        if (frequency := self._pad_frequency()) is not None:
             if isinstance(pad, BaseFARP):
-                pad.heliport_frequency = self.cp.frequency.mhz
+                pad.heliport_frequency = frequency.mhz
 
-        sg = unitgroup.StaticGroup(self.m.next_group_id(), name)
+        sg = unitgroup.StaticGroup(self.m.next_group_id(), heliport_name)
         sg.add_unit(pad)
         sp = StaticPoint(pad.position)
         sg.add_point(sp)
         neutral_country.add_static_group(sg)
 
+        # Landing spots that exist as real heliports in the mission and so need
+        # their own warehouse entry (see below).
+        spot_pads: list[BaseFARP] = []
         if number_of_pads > 1:
-            self.append_helipad(pad, name, helipad.heading.degrees, 60, 0, 0)
-            self.append_helipad(pad, name, helipad.heading.degrees + 180, 20, 0, 0)
-            self.append_helipad(
-                pad, name, helipad.heading.degrees + 90, 60, helipad.heading.degrees, 20
-            )
-            self.append_helipad(
-                pad,
-                name,
-                helipad.heading.degrees + 90,
-                60,
-                helipad.heading.degrees + 180,
-                60,
-            )
+            single_pads = self.cp.is_dynamic_farp
+            offsets = [
+                (helipad.heading.degrees, 60, 0, 0),
+                (helipad.heading.degrees + 180, 20, 0, 0),
+                (helipad.heading.degrees + 90, 60, helipad.heading.degrees, 20),
+                (
+                    helipad.heading.degrees + 90,
+                    60,
+                    helipad.heading.degrees + 180,
+                    60,
+                ),
+            ]
+            for k, (heading_1, distance_1, heading_2, distance_2) in enumerate(offsets):
+                spot = self.append_helipad(
+                    pad,
+                    name,
+                    heading_1,
+                    distance_1,
+                    heading_2,
+                    distance_2,
+                    single_pad_name=(
+                        self._dynamic_pad_name(k) if single_pads else None
+                    ),
+                )
+                if single_pads:
+                    spot_pads.append(spot)
         else:
             self.helipads.append(sg)
 
-        if self.game.position_culled(helipad):
-            cull_farp_statics = True
-            if self.cp.coalition.player.is_blue:
-                for package in self.cp.coalition.ato.packages:
-                    for flight in package.flights:
-                        if flight.squadron.location == self.cp:
-                            cull_farp_statics = False
-                            break
-                        elif flight.divert and flight.divert == self.cp:
-                            cull_farp_statics = False
-                            break
-        else:
-            cull_farp_statics = False
-
-        warehouse = Airport(
-            pad.position,
-            self.m.terrain,
-        ).dict()
-        if self.cp.coalition.player.is_neutral:
-            warehouse["coalition"] = "neutral"
-        elif self.cp.coalition.player.is_blue:
-            warehouse["coalition"] = "blue"
-        else:
-            warehouse["coalition"] = "red"
-        # configure dynamic spawn + hot start of DS, plus dynamic cargo?
+        cull_farp_statics = self._cull_statics(helipad)
+        warehouse = self._warehouse(pad)
         self.m.warehouses.warehouses[pad.id] = warehouse
+        for spot in spot_pads:
+            self.m.warehouses.warehouses[spot.id] = copy.deepcopy(warehouse)
 
         if not cull_farp_statics:
             # Generate a FARP Ammo and Fuel stack for each pad
@@ -982,6 +1065,18 @@ class HelipadGenerator:
                 position=helipad.point_from_heading(helipad.heading.degrees + 45, 35),
                 heading=pad.heading,
             )
+            if self.cp.is_dynamic_farp and number_of_pads > 1:
+                # The Wet Wing's C-130, guards and other props.
+                manpads = self._place_layout(
+                    WET_WING_LAYOUT,
+                    pad.position,
+                    helipad.heading,
+                    lambda key: f"{self.cp.name} {key}",
+                    country,
+                )
+                self._add_air_defense_trigger(
+                    manpads, self._farp_radius(WET_WING_LAYOUT)
+                )
 
     def append_helipad(
         self,
@@ -991,21 +1086,331 @@ class HelipadGenerator:
         distance_1: int,
         heading_2: int,
         distance_2: int,
-    ) -> None:
-        new_pad = InvisibleFARP(pad._terrain)
+        single_pad_name: Optional[str] = None,
+    ) -> BaseFARP:
+        """Adds a landing spot around a multi-pad FARP.
+
+        By default the spot is only a spawn position (it is not added to the
+        mission). If ``single_pad_name`` is given, a real "PAD single" helipad with
+        that name is placed in the mission at the spot.
+        """
+        new_pad: BaseFARP
+        if single_pad_name is None:
+            new_pad = InvisibleFARP(pad._terrain)
+        else:
+            new_pad = FarpSingle01(
+                unit_id=self.m.next_unit_id(),
+                name=single_pad_name,
+                terrain=pad._terrain,
+            )
+            new_pad.heliport_frequency = pad.heliport_frequency
         new_pad.position = pad.position.point_from_heading(heading_1, distance_1)
         new_pad.position = new_pad.position.point_from_heading(heading_2, distance_2)
-        sg = unitgroup.StaticGroup(self.m.next_group_id(), name)
+        if single_pad_name is not None:
+            # Only dynamic FARP pads face the FARP heading; campaign FARP spawn
+            # spots keep their default heading.
+            new_pad.heading = pad.heading
+        sg = unitgroup.StaticGroup(self.m.next_group_id(), single_pad_name or name)
         sg.add_unit(new_pad)
+        if single_pad_name is not None:
+            sg.add_point(StaticPoint(new_pad.position))
+            self.m.country(self.game.neutral_country.name).add_static_group(sg)
         self.helipads.append(sg)
+        return new_pad
+
+    def _cull_statics(self, position: Point) -> bool:
+        """True if the FARP's decorative statics should be left out."""
+        if not self.game.position_culled(position):
+            return False
+        if self.cp.coalition.player.is_blue:
+            for package in self.cp.coalition.ato.packages:
+                for flight in package.flights:
+                    if flight.squadron.location == self.cp:
+                        return False
+                    elif flight.divert and flight.divert == self.cp:
+                        return False
+        return True
+
+    def _warehouse(self, pad: BaseFARP) -> dict[str, Any]:
+        warehouse = Airport(
+            pad.position,
+            self.m.terrain,
+        ).dict()
+        if self.cp.coalition.player.is_neutral:
+            warehouse["coalition"] = "neutral"
+        elif self.cp.coalition.player.is_blue:
+            warehouse["coalition"] = "blue"
+        else:
+            warehouse["coalition"] = "red"
+        # configure dynamic spawn + hot start of DS, plus dynamic cargo?
+        if self.cp.is_dynamic_farp:
+            # Player-built FARPs only host the aircraft of their detachments, which
+            # are generated as regular flight groups. Never allow aircraft to be
+            # spawned from the FARP's warehouse.
+            warehouse["unlimitedAircrafts"] = False
+            warehouse["aircrafts"] = {}
+            warehouse["dynamicSpawn"] = False
+            warehouse["allowHotStart"] = False
+        return warehouse
+
+    def generate_fatcow(self, farp: DynamicFarp) -> None:
+        """Generates a Fat Cow FARP: two "PAD single" helipads and the visible
+        ground layout of the CG FATCOW script."""
+        terrain = self.m.terrain
+        neutral_country = self.m.country(self.game.neutral_country.name)
+        for i, helipad in enumerate(farp.helipads_invisible):
+            name = self._dynamic_pad_name(i)
+            pad = FarpSingle01(
+                unit_id=self.m.next_unit_id(), name=name, terrain=terrain
+            )
+            pad.position = Point(helipad.x, helipad.y, terrain=terrain)
+            pad.heading = helipad.heading.degrees
+            if (frequency := self._pad_frequency()) is not None:
+                pad.heliport_frequency = frequency.mhz
+            sg = unitgroup.StaticGroup(self.m.next_group_id(), name)
+            sg.add_unit(pad)
+            sg.add_point(StaticPoint(pad.position))
+            # Helipads are neutral so they don't interfere with capture triggers.
+            neutral_country.add_static_group(sg)
+            self.m.warehouses.warehouses[pad.id] = self._warehouse(pad)
+            self.helipads.append(sg)
+
+        if self._cull_statics(farp.position):
+            return
+
+        country = self.m.country(farp.coalition.faction.country.name)
+        manpads = self._place_layout(
+            FATCOW_LAYOUT,
+            farp.position,
+            farp.farp_heading,
+            lambda key: fatcow_object_name(farp.name, key),
+            country,
+        )
+        self._add_air_defense_trigger(manpads, self._farp_radius(FATCOW_LAYOUT))
+
+    def _layout_types(self) -> dict[str, FarpUnit]:
+        """DCS types (and liveries) for the roles used in dynamic FARP layouts.
+
+        The MANPAD team and transport aircraft come from the owning faction (see
+        farpunits.py). Soldiers vary by position; see _place_layout.
+        """
+        types = {
+            "tent": FarpUnit(Fortification.FARP_Tent),
+            "fuel_depot": FarpUnit(Fortification.FARP_Fuel_Depot),
+            "ammo": FarpUnit(Fortification.FARP_Ammo_Dump_Coating),
+            "generator": FarpUnit(Fortification.M32_10C_01),
+            "extinguisher": FarpUnit(Fortification.FireExtinguisher01),
+        }
+        if self._farp_units is None:
+            unit_set = self._farp_units_set()
+            self._farp_units = {
+                role: unit_set.unit_for(role, self.cp.name)
+                for role in ("manpad", *AIRCRAFT_ROLES)
+            }
+            if isinstance(self.cp, DynamicFarp) and self.cp.setup_aircraft:
+                # Show the aircraft that actually flew the equipment in.
+                role = "fatcow_helicopter" if self.cp.is_fat_cow else "transport_plane"
+                self._farp_units[role] = unit_set.aircraft_unit(
+                    self.cp.setup_aircraft.dcs_unit_type
+                )
+        types.update(self._farp_units)
+        return types
+
+    def _farp_units_set(self) -> FarpUnitSet:
+        if self._farp_unit_set is None:
+            self._farp_unit_set = FarpUnitSet(self.cp.coalition)
+        return self._farp_unit_set
+
+    def _place_layout(
+        self,
+        objects: list[LayoutObject],
+        origin: Point,
+        heading: Heading,
+        name_for: Callable[[str], str],
+        country: Country,
+    ) -> list[str]:
+        """Places layout objects relative to origin and heading.
+
+        Everything is a static except the MANPAD teams, which are live air defense
+        units holding fire (see _add_air_defense_trigger). Returns the names of
+        the MANPAD groups.
+        """
+        types = self._layout_types()
+        manpads: list[str] = []
+        for obj in objects:
+            name = name_for(obj.key)
+            position = layout_point(origin, heading, obj.forward, obj.right)
+            facing = (heading.degrees + obj.heading_offset) % 360
+            if obj.role == "soldier":
+                # A mix of the faction's infantry, like a front line squad.
+                unit = self._farp_units_set().unit_for("soldier", name)
+            else:
+                unit = types[obj.role]
+            owner = country
+            if issubclass(unit.dcs_type, VehicleType):
+                owner = self._country_listing(unit.dcs_type, country)
+            if obj.role == "manpad" and issubclass(unit.dcs_type, VehicleType):
+                group = self.m.vehicle_group(
+                    owner, name, unit.dcs_type, position, heading=facing
+                )
+                if unit.livery:
+                    group.units[0].livery_id = unit.livery
+                group.points[0].tasks.append(OptROE(OptROE.Values.WeaponHold))
+                manpads.append(name)
+                continue
+            static = self.m.static_group(
+                country=owner,
+                name=name,
+                _type=unit.dcs_type,
+                position=position,
+                heading=facing,
+            )
+            # pydcs names a static's unit "<group name> object", which reads like
+            # it points to some other object. Use the plain name.
+            static.units[0].name = name
+            if unit.livery:
+                static.units[0].livery_id = unit.livery
+        return manpads
+
+    def _country_listing(
+        self, dcs_type: Type[VehicleType], country: Country
+    ) -> Country:
+        """The country to place a FARP ground unit under, so the Mission Editor
+        shows it as what it is.
+
+        That's the faction's country if it lists the unit (see country_lists).
+        Otherwise it's the Combined Joint Task Forces country of the same side,
+        which lists nearly everything, e.g. the Georgian M4 FARP soldiers of a USA
+        faction.
+        """
+        if country_lists(country, dcs_type):
+            return country
+        cjtf: Country
+        if self.cp.coalition.player.is_blue:
+            side, cjtf = "blue", CombinedJointTaskForcesBlue()
+        else:
+            side, cjtf = "red", CombinedJointTaskForcesRed()
+        coalition = self.m.coalition[side]
+        if (existing := coalition.country(cjtf.name)) is not None:
+            return existing
+        neutrals = self.m.coalition["neutrals"]
+        if neutrals.country(cjtf.name) is not None:
+            return neutrals.swap_country(coalition, cjtf.name)
+        if self.m.country(cjtf.name) is not None:
+            # It's on the other side; the faction's country is the best we have.
+            return country
+        return coalition.add_country(cjtf)
+
+    def _farp_radius(self, objects: list[LayoutObject]) -> float:
+        """Radius around the FARP point that covers its layout and pads, plus a
+        margin."""
+        distances = [math.hypot(obj.forward, obj.right) for obj in objects]
+        for pad in (
+            self.cp.helipads + self.cp.helipads_quad + self.cp.helipads_invisible
+        ):
+            distances.append(pad.distance_to_point(self.cp.position))
+        # The Wet Wing's landing spots lie up to ~85m out around its main pad.
+        distances.append(85)
+        return max(distances) + FARP_DEFENSE_MARGIN
+
+    def _add_air_defense_trigger(self, manpads: list[str], radius: float) -> None:
+        """Releases the FARP's MANPADs once the FARP is engaged.
+
+        The MANPAD teams start on weapon hold. A mission start script switches them
+        to open fire as soon as an enemy hits or kills anything within the FARP's
+        radius: its props, the transport aircraft, or helicopters on the pads.
+        """
+        if not manpads:
+            return
+        side = 2 if self.cp.captured.is_blue else 1
+        groups = ", ".join(_lua_string(name) for name in manpads)
+        script = f"""do
+  local farpName = {_lua_string(self.cp.name)}
+  local side = {side}
+  local groups = {{ {groups} }}
+  local center = {{ x = {self.cp.position.x:.1f}, z = {self.cp.position.y:.1f} }}
+  local radius = {radius:.0f}
+  local armed = false
+
+  local function arm()
+    armed = true
+    for _, name in ipairs(groups) do
+      local group = Group.getByName(name)
+      if group and group:isExist() then
+        group:getController():setOption(
+          AI.Option.Ground.id.ROE, AI.Option.Ground.val.ROE.OPEN_FIRE
+        )
+      end
+    end
+    trigger.action.outTextForCoalition(
+      side, farpName .. " is under attack. FARP air defense weapons free.", 15
+    )
+  end
+
+  local function nearFarp(object)
+    if not object then return false end
+    local ok, point = pcall(function() return object:getPoint() end)
+    if not ok or not point then return false end
+    local dx, dz = point.x - center.x, point.z - center.z
+    return dx * dx + dz * dz <= radius * radius
+  end
+
+  local function byEnemy(initiator)
+    if not initiator then return true end
+    local ok, coalition = pcall(function() return initiator:getCoalition() end)
+    return not ok or coalition ~= side
+  end
+
+  local handler = {{}}
+  function handler:onEvent(event)
+    if armed then return end
+    if event.id ~= world.event.S_EVENT_HIT and event.id ~= world.event.S_EVENT_KILL then
+      return
+    end
+    if byEnemy(event.initiator) and nearFarp(event.target) then
+      arm()
+    end
+  end
+  world.addEventHandler(handler)
+end"""
+        trigger = TriggerStart(comment=f"{self.cp.name} air defense")
+        trigger.add_action(DoScript(String(script)))
+        self.m.triggerrules.triggers.append(trigger)
+
+    def _place_pad_fire_crews(self) -> None:
+        """A fire extinguisher and crew just ahead of each Wet Wing landing spot."""
+        if self._cull_statics(self.cp.position):
+            return
+        country = self.m.country(self.cp.coalition.faction.country.name)
+        for i, spot in enumerate(self.helipads):
+            unit = spot.units[0]
+            self._place_layout(
+                pad_fire_crew(i, 0, 0),
+                unit.position,
+                Heading.from_degrees(unit.heading),
+                lambda key: f"{self.cp.name} {key}",
+                country,
+            )
 
     def generate(self) -> None:
+        if isinstance(self.cp, DynamicFarp) and not self.cp.established:
+            # Nothing has been delivered to the site yet.
+            return
+        if isinstance(self.cp, DynamicFarp):
+            # Each player-built FARP gets one ATC frequency that all its pads
+            # broadcast on.
+            self.atc = self._allocate_dynamic_farp_atc(self.cp)
+        if isinstance(self.cp, DynamicFarp) and self.cp.is_fat_cow:
+            self.generate_fatcow(self.cp)
+            return
         for i, helipad in enumerate(self.cp.helipads):
             self.create_helipad(i, helipad, "SINGLE_HELIPAD")
         for i, helipad in enumerate(self.cp.helipads_quad):
             self.create_helipad(i, helipad, "FARP")
         for i, helipad in enumerate(self.cp.helipads_invisible):
             self.create_helipad(i, helipad, "Invisible FARP")
+        if self.cp.is_dynamic_farp:
+            self._place_pad_fire_crews()
 
 
 class GroundSpawnRoadbaseGenerator:

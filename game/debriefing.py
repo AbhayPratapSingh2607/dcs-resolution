@@ -148,6 +148,9 @@ class StateData:
     #: UUID strings of downed pilots confirmed rescued in-mission by Ops.CSAR.
     rescued_pilot_ids: List[str]
 
+    #: Ids of player FARPs whose equipment was flown in during the mission.
+    farp_setup_events: List[str]
+
     @classmethod
     def from_json(cls, data: Dict[str, Any], unit_map: UnitMap) -> StateData:
         def clean_unit_list(unit_list: List[Any]) -> List[str]:
@@ -196,6 +199,7 @@ class StateData:
             base_capture_events=data.get("base_capture_events", []),
             ejections=ejections,
             rescued_pilot_ids=[str(x) for x in data.get("csar_rescued", [])],
+            farp_setup_events=[str(e) for e in data.get("farp_setup_events", [])],
         )
 
 

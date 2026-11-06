@@ -72,6 +72,7 @@ GENERAL_SECTION = "General"
 PILOTS_AND_SQUADRONS_SECTION = "Pilots and Squadrons"
 HQ_AUTOMATION_SECTION = "HQ Automation"
 FLIGHT_PLANNER_AUTOMATION = "Flight Planner Automation"
+DYNAMIC_FARPS_SECTION = "Dynamic FARPs"
 
 CAMPAIGN_DOCTRINE_PAGE = "Campaign Doctrine"
 DOCTRINE_DISTANCES_SECTION = "Doctrine distances"
@@ -807,6 +808,85 @@ class Settings:
             "Number of turns a rescued human pilot is unavailable (recovering) before "
             "returning to active duty."
         ),
+    )
+
+    # Dynamic FARPs
+    enable_dynamic_farps: bool = boolean_option(
+        "Enable player-established FARPs",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=False,
+        detail=(
+            "Allows the player to establish FARPs in friendly territory near the "
+            "front line and station helicopter detachments at them. A Wet Wing FARP "
+            "(set up by a C-130) holds more helicopters; a Fat Cow FARP (set up by a "
+            "CH-47) holds 2 and is cheaper."
+        ),
+    )
+    wet_wing_farp_deploy_cost: int = bounded_int_option(
+        "Wet Wing FARP deployment cost",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=250,
+        min=0,
+        max=2000,
+    )
+    wet_wing_farp_upkeep: int = bounded_int_option(
+        "Wet Wing FARP upkeep per turn",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=25,
+        min=0,
+        max=500,
+    )
+    wet_wing_farp_capacity: int = bounded_int_option(
+        "Wet Wing FARP helicopter capacity",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=4,
+        min=1,
+        max=12,
+    )
+    fat_cow_farp_deploy_cost: int = bounded_int_option(
+        "Fat Cow FARP deployment cost",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=150,
+        min=0,
+        max=2000,
+    )
+    fat_cow_farp_upkeep: int = bounded_int_option(
+        "Fat Cow FARP upkeep per turn",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=15,
+        min=0,
+        max=500,
+    )
+    max_farps: int = bounded_int_option(
+        "Maximum number of FARPs",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=4,
+        min=0,
+        max=15,
+        detail="Wet Wing and Fat Cow FARPs together.",
+    )
+    farp_min_frontline_distance: int = bounded_int_option(
+        "FARP minimum distance from front (nm)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=3,
+        min=0,
+        max=30,
+    )
+    farp_max_frontline_distance: int = bounded_int_option(
+        "FARP maximum distance from front (nm)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=20,
+        min=1,
+        max=60,
     )
 
     # HQ Automation
@@ -1702,6 +1782,9 @@ class Settings:
     enable_frontline_cheats: bool = False
     enable_base_capture_cheat: bool = False
     enable_transfer_cheat: bool = False
+    #: Player FARPs are set up as soon as they're ordered, without a transport
+    #: having to fly their equipment in.
+    enable_instant_farp_cheat: bool = False
     enable_runway_state_cheat: bool = False
     enable_air_wing_adjustments: bool = False
     enable_enemy_buy_sell: bool = False

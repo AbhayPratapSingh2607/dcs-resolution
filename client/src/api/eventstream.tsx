@@ -2,7 +2,8 @@ import { AppDispatch } from "../app/store";
 import { gameUnloaded } from "./actions";
 import Combat from "./combat";
 import { endCombats, newCombats, updateCombats } from "./combatSlice";
-import { updateControlPoint } from "./controlPointsSlice";
+import { deleteControlPoint, updateControlPoint } from "./controlPointsSlice";
+import { FarpKind, farpPlacementRequested } from "./farpPlacementSlice";
 import {
   deselectFlight,
   registerFlights,
@@ -52,6 +53,8 @@ interface GameUpdateEvents {
   deleted_front_lines: string[];
   updated_tgos: Tgo[];
   updated_control_points: ControlPoint[];
+  deleted_control_points: string[];
+  farp_placement_kind: FarpKind | null;
   updated_iads: IadsConnection[];
   deleted_iads: string[];
   updated_supply_routes: SupplyRoute[];
@@ -128,6 +131,14 @@ export const handleStreamedEvents = (
 
   if (events.updated_control_points.length > 0) {
       dispatch(updateControlPoint(events.updated_control_points));
+  }
+
+  if (events.deleted_control_points.length > 0) {
+    dispatch(deleteControlPoint(events.deleted_control_points));
+  }
+
+  if (events.farp_placement_kind != null) {
+    dispatch(farpPlacementRequested(events.farp_placement_kind));
   }
 
   if (events.deleted_iads.length > 0) {

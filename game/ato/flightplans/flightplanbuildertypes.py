@@ -29,6 +29,7 @@ from .strike import StrikeFlightPlan
 from .sweep import SweepFlightPlan
 from .tarcap import TarCapFlightPlan
 from .theaterrefueling import TheaterRefuelingFlightPlan
+from .farpsetup import FarpSetupFlightPlan, is_farp_setup_target
 
 if TYPE_CHECKING:
     from game.ato import Flight
@@ -38,6 +39,11 @@ class FlightPlanBuilderTypes:
     @staticmethod
     def for_flight(flight: Flight) -> Type[IBuilder[Any, Any]]:
         from game.theater import FrontLine
+
+        if flight.flight_type is FlightType.TRANSPORT and is_farp_setup_target(
+            flight.package.target
+        ):
+            return FarpSetupFlightPlan.builder_type()
 
         if flight.flight_type is FlightType.REFUELING:
             if flight.package.target.is_friendly(flight.squadron.player) or isinstance(

@@ -8,6 +8,21 @@ const injectedRtkApi = api.injectEndpoints({
     >({
       query: () => ({ url: `/control-points/` }),
     }),
+    checkFarpSite: build.query<CheckFarpSiteApiResponse, CheckFarpSiteApiArg>({
+      query: (queryArg) => ({
+        url: `/control-points/farp-site-check`,
+        params: { lat: queryArg.lat, lng: queryArg.lng, kind: queryArg.kind },
+      }),
+    }),
+    establishFarp: build.mutation<EstablishFarpApiResponse, EstablishFarpApiArg>(
+      {
+        query: (queryArg) => ({
+          url: `/control-points/farps`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+      }
+    ),
     getControlPointById: build.query<
       GetControlPointByIdApiResponse,
       GetControlPointByIdApiArg
@@ -42,6 +57,14 @@ const injectedRtkApi = api.injectEndpoints({
         method: "PUT",
       }),
     }),
+    dismantleFarp: build.mutation<DismantleFarpApiResponse, DismantleFarpApiArg>(
+      {
+        query: (queryArg) => ({
+          url: `/control-points/${queryArg.cpId}/farp`,
+          method: "DELETE",
+        }),
+      }
+    ),
     getDebugHoldZones: build.query<
       GetDebugHoldZonesApiResponse,
       GetDebugHoldZonesApiArg
@@ -290,6 +313,23 @@ export type ClearControlPointDestinationApiResponse =
 export type ClearControlPointDestinationApiArg = {
   cpId: string;
 };
+export type CheckFarpSiteApiResponse =
+  /** status 200 Successful Response */ FarpSiteCheck;
+export type CheckFarpSiteApiArg = {
+  lat: number;
+  lng: number;
+  kind: string;
+};
+export type EstablishFarpApiResponse =
+  /** status 200 Successful Response */ ControlPoint;
+export type EstablishFarpApiArg = {
+  body: NewFarp;
+};
+export type DismantleFarpApiResponse =
+  /** status 204 Successful Response */ undefined;
+export type DismantleFarpApiArg = {
+  cpId: string;
+};
 export type GetDebugHoldZonesApiResponse =
   /** status 200 Successful Response */ HoldZones;
 export type GetDebugHoldZonesApiArg = {
@@ -443,6 +483,16 @@ export type ControlPoint = {
   mobile: boolean;
   destination?: LatLng;
   sidc: string;
+  dynamic_farp_kind?: string;
+};
+export type FarpSiteCheck = {
+  valid: boolean;
+  reasons: string[];
+  cost: number;
+};
+export type NewFarp = {
+  position: LatLng;
+  kind: string;
 };
 export type ValidationError = {
   loc: (string | number)[];
@@ -582,10 +632,13 @@ export type MapZones = {
 };
 export const {
   useListControlPointsQuery,
+  useCheckFarpSiteQuery,
+  useEstablishFarpMutation,
   useGetControlPointByIdQuery,
   useControlPointDestinationInRangeQuery,
   useSetControlPointDestinationMutation,
   useClearControlPointDestinationMutation,
+  useDismantleFarpMutation,
   useGetDebugHoldZonesQuery,
   useGetDebugJoinZonesQuery,
   useListFlightsQuery,

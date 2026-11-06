@@ -16,7 +16,10 @@ from game.ato.flightstate import Uninitialized
 from game.ato.package import Package
 from game.ato.traveltime import TotEstimator
 from game.profiling import logged_duration
+from game.server import EventStream
 from game.settings.settings import FastForwardStopCondition
+from game.sim import GameUpdateEvents
+from game.theater.dynamicfarp import FarpKind
 from game.utils import meters
 from qt_ui.models import GameModel
 from qt_ui.simcontroller import SimController
@@ -31,6 +34,7 @@ from qt_ui.windows.AirWingDialog import AirWingDialog
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
 from qt_ui.windows.PendingTransfersDialog import PendingTransfersDialog
 from qt_ui.windows.QWaitingForMissionResultWindow import QWaitingForMissionResultWindow
+from qt_ui.windows.farplosses import report_lost_farps
 
 
 class QTopPanel(QFrame):
@@ -76,6 +80,29 @@ class QTopPanel(QFrame):
         self.transfers.setProperty("style", "btn-primary")
         self.transfers.clicked.connect(self.open_transfers)
 
+        self.wet_wing = QPushButton("Wet Wing")
+        self.wet_wing.setProperty("style", "btn-primary")
+        self.wet_wing.setToolTip(
+            "Place a Wet Wing FARP (set up by a C-130) on the map: more "
+            "helicopters, costs more."
+        )
+        self.wet_wing.clicked.connect(lambda: self.place_farp(FarpKind.WET_WING))
+
+        self.fat_cow = QPushButton("Fat Cow")
+        self.fat_cow.setProperty("style", "btn-primary")
+        self.fat_cow.setToolTip(
+            "Place a Fat Cow FARP (set up by a CH-47) on the map: 2 helicopters, "
+            "cheaper."
+        )
+        self.fat_cow.clicked.connect(lambda: self.place_farp(FarpKind.FAT_COW))
+
+        self.farpBox = QGroupBox("FARPs")
+        self.farpBoxLayout = QHBoxLayout()
+        self.farpBoxLayout.addWidget(self.wet_wing)
+        self.farpBoxLayout.addWidget(self.fat_cow)
+        self.farpBox.setLayout(self.farpBoxLayout)
+        self.farpBox.setVisible(False)
+
         self.intel_box = QIntelBox(self.game)
 
         self.buttonBox = QGroupBox("Misc")
@@ -98,6 +125,8 @@ class QTopPanel(QFrame):
         self.controls = [
             self.air_wing,
             self.transfers,
+            self.wet_wing,
+            self.fat_cow,
             self.simSpeedControls,
             self.passTurnButton,
             self.proceedButton,
@@ -110,6 +139,7 @@ class QTopPanel(QFrame):
         self.layout.addWidget(self.budgetBox)
         self.layout.addWidget(self.intel_box)
         self.layout.addWidget(self.buttonBox)
+        self.layout.addWidget(self.farpBox)
         self.layout.addStretch(1)
         self.layout.addWidget(self.proceedBox)
 
@@ -143,6 +173,9 @@ class QTopPanel(QFrame):
         self.intel_box.set_game(game)
         self.budgetBox.setGame(game)
         self.factionsInfos.setGame(game)
+        # The game model may not have switched to the new game yet (its handler
+        # runs after this one), so check the game being loaded.
+        self.update_farp_buttons(game)
 
         self.setControls(True)
 
@@ -155,6 +188,16 @@ class QTopPanel(QFrame):
         else:
             raise RuntimeError(f"game.turn out of bounds!\n  value = {game.turn}")
 
+    def update_farp_buttons(self, game: Optional[Game] = None) -> None:
+        """Shows the FARP buttons only while dynamic FARPs are enabled."""
+        if game is None:
+            game = self.game
+        self.farpBox.setVisible(game is not None and game.settings.enable_dynamic_farps)
+
+    @staticmethod
+    def place_farp(kind: FarpKind) -> None:
+        EventStream.put_nowait(GameUpdateEvents().begin_farp_placement(kind.value))
+
     def open_air_wing(self):
         self.dialog = AirWingDialog(self.game_model, self.window())
         self.dialog.show()
@@ -164,12 +207,13 @@ class QTopPanel(QFrame):
         self.dialog.show()
 
     def passTurn(self):
-        with logged_duration("Skipping turn"):
-            self.game.pass_turn(no_action=True)
-            GameUpdateSignal.get_instance().updateGame(self.game)
-            state = self.game_model.game.check_win_loss()
-            GameUpdateSignal.get_instance().gameStateChanged(state)
-            self.proceedButton.setEnabled(True)
+        with report_lost_farps(self.game, self.window()):
+            with logged_duration("Skipping turn"):
+                self.game.pass_turn(no_action=True)
+                GameUpdateSignal.get_instance().updateGame(self.game)
+                state = self.game_model.game.check_win_loss()
+                GameUpdateSignal.get_instance().gameStateChanged(state)
+                self.proceedButton.setEnabled(True)
 
     def negative_start_packages(self, now: datetime) -> List[Package]:
         packages = []
