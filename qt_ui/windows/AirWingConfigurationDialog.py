@@ -101,6 +101,12 @@ class MissionTypeControls(QGridLayout):
             )
 
 
+def editable_squadrons(squadrons: list[Squadron]) -> list[Squadron]:
+    """The squadrons this dialog edits: not FARP detachments, which belong to
+    their parent squadron and are managed from the FARP's base menu."""
+    return [squadron for squadron in squadrons if not squadron.is_detachment]
+
+
 class SquadronBaseSelector(QComboBox):
     """A combo box for selecting a squadrons home air base.
 
@@ -116,7 +122,9 @@ class SquadronBaseSelector(QComboBox):
     ) -> None:
         super().__init__()
         self.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.bases = list(bases)
+        # Player-built FARPs only host detachments, which are managed from the
+        # FARP's base menu.
+        self.bases = [base for base in bases if not base.is_dynamic_farp]
         self.set_aircraft_type(aircraft_type)
 
         if selected_base:
@@ -561,7 +569,8 @@ class AircraftSquadronsPanel(QStackedLayout):
         self.squadrons_pages: dict[AircraftType, AircraftSquadronsPage] = {}
         self.aircraft_present = aircraft_present
         for aircraft, squadrons in self.air_wing.squadrons.items():
-            self.new_page_for_type(aircraft, squadrons)
+            if editable := editable_squadrons(squadrons):
+                self.new_page_for_type(aircraft, editable)
 
     @property
     def air_wing(self) -> AirWing:
@@ -600,16 +609,25 @@ class AircraftSquadronsPanel(QStackedLayout):
         self.update()
 
     def apply(self) -> None:
+        detachments = [s for s in self.air_wing.iter_squadrons() if s.is_detachment]
         self.air_wing.squadrons = {}
         for aircraft, page in self.squadrons_pages.items():
             self.air_wing.squadrons[aircraft] = page.apply()
+        # Detachments aren't edited here; keep those whose squadron was kept.
+        kept = set(self.air_wing.iter_squadrons())
+        for detachment in detachments:
+            if detachment.parent in kept:
+                self.air_wing.squadrons.setdefault(detachment.aircraft, []).append(
+                    detachment
+                )
 
     def revert(self) -> None:
         for _, page in self.squadrons_pages.items():
             self.removeWidget(page)
         self.squadrons_pages: dict[AircraftType, AircraftSquadronsPage] = {}
         for aircraft, squadrons in self.air_wing.squadrons.items():
-            self.new_page_for_type(aircraft, squadrons)
+            if editable := editable_squadrons(squadrons):
+                self.new_page_for_type(aircraft, editable)
         self.update()
 
 
