@@ -68,8 +68,7 @@ submenus: AA missiles, AG missiles, guided bombs, bombs, rockets, fuel tanks and
 * **Releases:** Packaged builds are posted on the
   [Releases page](https://github.com/AbhayPratapSingh2607/dcs-retribution/releases) when available.
 
-The documentation in [`docs/resolution`](docs/resolution/Home.md) is also published on the
-[project wiki](https://github.com/AbhayPratapSingh2607/dcs-retribution/wiki).
+The full Resolution guide is in [`docs/resolution`](docs/resolution/Home.md).
 
 ## About DCS Retribution
 
