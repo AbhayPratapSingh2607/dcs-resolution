@@ -1,3 +1,17 @@
+# DCS Resolution
+
+Resolution is a fork of DCS Retribution. These changes are on top of the Retribution version below.
+See docs/resolution/Changelog.md for details and docs/resolution for how to use each feature.
+
+## Features/Improvements
+* **[CSAR]** Turn-based combat search and rescue. Downed pilots stay on the map for several turns. AI and player helicopters can rescue them. Pilots who aren't rescued go missing in action or are taken prisoner, and rescued pilots spend a few turns recovering. (Retribution PR #929)
+* **[FARPs]** Dynamic FARPs. Build Wet Wing (C-130) or Fat Cow (CH-47) FARPs near the front, and station helicopter detachments at them.
+* **[Loadouts]** Payloads are listed by their mission editor label. Stations use mission editor labels, and weapons are sorted into category submenus.
+* **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
+
+## Fixes
+* **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.
+
 # Retribution v1.6.0
 
 ## Features/Improvements
