@@ -4,7 +4,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import QComboBox, QWidget, QHBoxLayout, QPushButton
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from game import Game
 from game.ato.flight import Flight
@@ -15,6 +15,9 @@ from .QWeaponSettingsDialog import QWeaponSettingsDialog
 
 
 class QPylonEditor(QWidget):
+    #: The user loaded a different store; carries the station number.
+    changed = Signal(int)
+
     def __init__(
         self, game: Game, flight: Flight, flight_member: FlightMember, pylon: Pylon
     ) -> None:
@@ -103,6 +106,34 @@ class QPylonEditor(QWidget):
             logging.debug(f"Pylon {self.pylon.number} emptied")
         else:
             logging.debug(f"Pylon {self.pylon.number} changed to {selected.name}")
+        self.changed.emit(self.pylon.number)
+
+    def show_weapon(self, weapon: Optional[Weapon]) -> None:
+        """Shows a store loaded by something other than this editor, without
+        reporting it as a change. Adds it to the list if it isn't there (e.g.
+        Clean, or a store the date restriction hides)."""
+        index = 0
+        if weapon is not None:
+            index = next(
+                (
+                    i
+                    for i in range(1, self.weapon_combo.count())
+                    if self.weapon_combo.itemData(i) == weapon
+                ),
+                -1,
+            )
+            if index < 0:
+                name = "Clean" if weapon.clsid == "<CLEAN>" else weapon.name
+                self.weapon_combo.addItem(name, weapon)
+                if weapon.clsid == "<CLEAN>":
+                    self.has_added_clean_item = True
+                index = self.weapon_combo.count() - 1
+        self.weapon_combo.blockSignals(True)
+        try:
+            self.weapon_combo.setCurrentIndex(index)
+        finally:
+            self.weapon_combo.blockSignals(False)
+        self.update_settings_button_visibility()
 
     def weapon_from_loadout(self, loadout: Loadout) -> Optional[Weapon]:
         weapon = loadout.pylons.get(self.pylon.number)

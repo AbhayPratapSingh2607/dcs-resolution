@@ -65,6 +65,35 @@ class PylonRules:
         adapter = cls._adapters.get(aircraft_id)
         if adapter is not None:
             payload = adapter(dict(payload))
+        return cls._drop_unmet(aircraft_id, payload)
+
+    @classmethod
+    def select(
+        cls, aircraft_id: str, payload: Payload, station: int, clsid: Optional[str]
+    ) -> Payload:
+        """Loads a store the way the mission editor does: the stores it needs are
+        loaded with it (and those stores' own needs), and stores elsewhere whose
+        needs are no longer met are removed. None empties the station."""
+        payload = dict(payload)
+        if clsid is None:
+            payload.pop(station, None)
+            return cls._drop_unmet(aircraft_id, payload)
+        payload[station] = clsid
+        pending = [(station, clsid)]
+        while pending:
+            loaded_station, loaded = pending.pop()
+            for required_station, required in cls.requirements(
+                aircraft_id, loaded_station, loaded
+            ):
+                if payload.get(required_station) != required:
+                    payload[required_station] = required
+                    pending.append((required_station, required))
+        return cls._drop_unmet(aircraft_id, payload)
+
+    @classmethod
+    def _drop_unmet(cls, aircraft_id: str, payload: Payload) -> Payload:
+        """Drops stores whose rules aren't met (which can in turn break others'
+        rules, so until nothing changes)."""
         rules = cls._rules.get(aircraft_id)
         if not rules:
             return payload

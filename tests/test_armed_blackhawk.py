@@ -144,3 +144,51 @@ def test_submod_stations_are_dropped_while_it_is_disabled() -> None:
     assert {n: w.clsid for n, w in final.pylons.items() if w is not None} == {
         3: "{UH60L_M134_GUNNER}"
     }
+
+
+def test_loading_a_store_loads_what_it_needs_like_the_mission_editor(
+    submod: None,
+) -> None:
+    uh60 = AircraftType.named("UH-60L")
+    loadout = Loadout("Custom", {3: weapon("{UH60L_M134_GUNNER}")}, date=None)
+
+    changed = loadout.load_store(uh60, 2, weapon("{SEAHAWK_FUEL_TANK_120}"))
+
+    # The other tank, the MH-60R airframe, and (for the airframe) no stub wings.
+    assert changed == {6, 8, 9}
+    assert {n: w.clsid for n, w in loadout.pylons.items() if w is not None} == {
+        2: "{SEAHAWK_FUEL_TANK_120}",
+        3: "{UH60L_M134_GUNNER}",
+        6: "{SEAHAWK_FUEL_TANK_120}",
+        8: "{AB_60R}",
+        9: "<CLEAN>",
+    }
+
+
+def test_changing_a_store_removes_the_ones_that_needed_it(submod: None) -> None:
+    uh60 = AircraftType.named("UH-60L")
+    loadout = Loadout("Custom", {}, date=None)
+    loadout.load_store(uh60, 2, weapon("{SEAHAWK_FUEL_TANK_120}"))
+    loadout.pylon_settings[6] = {"some": "setting"}
+
+    changed = loadout.load_store(uh60, 8, weapon("{AB_MH60J}"))
+
+    assert changed == {2, 6}
+    assert {n: w.clsid for n, w in loadout.pylons.items() if w is not None} == {
+        8: "{AB_MH60J}",
+        9: "<CLEAN>",
+    }
+    assert 6 not in loadout.pylon_settings
+
+    # Emptying a tank's station takes the other tank with it too.
+    loadout.load_store(uh60, 2, weapon("{SEAHAWK_FUEL_TANK_120}"))
+    assert loadout.load_store(uh60, 6, None) == {2}
+    assert loadout.pylons[2] is None
+
+
+def test_loading_stores_without_rules_changes_nothing_else() -> None:
+    uh60 = AircraftType.named("UH-60L")
+    loadout = Loadout("Custom", {3: weapon("{UH60L_M134_GUNNER}")}, date=None)
+
+    assert loadout.load_store(uh60, 7, weapon("{UH60L_M134_GUNNER}")) == set()
+    assert loadout.pylons[3] == weapon("{UH60L_M134_GUNNER}")

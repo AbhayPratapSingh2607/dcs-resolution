@@ -123,6 +123,42 @@ class Loadout:
             pylons[number] = weapon
         return Loadout(self.name, pylons, self.date, self.is_custom, settings)
 
+    def load_store(
+        self, unit_type: AircraftType, station: int, weapon: Optional[Weapon]
+    ) -> set[int]:
+        """Loads a store on a station, as the loadout editor does.
+
+        For aircraft whose mod has loadout rules this works like the mission
+        editor: the stores it needs are loaded on their stations too, and stores
+        that needed what was on this station are removed. Returns the other
+        stations that changed.
+        """
+        self.pylons[station] = weapon
+        self.pylon_settings.pop(station, None)
+        aircraft_id = unit_type.dcs_unit_type.id
+        if not PylonRules.has_rules(aircraft_id):
+            return set()
+        before = {n: w.clsid for n, w in self.pylons.items() if w is not None}
+        after = PylonRules.select(
+            aircraft_id, before, station, None if weapon is None else weapon.clsid
+        )
+        changed: set[int] = set()
+        for number in (set(before) | set(after)) - {station}:
+            clsid = after.get(number)
+            if before.get(number) == clsid:
+                continue
+            loaded = None if clsid is None else Weapon.with_clsid(clsid)
+            if clsid is not None and loaded is None:
+                logging.warning(f"Unknown store {clsid} for {unit_type}; skipped")
+            self.pylons[number] = loaded
+            self.pylon_settings.pop(number, None)
+            changed.add(number)
+        if weapon is not None and station not in after:
+            # The store itself can't be carried (its needs contradict each other).
+            self.pylons[station] = None
+            changed.add(station)
+        return changed
+
     def degrade_for_date(
         self,
         unit_type: AircraftType,
