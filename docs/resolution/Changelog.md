@@ -32,3 +32,7 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   now resolved. [Details](Super-Hornet.md)
 * **[Modding]** Super Hornet pylon weapons use the current pydcs weapon identifiers.
 * **[Modding]** Fixed the Super Hornets' malformed callsign table.
+* **[Flight Planning]** Passing the turn no longer fails with "Could not plan AEW&C ... is outside
+  the navmesh" when a base is deep inside the enemy's threat zone. The AEW&C orbit is pulled back
+  until it can be reached, and a package that still can't be planned is scrubbed. This is also
+  offered upstream on branch `aewc-navmesh-fix`.

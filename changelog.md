@@ -11,6 +11,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.
+* **[Flight Planning]** Passing the turn no longer fails when an AEW&C orbit can't be routed ("... is outside the navmesh").
 
 # Retribution v1.6.0
 
@@ -45,6 +46,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 
 ## Fixes
 * **[Modding]** Fix creating Super Hornet flights with CJS Super Hornet v2.4.6 ("could not convert string to float"): its payload files use local constants such as `[WTL]` as pylon keys, which are now resolved when reading payloads.
+* **[Flight Planning]** Fix passing the turn failing with "Could not plan AEW&C ... is outside the navmesh" when a base is deep inside the enemy's threat zone: the AEW&C orbit is pulled back until it can be reached, and a package that still can't be planned is scrubbed instead of aborting the turn.
 * **[Mission Generation]** Fix mission generation dying on "Duplicate convoy unit": convoy and cargo-ship names no longer reset each turn onto a convoy still in transit.
 * **[Mission Generator]** Dynamically allocated TACAN channels no longer collide with map beacons: DME/VOR-DME beacons (which share TACAN's channelization) are now blacklisted alongside TACAN/VORTAC, and beacons whose DCS data omits a channel (e.g. Syria's KALDE "KAD" VOR-DME) have their channel/band derived from the beacon's VHF frequency per the ICAO VOR/TACAN channelling plan instead of being silently skipped. The "Assign TACAN" dialog now warns in real time when the selected channel/band is already in use by a map beacon or another carrier/airfield/flight. (#36)
 * **[Map]** Right-clicking a front line under a blue flight-plan route now opens the new-package dialog instead of the browser context menu (the route's invisible hover overlay swallowed the click).
