@@ -43,8 +43,11 @@ def _loads_with_numeric_table_keys(
         )
     }
     if constants:
+        # String literals are matched too, so keys inside them are left alone.
         tablestr = re.sub(
-            r"\[\s*([A-Za-z_]\w*)\s*\](?=\s*=)",
+            r'"(?:\\.|[^"\\])*"'
+            r"|'(?:\\.|[^'\\])*'"
+            r"|\[\s*([A-Za-z_]\w*)\s*\](?=\s*=)",
             lambda match: (
                 f"[{constants[match.group(1)]}]"
                 if match.group(1) in constants
