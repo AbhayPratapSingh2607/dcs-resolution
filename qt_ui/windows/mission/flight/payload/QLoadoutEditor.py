@@ -47,7 +47,9 @@ class QLoadoutEditor(QGroupBox):
                 QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             )
             layout.addWidget(label, i, 0)
-            layout.addWidget(QPylonEditor(game, flight, flight_member, pylon), i, 1)
+            pylon_editor = QPylonEditor(game, flight, flight_member, pylon)
+            pylon_editor.changed.connect(self._on_store_loaded)
+            layout.addWidget(pylon_editor, i, 1)
 
         vbox.addLayout(layout)
 
@@ -72,6 +74,20 @@ class QLoadoutEditor(QGroupBox):
 
     def iter_pylon_editors(self) -> Iterator[QPylonEditor]:
         yield from self.findChildren(QPylonEditor)
+
+    def _on_store_loaded(self, station: int) -> None:
+        """Loads and removes the stores the new one's loadout rules call for,
+        like the mission editor does."""
+        loadout = self.flight_member.loadout
+        changed = loadout.load_store(
+            self.flight.unit_type, station, loadout.pylons.get(station)
+        )
+        if not changed:
+            return
+        for pylon_editor in self.iter_pylon_editors():
+            number = pylon_editor.pylon.number
+            if number in changed:
+                pylon_editor.show_weapon(loadout.pylons.get(number))
 
     def set_flight_member(self, flight_member: FlightMember) -> None:
         self.flight_member = flight_member

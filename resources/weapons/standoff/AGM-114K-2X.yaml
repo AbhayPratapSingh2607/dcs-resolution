@@ -4,3 +4,6 @@ fallback: 4 x BGM-71D TOW ATGM
 clsids:
   - "{M299_2xAGM_114K}"
   - "AGM114x2_OH_58"
+  - "{ANDR0ID_M272_AGM-114K}"   # ANDR0ID Weapon Pack: M272 - 2x AGM-114K
+  - "{ANDR0ID_M272_AGM-114K_SEAHAWK}"   # ANDR0ID Weapon Pack: Seahawk M272 - 2x AGM-114K
+  - "{ANDR0ID_M299_AGM-114K_2}"   # ANDR0ID Weapon Pack: M299 - 2x AGM-114K

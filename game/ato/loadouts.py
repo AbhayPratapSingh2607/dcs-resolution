@@ -13,6 +13,7 @@ from dcs.unittype import FlyingType
 from game.ato.flighttype import FlightType
 from game.data.weapons import Pylon, Weapon, WeaponType
 from game.dcs.aircrafttype import AircraftType
+from game.dcs.pylonrules import PylonRules
 from game.factions.faction import Faction
 from game.persistency import prefer_liberation_payloads
 
@@ -132,6 +133,74 @@ class Loadout:
             return fallback
         return None
 
+    def for_aircraft(self, unit_type: AircraftType) -> Loadout:
+        """The loadout as the aircraft will carry it.
+
+        Applies the loadout rules the aircraft's mod registered (e.g. the Armed
+        Blackhawk's Seahawk tanks only fit the MH-60R airframe), and drops stations
+        of a mod that's disabled in this game. Other aircraft are unchanged.
+        """
+        aircraft_id = unit_type.dcs_unit_type.id
+        mod_stations = PylonRules.mod_stations(aircraft_id)
+        if not mod_stations and not PylonRules.has_rules(aircraft_id):
+            return self
+        stations: set[int] = set(getattr(unit_type.dcs_unit_type, "pylons", set()))
+        payload = {n: w.clsid for n, w in self.pylons.items() if w is not None}
+        payload = PylonRules.apply(aircraft_id, payload)
+        pylons: Dict[int, Optional[Weapon]] = {}
+        settings: Dict[int, Dict[str, Any]] = {}
+        for number, clsid in payload.items():
+            if number in mod_stations and number not in stations:
+                continue
+            current = self.pylons.get(number)
+            if current is not None and current.clsid == clsid:
+                pylons[number] = current
+                if number in self.pylon_settings:
+                    settings[number] = self.pylon_settings[number]
+                continue
+            weapon = Weapon.with_clsid(clsid)
+            if weapon is None:
+                logging.warning(f"Unknown store {clsid} for {unit_type}; skipped")
+                continue
+            pylons[number] = weapon
+        return Loadout(self.name, pylons, self.date, self.is_custom, settings)
+
+    def load_store(
+        self, unit_type: AircraftType, station: int, weapon: Optional[Weapon]
+    ) -> set[int]:
+        """Loads a store on a station, as the loadout editor does.
+
+        For aircraft whose mod has loadout rules this works like the mission
+        editor: the stores it needs are loaded on their stations too, and stores
+        that needed what was on this station are removed. Returns the other
+        stations that changed.
+        """
+        self.pylons[station] = weapon
+        self.pylon_settings.pop(station, None)
+        aircraft_id = unit_type.dcs_unit_type.id
+        if not PylonRules.has_rules(aircraft_id):
+            return set()
+        before = {n: w.clsid for n, w in self.pylons.items() if w is not None}
+        after = PylonRules.select(
+            aircraft_id, before, station, None if weapon is None else weapon.clsid
+        )
+        changed: set[int] = set()
+        for number in (set(before) | set(after)) - {station}:
+            clsid = after.get(number)
+            if before.get(number) == clsid:
+                continue
+            loaded = None if clsid is None else Weapon.with_clsid(clsid)
+            if clsid is not None and loaded is None:
+                logging.warning(f"Unknown store {clsid} for {unit_type}; skipped")
+            self.pylons[number] = loaded
+            self.pylon_settings.pop(number, None)
+            changed.add(number)
+        if weapon is not None and station not in after:
+            # The store itself can't be carried (its needs contradict each other).
+            self.pylons[station] = None
+            changed.add(station)
+        return changed
+
     def degrade_for_date(
         self,
         unit_type: AircraftType,
@@ -245,7 +314,12 @@ class Loadout:
         #   "tasks": List (as a dict) of task IDs the payload is used by.
         # }
         payloads = aircraft.dcs_unit_type.load_payloads()
+        stations: set[int] = set(getattr(aircraft.dcs_unit_type, "pylons", set()))
+        disabled = PylonRules.mod_stations(aircraft.dcs_unit_type.id) - stations
         for payload in payloads.values():
+            if any(int(p["num"]) in disabled for p in payload["pylons"].values()):
+                # Uses a station of a mod that's disabled in this game.
+                continue
             if not cls.valid_payload(payload["pylons"]):
                 msg = f'Incompatible loadout for {aircraft} skipped: {payload["name"]}'
                 logging.warning(msg)

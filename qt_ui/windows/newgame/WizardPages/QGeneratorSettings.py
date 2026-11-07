@@ -106,6 +106,8 @@ class GeneratorOptions(QtWidgets.QWizardPage):
         self.registerField("oh_6_vietnamassetpack", self.oh_6_vietnamassetpack)
         self.uh_60l = QtWidgets.QCheckBox()
         self.registerField("uh_60l", self.uh_60l)
+        self.armed_blackhawk = QtWidgets.QCheckBox()
+        self.registerField("armed_blackhawk", self.armed_blackhawk)
         self.f4bc_phantom = QtWidgets.QCheckBox()
         self.registerField("f4bc_phantom", self.f4bc_phantom)
         self.f4e_expanded_weapons = QtWidgets.QCheckBox()
@@ -274,6 +276,10 @@ class GeneratorOptions(QtWidgets.QWizardPage):
             ("Super Étendard (v2.5.5)", self.super_etendard),
             ("Tornado F3 ADV (1.0)", self.tornado_adv),
             ("UH-60L Black Hawk (v2.1.5)", self.uh_60l),
+            (
+                "UH-60L Armed Blackhawk (v7.1.4 + ANDR0ID Weapon Pack)",
+                self.armed_blackhawk,
+            ),
             ("Vietnam War Vessels (v3.0.0 by TeTeT)", self.vietnamwarvessels),
         ]
 
@@ -319,6 +325,7 @@ class GeneratorOptions(QtWidgets.QWizardPage):
         self.e7a_wedgetail.setChecked(s.get("e7a_wedgetail", False))
         self.hercules.setChecked(s.get("hercules", False))
         self.uh_60l.setChecked(s.get("uh_60l", False))
+        self.armed_blackhawk.setChecked(s.get("armed_blackhawk", False))
         self.f4bc_phantom.setChecked(s.get("f4bc_phantom", False))
         self.f4e_expanded_weapons.setChecked(s.get("f4e_expanded_weapons", False))
         self.f15d_baz.setChecked(s.get("f15d_baz", False))
