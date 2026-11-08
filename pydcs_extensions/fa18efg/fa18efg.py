@@ -3597,22 +3597,18 @@ class FA_18E(PlaneType):
 
     callnames: Dict[str, List[str]] = {
         "USA": [
-            "Brutal",
-            "Buckshot",
-            "Cannon",
-            "Carbine",
-            "Carnage",
-            "Colt",
-            "Demon",
-            "Falcon",
-            "Pistol",
-            "Ramrod",
-            "Ruthless",
-            "Sabre",
-            "Savage",
-            "Sonic",
-            "Sword",
-            "Wolf",
+            "Hornet",
+            "Squid",
+            "Ragin",
+            "Roman",
+            "Sting",
+            "Jury",
+            "Joker",
+            "Ram",
+            "Hawk",
+            "Devil",
+            "Check",
+            "Snake",
         ]
     }
 
@@ -4943,22 +4939,22 @@ class FA_18E(PlaneType):
             2,
             WeaponsFA18EFG.STA_02_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (2, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (2, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             2,
@@ -5551,15 +5547,15 @@ class FA_18E(PlaneType):
             3,
             WeaponsFA18EFG.STA_03_04_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -5569,9 +5565,9 @@ class FA_18E(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (3, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (3, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             3,
@@ -6405,15 +6401,15 @@ class FA_18E(PlaneType):
             7,
             WeaponsFA18EFG.STA_08_09_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -6423,9 +6419,9 @@ class FA_18E(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (7, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (7, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             7,
@@ -6926,22 +6922,22 @@ class FA_18E(PlaneType):
             8,
             WeaponsFA18EFG.STA_10_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (8, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (8, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             8,
@@ -7133,22 +7129,18 @@ class FA_18F(PlaneType):
 
     callnames: Dict[str, List[str]] = {
         "USA": [
-            "Brutal",
-            "Buckshot",
-            "Cannon",
-            "Carbine",
-            "Carnage",
-            "Colt",
-            "Demon",
-            "Falcon",
-            "Pistol",
-            "Ramrod",
-            "Ruthless",
-            "Sabre",
-            "Savage",
-            "Sonic",
-            "Sword",
-            "Wolf",
+            "Hornet",
+            "Squid",
+            "Ragin",
+            "Roman",
+            "Sting",
+            "Jury",
+            "Joker",
+            "Ram",
+            "Hawk",
+            "Devil",
+            "Check",
+            "Snake",
         ]
     }
 
@@ -8505,22 +8497,22 @@ class FA_18F(PlaneType):
             2,
             WeaponsFA18EFG.STA_02_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (2, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (2, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             2,
@@ -9113,15 +9105,15 @@ class FA_18F(PlaneType):
             3,
             WeaponsFA18EFG.STA_03_04_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -9131,9 +9123,9 @@ class FA_18F(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (3, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (3, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             3,
@@ -9967,15 +9959,15 @@ class FA_18F(PlaneType):
             7,
             WeaponsFA18EFG.STA_08_09_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -9985,9 +9977,9 @@ class FA_18F(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (7, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (7, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             7,
@@ -10488,22 +10480,22 @@ class FA_18F(PlaneType):
             8,
             WeaponsFA18EFG.STA_10_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (8, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (8, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             8,
@@ -10695,22 +10687,18 @@ class EA_18G(PlaneType):
 
     callnames: Dict[str, List[str]] = {
         "USA": [
-            "Brutal",
-            "Buckshot",
-            "Cannon",
-            "Carbine",
-            "Carnage",
-            "Colt",
-            "Demon",
-            "Falcon",
-            "Pistol",
-            "Ramrod",
-            "Ruthless",
-            "Sabre",
-            "Savage",
-            "Sonic",
-            "Sword",
-            "Wolf",
+            "Hornet",
+            "Squid",
+            "Ragin",
+            "Roman",
+            "Sting",
+            "Jury",
+            "Joker",
+            "Ram",
+            "Hawk",
+            "Devil",
+            "Check",
+            "Snake",
         ]
     }
 
@@ -12095,22 +12083,22 @@ class EA_18G(PlaneType):
             2,
             WeaponsFA18EFG.STA_02_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             2,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (2, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (2, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (2, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (2, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (2, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             2,
@@ -12703,15 +12691,15 @@ class EA_18G(PlaneType):
             3,
             WeaponsFA18EFG.STA_03_04_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             3,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -12721,9 +12709,9 @@ class EA_18G(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (3, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (3, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (3, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (3, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (3, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             3,
@@ -13561,15 +13549,15 @@ class EA_18G(PlaneType):
             7,
             WeaponsFA18EFG.STA_08_09_SUU79_BRU32_2x_AIM_174B_Gunslinger___Active_Radar_AAM___AI_Only_,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             7,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
@@ -13579,9 +13567,9 @@ class EA_18G(PlaneType):
             Weapons.AGM_84H_SLAM_ER__Expanded_Response_,
         )
         AGM_84D_Harpoon_AShM = (7, Weapons.AGM_84D_Harpoon_AShM)
-        BRU_42___1_x_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (7, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (7, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (7, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (7, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             7,
@@ -14082,22 +14070,22 @@ class EA_18G(PlaneType):
             8,
             WeaponsFA18EFG.STA_10_SUU80_LAU127_1x_CATM_120C_AMRAAM___Captive_ACM,
         )
-        LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7F_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7F_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7MH_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7MH_Sparrow_Semi_Active_Radar,
         )
-        LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar = (
+        LAU_115C_with_AIM_7P_Sparrow_Semi_Active_Radar = (
             8,
             Weapons.LAU_115C___AIM_7P_Sparrow_Semi_Active_Radar,
         )
         LAU_117_AGM_65F = (8, Weapons.LAU_117_AGM_65F)
-        BRU_42___1_x_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
-        BRU_42___2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
-        BRU_42___3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
+        BRU_42_with_ADM_141A_TALD = (8, Weapons.BRU_42___1_x_ADM_141A_TALD)
+        BRU_42_with_2_x_ADM_141A_TALD = (8, Weapons.BRU_42___2_x_ADM_141A_TALD)
+        BRU_42_with_3_x_ADM_141A_TALD = (8, Weapons.BRU_42___3_x_ADM_141A_TALD)
         AGM_154A___JSOW_CEB__CBU_type_ = (8, Weapons.AGM_154A___JSOW_CEB__CBU_type_)
         BRU_55_with_2_x_AGM_154A___JSOW_CEB__CBU_type_ = (
             8,
@@ -14264,6 +14252,10 @@ class FA_18ET(PlaneType):
     category = "Tankers"  # {8A302789-A55D-4897-B647-66493FA6826F}
     radio_frequency = 305
 
+    @classmethod
+    def get_default_datalink(cls):
+        return FA_18E.get_default_datalink()
+
     panel_radio = {
         1: {
             "channels": {
@@ -14317,22 +14309,18 @@ class FA_18ET(PlaneType):
 
     callnames: Dict[str, List[str]] = {
         "USA": [
-            "Brutal",
-            "Buckshot",
-            "Cannon",
-            "Carbine",
-            "Carnage",
-            "Colt",
-            "Demon",
-            "Falcon",
-            "Pistol",
-            "Ramrod",
-            "Ruthless",
-            "Sabre",
-            "Savage",
-            "Sonic",
-            "Sword",
-            "Wolf",
+            "Hornet",
+            "Squid",
+            "Ragin",
+            "Roman",
+            "Sting",
+            "Jury",
+            "Joker",
+            "Ram",
+            "Hawk",
+            "Devil",
+            "Check",
+            "Snake",
         ]
     }
 
@@ -14806,6 +14794,10 @@ class FA_18FT(PlaneType):
     category = "Tankers"  # {8A302789-A55D-4897-B647-66493FA6826F}
     radio_frequency = 305
 
+    @classmethod
+    def get_default_datalink(cls):
+        return FA_18F.get_default_datalink()
+
     panel_radio = {
         1: {
             "channels": {
@@ -14859,22 +14851,18 @@ class FA_18FT(PlaneType):
 
     callnames: Dict[str, List[str]] = {
         "USA": [
-            "Brutal",
-            "Buckshot",
-            "Cannon",
-            "Carbine",
-            "Carnage",
-            "Colt",
-            "Demon",
-            "Falcon",
-            "Pistol",
-            "Ramrod",
-            "Ruthless",
-            "Sabre",
-            "Savage",
-            "Sonic",
-            "Sword",
-            "Wolf",
+            "Hornet",
+            "Squid",
+            "Ragin",
+            "Roman",
+            "Sting",
+            "Jury",
+            "Joker",
+            "Ram",
+            "Hawk",
+            "Devil",
+            "Check",
+            "Snake",
         ]
     }
 

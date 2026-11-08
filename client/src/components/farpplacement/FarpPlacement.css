@@ -1,0 +1,4 @@
+.farp-placement-active,
+.farp-placement-active .leaflet-interactive {
+  cursor: crosshair !important;
+}

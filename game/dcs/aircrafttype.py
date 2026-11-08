@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache, cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Iterator, Optional, TYPE_CHECKING, Type
@@ -255,6 +255,11 @@ class AircraftType(UnitType[Type[FlyingType]]):
     #: that declare no block.
     property_date_gate: PropertyDateGate = PropertyDateGate()
 
+    #: Station labels as the mission editor shows them, by pylon number (e.g. the
+    #: Super Hornet's pylon 4 is station "5 | 4"). Pylons without one are shown by
+    #: number.
+    pylon_names: dict[int, str] = field(default_factory=dict)
+
     _by_name: ClassVar[dict[str, AircraftType]] = {}
     _by_unit_type: ClassVar[dict[type[FlyingType], list[AircraftType]]] = defaultdict(
         list
@@ -268,6 +273,10 @@ class AircraftType(UnitType[Type[FlyingType]]):
         # Update any existing models with new data on load.
         updated = AircraftType.named(state["variant_id"])
         self.__dict__.update(updated.__dict__)
+
+    def pylon_name(self, number: int) -> str:
+        """The station label for the pylon, as the mission editor shows it."""
+        return self.pylon_names.get(number, str(number))
 
     def __post_init__(self) -> None:
         enrich = {}
@@ -585,7 +594,8 @@ class AircraftType(UnitType[Type[FlyingType]]):
         if prop_overrides is not None:
             cls._set_props_overrides(prop_overrides, aircraft)
 
-        task_priorities = cls.get_task_priorities(data)
+        cabin_size = data.get("cabin_size", 10 if aircraft.helicopter else 0)
+        task_priorities = cls.get_task_priorities(data, aircraft, cabin_size)
 
         cls._custom_weapon_injections(aircraft, data)
         cls._user_weapon_injections(aircraft)
@@ -622,7 +632,7 @@ class AircraftType(UnitType[Type[FlyingType]]):
             kneeboard_units=units,
             utc_kneeboard=data.get("utc_kneeboard", False),
             unit_class=unit_class,
-            cabin_size=data.get("cabin_size", 10 if aircraft.helicopter else 0),
+            cabin_size=cabin_size,
             can_carry_crates=data.get("can_carry_crates", aircraft.helicopter),
             task_priorities=task_priorities,
             has_built_in_target_pod=data.get("has_built_in_target_pod", False),
@@ -635,10 +645,19 @@ class AircraftType(UnitType[Type[FlyingType]]):
             property_date_gate=PropertyDateGate.from_data(
                 data.get("date_gated_properties")
             ),
+            pylon_names={
+                int(number): str(label)
+                for number, label in (data.get("pylon_names") or {}).items()
+            },
         )
 
     @classmethod
-    def get_task_priorities(cls, data: dict[str, Any]) -> dict[FlightType, int]:
+    def get_task_priorities(
+        cls,
+        data: dict[str, Any],
+        aircraft: Optional[Type[FlyingType]] = None,
+        cabin_size: int = 0,
+    ) -> dict[FlightType, int]:
         task_priorities: dict[FlightType, int] = {}
         for task_name, priority in data.get("tasks", {}).items():
             task_priorities[FlightType(task_name)] = priority
@@ -659,6 +678,25 @@ class AircraftType(UnitType[Type[FlyingType]]):
                 task_priorities[FlightType.ARMED_RECON] = task_priorities[
                     FlightType.BAI
                 ]
+        # Derive CSAR capability. Helicopters only: a CSAR aircraft has to actually
+        # set down at an unprepared pickup site, and fixed-wing transports (the
+        # C-130/Hercules mod included) cannot -- the DCS AI Land task is
+        # helicopter-only, so they just orbit the pilot indefinitely. A positive
+        # cabin size is also required, which skips zero-cabin attack/scout helos
+        # like the OH-58D. An explicit per-aircraft `CSAR:` task entry always wins
+        # over this derivation.
+        if FlightType.CSAR not in task_priorities and cabin_size > 0:
+            if aircraft is not None and aircraft.helicopter:
+                if FlightType.AIR_ASSAULT in task_priorities:
+                    task_priorities[FlightType.CSAR] = task_priorities[
+                        FlightType.AIR_ASSAULT
+                    ]
+                elif FlightType.TRANSPORT in task_priorities:
+                    task_priorities[FlightType.CSAR] = task_priorities[
+                        FlightType.TRANSPORT
+                    ]
+                else:
+                    task_priorities[FlightType.CSAR] = 50
         return task_priorities
 
     @staticmethod

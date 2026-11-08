@@ -230,7 +230,12 @@ class TriggerGenerator:
             else:
                 attack_coalition_int = 2
                 defend_coalition_int = 1
-            if isinstance(cp, self.capture_zone_types) and not cp.is_carrier:
+            # Player-built FARPs can't be captured; they're destroyed or dismantled.
+            if (
+                isinstance(cp, self.capture_zone_types)
+                and not cp.is_carrier
+                and not cp.is_dynamic_farp
+            ):
                 trigger_zone = self.mission.triggers.add_triggerzone(
                     cp.position,
                     radius=TRIGGER_RADIUS_CAPTURE,

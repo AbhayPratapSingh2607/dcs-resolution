@@ -7,6 +7,7 @@ from typing import Dict, Iterable, Optional, Set, TYPE_CHECKING
 
 from game.ato.airtaaskingorder import AirTaskingOrder
 from game.ato.closestairfields import ObjectiveDistanceCache
+from game.ato.flightplans.planningerror import PlanningError
 from game.ato.flighttype import FlightType
 from game.ato.package import Package
 from game.commander.missionproposals import EscortType, ProposedFlight, ProposedMission
@@ -232,7 +233,18 @@ class PackageFulfiller:
         # contribute to this.
         for flight in builder.package.flights:
             with tracer.trace("Flight plan population"):
-                flight.recreate_flight_plan()
+                try:
+                    flight.recreate_flight_plan()
+                except PlanningError:
+                    # One unroutable mission (e.g. a target whose route leaves
+                    # the navmesh) shouldn't abort the whole turn. Scrub it and
+                    # let the commander move on to the next task.
+                    logging.exception(
+                        f"Scrubbing {mission.location.name} package: could not "
+                        "create a flight plan"
+                    )
+                    builder.release_planned_aircraft()
+                    return None
 
         needed_escorts = self.check_needed_escorts(builder)
         for escort in escorts:

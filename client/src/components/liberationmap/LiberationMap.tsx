@@ -6,6 +6,8 @@ import EmitterHighlightToggle from "../airdefenserangelayer/EmitterHighlightTogg
 import CombatLayer from "../combatlayer";
 import ControlPointsLayer from "../controlpointslayer";
 import CullingExclusionZones from "../cullingexclusionzones/CullingExclusionZones";
+import DownedPilotsLayer from "../downedpilotslayer";
+import FarpPlacement from "../farpplacement";
 import FlightPlansLayer from "../flightplanslayer";
 import FrontLinesLayer from "../frontlineslayer";
 import Iadsnetworklayer from "../iadsnetworklayer";
@@ -32,6 +34,7 @@ export default function LiberationMap() {
     <MapContainer zoom={map.current?.getZoom() ?? 8} zoomControl={false} ref={map}>
       <ScaleControl />
       <LeafletRuler />
+      <FarpPlacement />
       <LayersControl collapsed={false}>
         <LayersControl.BaseLayer name="Imagery Clarity" checked>
           <BasemapLayer name="ImageryClarity" />
@@ -50,6 +53,12 @@ export default function LiberationMap() {
         </LayersControl.Overlay>
         <LayersControl.Overlay name="Active combat" checked>
           <CombatLayer />
+        </LayersControl.Overlay>
+        <LayersControl.Overlay name="Downed pilots (blue)" checked>
+          <DownedPilotsLayer blue={true} />
+        </LayersControl.Overlay>
+        <LayersControl.Overlay name="Downed pilots (red)" checked>
+          <DownedPilotsLayer blue={false} />
         </LayersControl.Overlay>
         <LayersControl.Overlay name="Air defenses" checked>
           <TgosLayer categories={["aa"]} />

@@ -44,6 +44,42 @@ from ..theater import Airfield
 
 if TYPE_CHECKING:
     from game import Game
+    from game.theater import ControlPoint
+
+
+def remove_dynamic_farps(game: Game) -> list[tuple[int, ControlPoint]]:
+    """Takes player-built FARPs out of the theater, which Pretense doesn't support.
+
+    Their detachments are left out with them, since Pretense finds squadrons
+    through their control point. Returns the FARPs with their positions in the
+    control point list, for restore_dynamic_farps.
+    """
+    from game.ato.closestairfields import ObjectiveDistanceCache
+    from game.theater.dynamicfarp import DynamicFarp
+
+    theater = game.theater
+    removed: list[tuple[int, ControlPoint]] = [
+        (index, cp)
+        for index, cp in enumerate(theater.controlpoints)
+        if isinstance(cp, DynamicFarp)
+    ]
+    if removed:
+        theater.controlpoints[:] = [
+            cp for cp in theater.controlpoints if not isinstance(cp, DynamicFarp)
+        ]
+        ObjectiveDistanceCache.invalidate()
+    return removed
+
+
+def restore_dynamic_farps(game: Game, removed: list[tuple[int, ControlPoint]]) -> None:
+    """Undoes remove_dynamic_farps."""
+    from game.ato.closestairfields import ObjectiveDistanceCache
+
+    if not removed:
+        return
+    for index, cp in removed:
+        game.theater.controlpoints.insert(index, cp)
+    ObjectiveDistanceCache.invalidate()
 
 
 class PretenseMissionGenerator(MissionGenerator):
@@ -76,6 +112,28 @@ class PretenseMissionGenerator(MissionGenerator):
             )
         self.generation_started = True
 
+        # Pretense doesn't support player-built FARPs, so they're left out of the
+        # generated campaign. The game restored from the backup below keeps them.
+        dynamic_farps = remove_dynamic_farps(self.game)
+        try:
+            self._generate_pretense_miz(output)
+        except Exception:
+            # Without a successful run the game isn't restored, so put them back.
+            restore_dynamic_farps(self.game, dynamic_farps)
+            raise
+
+        print(
+            f"Loading pre-pretense save, number of BLUFOR squadrons: {len(self.game.blue.air_wing.squadrons)}"
+        )
+        self.game = pickle.loads(game_backup_pickle)
+        print(
+            f"Loaded pre-pretense save, number of BLUFOR squadrons: {len(self.game.blue.air_wing.squadrons)}"
+        )
+        GameUpdateSignal.get_instance().game_loaded.emit(self.game)
+
+        return self.unit_map
+
+    def _generate_pretense_miz(self, output: Path) -> None:
         self.game.pretense_ground_supply = {1: {}, 2: {}}
         self.game.pretense_ground_assault = {1: {}, 2: {}}
         self.game.pretense_air = {1: {}, 2: {}}
@@ -140,17 +198,6 @@ class PretenseMissionGenerator(MissionGenerator):
         namegen.reset_numbers()
         self.generate_warehouses()
         self.mission.save(output)
-
-        print(
-            f"Loading pre-pretense save, number of BLUFOR squadrons: {len(self.game.blue.air_wing.squadrons)}"
-        )
-        self.game = pickle.loads(game_backup_pickle)
-        print(
-            f"Loaded pre-pretense save, number of BLUFOR squadrons: {len(self.game.blue.air_wing.squadrons)}"
-        )
-        GameUpdateSignal.get_instance().game_loaded.emit(self.game)
-
-        return self.unit_map
 
     def setup_mission_coalitions(self) -> None:
         self.mission.coalition["blue"] = Coalition(

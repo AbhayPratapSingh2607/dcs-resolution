@@ -39,11 +39,17 @@ class QtCallbacks:
         show_tgo_info: Callable[[TheaterGroundObject], None],
         show_control_point_info: Callable[[ControlPoint], None],
         select_flight: Callable[[Flight], None],
+        budget_changed: Callable[[], None] = lambda: None,
+        ato_changed: Callable[[], None] = lambda: None,
     ) -> None:
         self.create_new_package = create_new_package
         self.show_tgo_info = show_tgo_info
         self.show_control_point_info = show_control_point_info
         self.select_flight = select_flight
+        self.budget_changed = budget_changed
+        #: Packages were added to or removed from an ATO outside of the Qt models
+        #: (e.g. a FARP's setup flight). Safe to call from the server thread.
+        self.ato_changed = ato_changed
 
 
 class QtContext:

@@ -96,6 +96,18 @@ class CheatSettingsBox(QGroupBox):
         )
         self.main_layout.addLayout(self.transfer_cheat)
 
+        # Instant FARPs
+        self.instant_farp_cheat_checkbox = QCheckBox()
+        self.instant_farp_cheat_checkbox.setChecked(
+            sc.settings.enable_instant_farp_cheat
+        )
+        self.instant_farp_cheat_checkbox.toggled.connect(apply_settings)
+        self.main_layout.addLayout(
+            QLabeledWidget(
+                "Enable Instant FARP Cheat:", self.instant_farp_cheat_checkbox
+            )
+        )
+
         # Air wing adjustments
         self.air_wing_adjustments_checkbox = QCheckBox()
         self.air_wing_adjustments_checkbox.setChecked(
@@ -127,6 +139,10 @@ class CheatSettingsBox(QGroupBox):
     @property
     def show_transfer_cheat(self) -> bool:
         return self.transfer_cheat_checkbox.isChecked()
+
+    @property
+    def enable_instant_farp_cheat(self) -> bool:
+        return self.instant_farp_cheat_checkbox.isChecked()
 
     @property
     def enable_runway_state_cheat(self) -> bool:
@@ -501,6 +517,9 @@ class QSettingsWidget(QtWidgets.QWizardPage, SettingsContainer):
             self.cheat_options.show_base_capture_cheat
         )
         self.settings.enable_transfer_cheat = self.cheat_options.show_transfer_cheat
+        self.settings.enable_instant_farp_cheat = (
+            self.cheat_options.enable_instant_farp_cheat
+        )
         self.settings.enable_runway_state_cheat = (
             self.cheat_options.enable_runway_state_cheat
         )

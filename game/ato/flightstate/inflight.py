@@ -85,7 +85,7 @@ class InFlight(FlightState, ABC):
         from .navigating import Navigating
 
         new_index = self.waypoint_index + 1
-        if self.next_waypoint.waypoint_type is FlightWaypointType.LANDING_POINT:
+        if self.flight.flight_plan.completes_at(self.next_waypoint):
             return Completed(self.flight, self.settings)
         if self.next_waypoint.waypoint_type is FlightWaypointType.PATROL_TRACK:
             return RaceTrack(self.flight, self.settings, new_index)
@@ -104,7 +104,9 @@ class InFlight(FlightState, ABC):
     ) -> None:
         self.elapsed_time += duration
         if self.elapsed_time > self.total_time_to_next_waypoint:
+            reached = self.next_waypoint
             new_state = self.advance_to_next_waypoint()
+            self.flight.flight_plan.on_waypoint_reached(reached, events)
 
             # Roll over any extra time to the next state. We don't need to loop here
             # even if we've passed more than one waypoint because the new state will do

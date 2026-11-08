@@ -8,6 +8,21 @@ const injectedRtkApi = api.injectEndpoints({
     >({
       query: () => ({ url: `/control-points/` }),
     }),
+    checkFarpSite: build.query<CheckFarpSiteApiResponse, CheckFarpSiteApiArg>({
+      query: (queryArg) => ({
+        url: `/control-points/farp-site-check`,
+        params: { lat: queryArg.lat, lng: queryArg.lng, kind: queryArg.kind },
+      }),
+    }),
+    establishFarp: build.mutation<EstablishFarpApiResponse, EstablishFarpApiArg>(
+      {
+        query: (queryArg) => ({
+          url: `/control-points/farps`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+      }
+    ),
     getControlPointById: build.query<
       GetControlPointByIdApiResponse,
       GetControlPointByIdApiArg
@@ -42,6 +57,14 @@ const injectedRtkApi = api.injectEndpoints({
         method: "PUT",
       }),
     }),
+    dismantleFarp: build.mutation<DismantleFarpApiResponse, DismantleFarpApiArg>(
+      {
+        query: (queryArg) => ({
+          url: `/control-points/${queryArg.cpId}/farp`,
+          method: "DELETE",
+        }),
+      }
+    ),
     getDebugHoldZones: build.query<
       GetDebugHoldZonesApiResponse,
       GetDebugHoldZonesApiArg
@@ -135,6 +158,15 @@ const injectedRtkApi = api.injectEndpoints({
         method: "POST",
       }),
     }),
+    openNewDownedPilotPackageDialog: build.mutation<
+      OpenNewDownedPilotPackageDialogApiResponse,
+      OpenNewDownedPilotPackageDialogApiArg
+    >({
+      query: (queryArg) => ({
+        url: `/qt/create-package/downed-pilot/${queryArg.pilotId}`,
+        method: "POST",
+      }),
+    }),
     openTgoInfoDialog: build.mutation<
       OpenTgoInfoDialogApiResponse,
       OpenTgoInfoDialogApiArg
@@ -173,6 +205,18 @@ const injectedRtkApi = api.injectEndpoints({
       ListSupplyRoutesApiArg
     >({
       query: () => ({ url: `/supply-routes/` }),
+    }),
+    listDownedPilots: build.query<
+      ListDownedPilotsApiResponse,
+      ListDownedPilotsApiArg
+    >({
+      query: () => ({ url: `/downed-pilots/` }),
+    }),
+    getDownedPilotById: build.query<
+      GetDownedPilotByIdApiResponse,
+      GetDownedPilotByIdApiArg
+    >({
+      query: (queryArg) => ({ url: `/downed-pilots/${queryArg.pilotId}` }),
     }),
     listTgos: build.query<ListTgosApiResponse, ListTgosApiArg>({
       query: () => ({ url: `/tgos/` }),
@@ -266,6 +310,23 @@ export type ClearControlPointDestinationApiResponse =
 export type ClearControlPointDestinationApiArg = {
   cpId: string;
 };
+export type CheckFarpSiteApiResponse =
+  /** status 200 Successful Response */ FarpSiteCheck;
+export type CheckFarpSiteApiArg = {
+  lat: number;
+  lng: number;
+  kind: string;
+};
+export type EstablishFarpApiResponse =
+  /** status 200 Successful Response */ ControlPoint;
+export type EstablishFarpApiArg = {
+  body: NewFarp;
+};
+export type DismantleFarpApiResponse =
+  /** status 204 Successful Response */ undefined;
+export type DismantleFarpApiArg = {
+  cpId: string;
+};
 export type GetDebugHoldZonesApiResponse =
   /** status 200 Successful Response */ HoldZones;
 export type GetDebugHoldZonesApiArg = {
@@ -327,6 +388,11 @@ export type OpenNewTgoPackageDialogApiResponse =
 export type OpenNewTgoPackageDialogApiArg = {
   tgoId: string;
 };
+export type OpenNewDownedPilotPackageDialogApiResponse =
+  /** status 200 Successful Response */ any;
+export type OpenNewDownedPilotPackageDialogApiArg = {
+  pilotId: string;
+};
 export type OpenTgoInfoDialogApiResponse =
   /** status 200 Successful Response */ any;
 export type OpenTgoInfoDialogApiArg = {
@@ -349,6 +415,14 @@ export type SelectFlightApiArg = {
 export type ListSupplyRoutesApiResponse =
   /** status 200 Successful Response */ SupplyRoute[];
 export type ListSupplyRoutesApiArg = void;
+export type ListDownedPilotsApiResponse =
+  /** status 200 Successful Response */ DownedPilot[];
+export type ListDownedPilotsApiArg = void;
+export type GetDownedPilotByIdApiResponse =
+  /** status 200 Successful Response */ DownedPilot;
+export type GetDownedPilotByIdApiArg = {
+  pilotId: string;
+};
 export type ListTgosApiResponse = /** status 200 Successful Response */ Tgo[];
 export type ListTgosApiArg = void;
 export type GetTgoByIdApiResponse = /** status 200 Successful Response */ Tgo;
@@ -405,6 +479,16 @@ export type ControlPoint = {
   mobile: boolean;
   destination?: LatLng;
   sidc: string;
+  dynamic_farp_kind?: string;
+};
+export type FarpSiteCheck = {
+  valid: boolean;
+  reasons: string[];
+  cost: number;
+};
+export type NewFarp = {
+  position: LatLng;
+  kind: string;
 };
 export type ValidationError = {
   loc: (string | number)[];
@@ -450,6 +534,16 @@ export type Flight = {
 export type FrontLine = {
   id: string;
   extents: LatLng[];
+};
+export type DownedPilot = {
+  id: string;
+  name: string;
+  squadron: string;
+  aircraft: string;
+  blue: boolean;
+  position: LatLng;
+  turns_remaining: number;
+  sidc: string;
 };
 export type Tgo = {
   id: string;
@@ -520,6 +614,7 @@ export type UnculledZone = {
 export type Game = {
   control_points: ControlPoint[];
   tgos: Tgo[];
+  downed_pilots: DownedPilot[];
   supply_routes: SupplyRoute[];
   front_lines: FrontLine[];
   flights: Flight[];
@@ -537,10 +632,13 @@ export type MapZones = {
 };
 export const {
   useListControlPointsQuery,
+  useCheckFarpSiteQuery,
+  useEstablishFarpMutation,
   useGetControlPointByIdQuery,
   useControlPointDestinationInRangeQuery,
   useSetControlPointDestinationMutation,
   useClearControlPointDestinationMutation,
+  useDismantleFarpMutation,
   useGetDebugHoldZonesQuery,
   useGetDebugJoinZonesQuery,
   useListFlightsQuery,
@@ -555,11 +653,14 @@ export const {
   useGetNavmeshQuery,
   useOpenNewFrontLinePackageDialogMutation,
   useOpenNewTgoPackageDialogMutation,
+  useOpenNewDownedPilotPackageDialogMutation,
   useOpenTgoInfoDialogMutation,
   useOpenNewControlPointPackageDialogMutation,
   useOpenControlPointInfoDialogMutation,
   useSelectFlightMutation,
   useListSupplyRoutesQuery,
+  useListDownedPilotsQuery,
+  useGetDownedPilotByIdQuery,
   useListTgosQuery,
   useGetTgoByIdQuery,
   useTgoDestinationInRangeQuery,

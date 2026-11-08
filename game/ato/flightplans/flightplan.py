@@ -23,6 +23,7 @@ from ..starttype import StartType
 from ..traveltime import GroundSpeed
 
 if TYPE_CHECKING:
+    from game.sim import GameUpdateEvents
     from game.theater import ControlPoint
     from ..flight import Flight
     from ..flightwaypoint import FlightWaypoint
@@ -280,6 +281,15 @@ class FlightPlan(ABC, Generic[LayoutT]):
     @property
     def is_airassault(self) -> bool:
         return False
+
+    def completes_at(self, waypoint: FlightWaypoint) -> bool:
+        """Whether the flight's simulated mission ends on reaching waypoint."""
+        return waypoint.waypoint_type is FlightWaypointType.LANDING_POINT
+
+    def on_waypoint_reached(
+        self, waypoint: FlightWaypoint, events: GameUpdateEvents
+    ) -> None:
+        """Called when the simulated (fast-forwarded) flight reaches waypoint."""
 
     @property
     @abstractmethod

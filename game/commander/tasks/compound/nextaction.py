@@ -17,6 +17,7 @@ from game.commander.tasks.compound.interdictreinforcements import (
 from game.commander.tasks.compound.protectairspace import ProtectAirSpace
 from game.commander.tasks.compound.reconnoitertargets import ReconnoiterTargets
 from game.commander.tasks.compound.recoverysupport import RecoverySupport
+from game.commander.tasks.compound.rescuedownedpilots import RescueDownedPilots
 from game.commander.tasks.compound.theatersupport import TheaterSupport
 from game.commander.theaterstate import TheaterState
 from game.htn import CompoundTask, Method
@@ -32,6 +33,8 @@ class PlanNextAction(CompoundTask[TheaterState]):
         doctrine = for_faction_obj(state.context.coalition.faction)
         yield [TheaterSupport()]
         yield [ProtectAirSpace()]
+        # A downed pilot expires on a timer, so plan rescues early.
+        yield [RescueDownedPilots()]
         yield [DefendBases()]
         # Know before you strike: confirm targets and assess damage.
         yield [ReconnoiterTargets()]

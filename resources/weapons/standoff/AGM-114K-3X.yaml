@@ -4,3 +4,5 @@ fallback: 4 x BGM-71D TOW ATGM
 clsids:
   - "{M299_3xAGM_114K_OUTBOARD_PORT}"
   - "{M299_3xAGM_114K_OUTBOARD_STARBOARD}"
+  - "{ANDR0ID_M299_AGM-114K_3PORT}"   # ANDR0ID Weapon Pack: M299 - 3x AGM-114K, port
+  - "{ANDR0ID_M299_AGM-114K_3STBD}"   # ANDR0ID Weapon Pack: M299 - 3x AGM-114K, starboard

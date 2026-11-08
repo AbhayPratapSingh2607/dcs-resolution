@@ -12,7 +12,12 @@ from PySide6.QtWidgets import (
 import qt_ui.uiconstants as CONST
 from game.game import Game
 from game.income import BuildingIncome, Income
-from game.theater import ControlPoint, Player
+from game.theater import ControlPoint, DynamicFarp, Player
+
+
+def _negative(text: str) -> str:
+    """Formats a cost (e.g. FARP upkeep) in red."""
+    return f'<span style="color: #e57373;">{text}</span>'
 
 
 class QHorizontalSeparationLine(QFrame):
@@ -48,18 +53,37 @@ class FinancesLayout(QGridLayout):
         for building in buildings:
             self.add_building(building)
 
+        farps = game.coalition_for(player).farps.farps
+        if farps:
+            self.add_line()
+            for farp in sorted(farps, key=lambda f: f.name):
+                self.add_farp_upkeep(farp)
+
         if not total_at_top:
             self.add_line()
             self.add_total(game, income, player)
 
-    def add_total(self, game, income, player):
+    def add_total(self, game: Game, income: Income, player: Player) -> None:
         self.add_row(
             middle=f"Income multiplier: {income.multiplier:.1f}",
             right=f"<b>{income.total:.1f}M</b>",
         )
+        upkeep = game.coalition_for(player).farps.total_upkeep
+        if upkeep:
+            self.add_row(middle="FARP upkeep", right=_negative(f"-{upkeep:.1f}M"))
+            self.add_row(
+                middle="Net per turn", right=f"<b>{income.total - upkeep:.1f}M</b>"
+            )
         budget = game.coalition_for(player).budget
         self.add_row(middle="Balance", right=f"<b>{budget:.1f}M</b>")
         self.setRowStretch(next(self.row), 1)
+
+    def add_farp_upkeep(self, farp: DynamicFarp) -> None:
+        self.add_row(
+            left=f"<b>{farp.name}</b>",
+            middle=f"{farp.kind.display_name} FARP upkeep",
+            right=_negative(f"-{farp.upkeep_per_turn}M"),
+        )
 
     def add_row(
         self,

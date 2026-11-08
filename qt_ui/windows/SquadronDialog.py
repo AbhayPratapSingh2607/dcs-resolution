@@ -28,6 +28,7 @@ from game.purchaseadapter import AircraftPurchaseAdapter, TransactionError
 from game.server import EventStream
 from game.sim import GameUpdateEvents
 from game.squadrons import Pilot, Squadron
+from game.squadrons.pilot import PilotStatus
 from game.theater import ConflictTheater, ControlPoint, ParkingType
 from qt_ui.delegates import TwoColumnRowDelegate
 from qt_ui.errorreporter import report_errors
@@ -60,9 +61,9 @@ class PilotDelegate(TwoColumnRowDelegate):
             skill = self.squadron_model.squadron.pilot_skill(pilot)
             return f"{who} - Level: {skill.value}"
         elif (row, column) == (1, 1):
-            # Dead pilots have their own list and living pilots are active by
-            # default, so only the "on leave" state is worth surfacing here.
-            return pilot.status.value if pilot.on_leave else ""
+            # Dead pilots have their own list and active pilots need no label, so
+            # surface any other state (on leave, downed awaiting CSAR, recovering).
+            return pilot.status.value if pilot.status is not PilotStatus.Active else ""
         return ""
 
 
@@ -158,6 +159,9 @@ class SquadronDestinationComboBox(QComboBox):
         parking_type = ParkingType().from_squadron(self.squadron)
         for control_point in self.theater.control_points_for(self.squadron.player):
             if control_point == self.squadron.location:
+                continue
+            if control_point.is_dynamic_farp:
+                # FARPs are staffed with detachments from the FARP's base menu.
                 continue
             if not control_point.can_operate(self.squadron.aircraft):
                 continue
@@ -299,8 +303,18 @@ class SquadronDialog(QDialog):
         self.aircraft_stats_label = QLabel(self._aircraft_stats_text())
         left_column.addWidget(self.aircraft_stats_label)
 
+        if self.squadron.is_detachment:
+            left_column.addWidget(
+                QLabel(
+                    f"Detachment of {self.squadron.parent} stationed at "
+                    f"{self.squadron.location}. "
+                    "Recall it from the FARP's base menu."
+                )
+            )
+
         # Buying aircraft is only meaningful for the player's own squadrons.
-        if self.squadron.player.is_blue:
+        # Detachments are reinforced through their parent squadron instead.
+        if self.squadron.player.is_blue and not self.squadron.is_detachment:
             self.purchase_adapter: AircraftPurchaseAdapter = AircraftPurchaseAdapter(
                 self.squadron.location
             )
@@ -357,6 +371,8 @@ class SquadronDialog(QDialog):
             self.on_destination_changed
         )
         button_panel.addWidget(self.transfer_destination)
+        if squadron_model.squadron.is_detachment:
+            self.transfer_destination.setEnabled(False)
 
         button_panel.addStretch()
         layout.addLayout(button_panel)
@@ -547,6 +563,12 @@ class SquadronDialog(QDialog):
         if self.check_disabled_button_states(self.toggle_leave_button, index):
             return
         pilot = self.squadron_model.pilot_at_index(index)
+        # Leave only applies to active/on-leave pilots. Downed, recovering and MIA
+        # pilots cannot be toggled, so disable the button and label their state.
+        if pilot.status not in (PilotStatus.Active, PilotStatus.OnLeave):
+            self.toggle_leave_button.setEnabled(False)
+            self.toggle_leave_button.setText(pilot.status.value)
+            return
         self.toggle_leave_button.setEnabled(
             not pilot.on_leave or self.squadron_model.squadron.has_unfilled_pilot_slots
         )

@@ -13,6 +13,7 @@ from .recon import ReconFlightPlan
 from .bai import BaiFlightPlan
 from .barcap import BarCapFlightPlan
 from .cas import CasFlightPlan
+from .csar import CsarFlightPlan
 from .dead import DeadFlightPlan
 from .escort import EscortFlightPlan
 from .ferry import FerryFlightPlan
@@ -29,6 +30,7 @@ from .strike import StrikeFlightPlan
 from .sweep import SweepFlightPlan
 from .tarcap import TarCapFlightPlan
 from .theaterrefueling import TheaterRefuelingFlightPlan
+from .farpsetup import FarpSetupFlightPlan, is_farp_setup_target
 
 if TYPE_CHECKING:
     from game.ato import Flight
@@ -38,6 +40,11 @@ class FlightPlanBuilderTypes:
     @staticmethod
     def for_flight(flight: Flight) -> Type[IBuilder[Any, Any]]:
         from game.theater import FrontLine
+
+        if flight.flight_type is FlightType.TRANSPORT and is_farp_setup_target(
+            flight.package.target
+        ):
+            return FarpSetupFlightPlan.builder_type()
 
         if flight.flight_type is FlightType.REFUELING:
             if flight.package.target.is_friendly(flight.squadron.player) or isinstance(
@@ -65,6 +72,7 @@ class FlightPlanBuilderTypes:
             FlightType.TRANSPORT: AirliftFlightPlan.builder_type(),
             FlightType.FERRY: FerryFlightPlan.builder_type(),
             FlightType.AIR_ASSAULT: AirAssaultFlightPlan.builder_type(),
+            FlightType.CSAR: CsarFlightPlan.builder_type(),
             FlightType.PRETENSE_CARGO: PretenseCargoFlightPlan.builder_type(),
             FlightType.ARMED_RECON: ArmedReconFlightPlan.builder_type(),
             FlightType.RECON: ReconFlightPlan.builder_type(),

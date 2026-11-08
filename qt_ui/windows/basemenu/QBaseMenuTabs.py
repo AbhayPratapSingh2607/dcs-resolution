@@ -1,9 +1,10 @@
 from PySide6.QtWidgets import QTabWidget
 
-from game.theater import ControlPoint, Fob
+from game.theater import ControlPoint, DynamicFarp, Fob
 from qt_ui.models import GameModel
 from qt_ui.windows.basemenu.DepartingConvoysMenu import DepartingConvoysMenu
 from qt_ui.windows.basemenu.airfield.QAirfieldCommand import QAirfieldCommand
+from qt_ui.windows.basemenu.farp.QFarpCommand import QFarpCommand
 from qt_ui.windows.basemenu.ground_forces.QGroundForcesHQ import QGroundForcesHQ
 from qt_ui.windows.basemenu.intel.QIntelInfo import QIntelInfo
 
@@ -20,7 +21,12 @@ class QBaseMenuTabs(QTabWidget):
             self.addTab(self.departing_convoys, "Departing Convoys")
             return
 
-        if isinstance(cp, Fob):
+        if isinstance(cp, DynamicFarp):
+            self.farp_command = QFarpCommand(cp, game_model)
+            self.addTab(self.farp_command, "FARP")
+            self.airfield_command = QAirfieldCommand(cp, game_model)
+            self.addTab(self.airfield_command, "Heliport")
+        elif isinstance(cp, Fob):
             self.ground_forces_hq = QGroundForcesHQ(cp, game_model)
             self.addTab(self.ground_forces_hq, "Ground Forces HQ")
             if cp.has_ground_spawns:

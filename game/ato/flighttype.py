@@ -63,6 +63,7 @@ class FlightType(Enum):
     #: Unarmed reconnaissance: photographs targets for intelligence and BDA.
     RECON = "Recon"
     RECOVERY = "Recovery"
+    CSAR = "CSAR"
 
     def __str__(self) -> str:
         return self.value
@@ -115,6 +116,7 @@ class FlightType(Enum):
             FlightType.BAI: AirEntity.ATTACK_STRIKE,
             FlightType.BARCAP: AirEntity.FIGHTER,
             FlightType.CAS: AirEntity.ATTACK_STRIKE,
+            FlightType.CSAR: AirEntity.COMBAT_SEARCH_AND_RESCUE,
             FlightType.DEAD: AirEntity.ATTACK_STRIKE,
             FlightType.ESCORT: AirEntity.ESCORT,
             FlightType.FERRY: AirEntity.UNSPECIFIED,

@@ -1,6 +1,8 @@
 import { baseApi } from "../api/baseApi";
 import combatReducer from "../api/combatSlice";
 import controlPointsReducer from "../api/controlPointsSlice";
+import downedPilotsReducer from "../api/downedPilotsSlice";
+import farpPlacementReducer from "../api/farpPlacementSlice";
 import flightsReducer from "../api/flightsSlice";
 import frontLinesReducer from "../api/frontLinesSlice";
 import iadsNetworkReducer from "../api/iadsNetworkSlice";
@@ -22,6 +24,8 @@ import {
 const rootReducer = combineReducers({
   combat: combatReducer,
   controlPoints: controlPointsReducer,
+  downedPilots: downedPilotsReducer,
+  farpPlacement: farpPlacementReducer,
   flights: flightsReducer,
   frontLines: frontLinesReducer,
   map: mapReducer,

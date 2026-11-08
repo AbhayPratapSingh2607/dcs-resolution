@@ -78,3 +78,15 @@ weapon_injections:  # AGM-154B only works for AI
     - "{BRU57_2*AGM-154B}"
 
 has_built_in_ecm: true
+# Station labels from the CJS Super Hornet mod's mission editor loadout screen.
+pylon_names:
+  1: "1"
+  2: "2"
+  3: "3"
+  4: "5 | 4"
+  5: "6"
+  6: "8 | 7"
+  7: "9"
+  8: "10"
+  9: "11"
+  10: "INT"

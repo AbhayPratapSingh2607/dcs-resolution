@@ -23,10 +23,12 @@ from game.transfers import PendingTransfers
 if TYPE_CHECKING:
     from .campaignloader import CampaignAirWingConfig
     from .data.doctrine import Doctrine
+    from .farps import FarpManager
     from .factions.faction import Faction
     from .game import Game
     from .lasercodes import LaserCodeRegistry
     from .sim import GameUpdateEvents
+    from .squadrons.downedpilot import DownedPilot
 
 
 class Coalition:
@@ -44,6 +46,9 @@ class Coalition:
         self.air_wing = AirWing(player, game, self.faction)
         self.armed_forces = ArmedForces(self.faction)
         self.transfers = PendingTransfers(game, player)
+        #: Pilots shot down/ejected and awaiting CSAR rescue on the map. Persisted
+        #: with the save so CSAR is a campaign-persistent mission type.
+        self.downed_pilots: list[DownedPilot] = []
 
         # Late initialized because the two coalitions in the game are mutually
         # dependent, so must be both constructed before this property can be set.
@@ -75,6 +80,12 @@ class Coalition:
     def opponent(self) -> Coalition:
         assert self._opponent is not None
         return self._opponent
+
+    @property
+    def farps(self) -> FarpManager:
+        from game.farps import FarpManager
+
+        return FarpManager(self)
 
     @property
     def threat_zone(self) -> ThreatZones:
@@ -109,6 +120,10 @@ class Coalition:
                 state["player"] = Player.BLUE
             else:
                 state["player"] = Player.RED
+
+        # CSAR postdates the oldest saves.
+        if "downed_pilots" not in state:
+            state["downed_pilots"] = []
 
         self.__dict__.update(state)
 
@@ -149,7 +164,16 @@ class Coalition:
         For more information on turn finalization in general, see the documentation for
         `Game.finish_turn`.
         """
+        # Age downed pilots (sending expired ones MIA) before the air wing's own
+        # turn end, which advances recovering pilots and replenishes losses.
+        from game.squadrons.csarservice import CsarService
+
+        CsarService(self.game).advance_turn_for(self)
         self.air_wing.end_turn()
+        # Detachments that flew in to reinforce one already at a FARP join it.
+        from game.squadrons.detachments import merge_arrived_detachments
+
+        merge_arrived_detachments(self.air_wing)
         self.budget += Income(self.game, self.player).total
 
         # Need to recompute before transfers and deliveries to account for captures.
@@ -190,6 +214,8 @@ class Coalition:
             self.transfers.order_airlift_assets()
         with logged_duration("Transport planning"):
             self.transfers.plan_transports(self.game.conditions.start_time)
+        with logged_duration("FARP setup planning"):
+            self.farps.plan_setup_flights(self.game.conditions.start_time)
 
         if not is_turn_0:
             self.plan_missions(self.game.conditions.start_time)
