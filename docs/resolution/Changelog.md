@@ -24,8 +24,15 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 * **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
   Airframe selection, ESSS stub wings, 32 extra stores, and the submod's loadout rules are applied
   in the editor and at mission generation. [Guide](Armed-Blackhawk.md)
+* **[Flight Planning]** New start type: **On Station**. The flight appears in the air at its
+  station: the start of the racetrack for CAP, AWACS and tankers, the IP for attack packages. It
+  appears at its planned time there, or at mission start with ASAP. Support assets no longer need
+  a fast-forward to be on station. [Guide](On-Station-Start.md)
 
 ## Fixes
+
+* **[New Game]** Creating a campaign from a script no longer fails because the "squadrons start
+  full" option wasn't passed to the generator.
 
 * **[Modding]** Creating Super Hornet flights with CJS Super Hornet v2.4.6 no longer fails with
   "could not convert string to float". Local constants used as pylon keys in Lua payload files are

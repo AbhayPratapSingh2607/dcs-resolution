@@ -3,7 +3,7 @@ import logging
 import random
 from collections.abc import Iterator
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 
 from dcs import Mission
 from dcs.action import AITaskPush, ActivateGroup
@@ -16,6 +16,7 @@ from dcs.unitgroup import FlyingGroup
 from game.ato import Flight, FlightWaypoint, FlightType
 from game.ato.flightplans.farpsetup import FarpSetupFlightPlan
 from game.ato.flightstate import InFlight, WaitingForStart
+from game.ato.flightstate.onstation import starts_on_station, station_state
 from game.ato.flightwaypointtype import FlightWaypointType
 from game.ato.starttype import StartType
 from game.missiongenerator.aircraft.waypoints.cargostop import CargoStopBuilder
@@ -73,30 +74,35 @@ class WaypointGenerator:
         waypoints = self.flight.flight_plan.waypoints
         mission_start_time = self.set_takeoff_time(waypoints[0])
 
+        # The state the group spawns in: its current one if it's already in the
+        # air, or its state at its station if it's an On Station flight that
+        # appears there later.
+        spawn_state = self._spawn_state()
+
         filtered_points: list[FlightWaypoint] = []
         for point in self.flight.points:
             if point.only_for_player and not self.flight.client_count:
                 continue
-            if isinstance(self.flight.state, InFlight):
+            if spawn_state is not None:
                 if self.flight.flight_type in [
                     FlightType.ESCORT,
                     FlightType.SEAD_ESCORT,
                 ]:
                     is_join = point.waypoint_type == FlightWaypointType.JOIN
-                    join_passed = self.flight.state.has_passed_waypoint(point)
+                    join_passed = spawn_state.has_passed_waypoint(point)
                     if (
                         is_join
                         and join_passed
-                        and point != self.flight.state.current_waypoint
+                        and point != spawn_state.current_waypoint
                     ):
                         self.builder_for_waypoint(point).add_tasks(self.group.points[0])
-                if point == self.flight.state.current_waypoint:
+                if point == spawn_state.current_waypoint:
                     # We don't need to build this waypoint because pydcs did that for
                     # us, but we do need to configure the tasks for it so that mid-
                     # mission aircraft starting at a waypoint with tasks behave
                     # correctly.
                     self.builder_for_waypoint(point).add_tasks(self.group.points[0])
-                if not self.flight.state.has_passed_waypoint(point):
+                if not spawn_state.has_passed_waypoint(point):
                     filtered_points.append(point)
             else:
                 filtered_points.append(point)
@@ -136,6 +142,15 @@ class WaypointGenerator:
         # late.
         self._estimate_min_fuel_for(waypoints)
         return mission_start_time, waypoints
+
+    def _spawn_state(self) -> Optional[InFlight]:
+        if isinstance(self.flight.state, InFlight):
+            return self.flight.state
+        if isinstance(self.flight.state, WaitingForStart) and starts_on_station(
+            self.flight
+        ):
+            return station_state(self.flight, self.settings)
+        return None
 
     def _resolve_locked_speed_time_conflicts(self) -> None:
         """Unlock the speed on any waypoint that has a locked speed between two

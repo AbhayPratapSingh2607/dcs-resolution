@@ -320,6 +320,7 @@ def create_game(
             no_enemy_navy=False,
             tgo_config=campaign.load_ground_forces_config(),
             carrier_config=campaign.load_carrier_config(),
+            squadrons_start_full=use_new_squadron_rules,
         ),
         ModSettings(
             a4_skyhawk=False,

@@ -32,6 +32,7 @@ from dcs.unitgroup import (
 
 from game.ato import Flight
 from game.ato.flightstate import InFlight
+from game.ato.flightstate.onstation import starts_on_station, station_state
 from game.ato.starttype import StartType
 from game.ato.traveltime import GroundSpeed
 from game.missiongenerator.missiondata import MissionData
@@ -162,6 +163,13 @@ class FlightGroupSpawner:
         name = namegen.next_aircraft_name(self.country, self.flight)
         cp = self.flight.departure
         try:
+            if self.start_type is StartType.ON_STATION:
+                if starts_on_station(self.flight):
+                    # Delayed until its station time (see WaypointGenerator).
+                    return self.generate_mid_mission(
+                        station_state(self.flight, self.flight.coalition.game.settings)
+                    )
+                return self._generate_over_departure(name, cp)
             if self.start_type is StartType.IN_FLIGHT:
                 group = self._generate_over_departure(name, cp)
                 return group
@@ -322,13 +330,19 @@ class FlightGroupSpawner:
         ramon_airbase_hack &= isinstance(cp.dcs_airport, Ramon_Airbase)
         return ramon_airbase_hack
 
-    def generate_mid_mission(self) -> FlyingGroup[Any]:
-        assert isinstance(self.flight.state, InFlight)
+    def generate_mid_mission(
+        self, state: Optional[InFlight] = None
+    ) -> FlyingGroup[Any]:
+        """Spawns the flight in the air where state (by default its current
+        state) has it."""
+        if state is None:
+            assert isinstance(self.flight.state, InFlight)
+            state = self.flight.state
         name = namegen.next_aircraft_name(self.country, self.flight)
-        speed = self.flight.state.estimate_speed()
-        pos = self.flight.state.estimate_position()
+        speed = state.estimate_speed()
+        pos = state.estimate_position()
         pos += Vector2(random.randint(100, 1000), random.randint(100, 1000))
-        alt, alt_type = self.flight.state.estimate_altitude()
+        alt, alt_type = state.estimate_altitude()
         cp = self.flight.squadron.location.id
 
         if cp not in self.mission_data.cp_stack:

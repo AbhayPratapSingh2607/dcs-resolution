@@ -13,3 +13,5 @@ class StartType(Enum):
     WARM = "Warm"
     RUNWAY = "Runway"
     IN_FLIGHT = "In Flight"
+    #: Already at its station (racetrack, IP, ...): see game.ato.flightstate.onstation.
+    ON_STATION = "On Station"
