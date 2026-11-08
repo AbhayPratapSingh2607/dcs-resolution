@@ -457,3 +457,56 @@ def test_combined_arms_and_unsupported_armor() -> None:
     assert mixed_direct > 1.0 > pure_direct
     # Artillery preparation before the assault.
     assert mixed_indirect > 1.0
+
+
+def test_intel_report_lists_known_sites_and_resolve() -> None:
+    from game.warfare.intel_report import build_intel_report
+    from game.warfare.intel import PhantomContact
+    from game.warfare.morale import MoraleState
+    from uuid import uuid4
+
+    tgo = _site()
+    cp = tgo.control_point
+    picture = IntelPicture()
+    morale = MoraleState()
+    morale.adjust_resolve(Player.RED, -0.6)
+    game = cast(
+        Any,
+        SimpleNamespace(
+            settings=SimpleNamespace(
+                fog_of_war=FogOfWar.STRICT,
+                war_weariness_enabled=True,
+                space_and_agency_intel=False,
+            ),
+            war_state=SimpleNamespace(
+                intel_enabled=lambda game: True,
+                morale_enabled=lambda game: True,
+                picture=lambda game, viewer: picture,
+                morale=morale,
+                collateral_incidents={True: 2},
+            ),
+            theater=SimpleNamespace(
+                conflicts=lambda: [],
+                control_points_for=lambda player: [cp] if player.is_red else [],
+            ),
+        ),
+    )
+    report = build_intel_report(game)
+    assert report.own_resolve == "excellent" and report.enemy_resolve == "~shaken"
+    assert report.collateral_incidents == 2
+    assert report.contacts == []  # Nothing detected yet.
+
+    picture.observe(tgo, 0.5, IntelSource.ELINT, 1, random.Random(1))
+    picture.phantoms[uuid4()] = PhantomContact(
+        uuid4(), cp.position.x, cp.position.y, 0.6, 5000, 2
+    )
+    report = build_intel_report(game)
+    assert [c.source for c in report.contacts] == ["agency report", "ELINT"]
+    real = report.contacts[1]
+    assert real.status == "unconfirmed" and real.kind == "unknown"
+    assert real.position_error.startswith("~")
+
+    picture.observe(tgo, 0.99, IntelSource.RECON, 3, random.Random(1))
+    real = build_intel_report(game).contacts[0]
+    assert (real.status, real.position_error) == ("confirmed", "exact")
+    assert real.kind != "unknown"

@@ -198,8 +198,17 @@ class MissionResultsProcessor:
         # landing position. Otherwise roll the survival chance and scatter near the
         # flight's target (the only position we have for AI/simulated losses).
         ejection_pos = debriefing.ejected_pilot_positions.get(id(pilot))
+        simulated = debriefing.air_loss_by_pilot.get(id(pilot))
         if ejection_pos is not None:
             position = ejection_pos
+        elif simulated is not None:
+            # Shot down by the combat model: we know where, and how, which
+            # sets the odds of getting out (see sim.combat.model.aircrew).
+            chance = simulated.survival_chance(self.game.settings.csar_ejection_chance)
+            if simulated.position is None or random.random() >= chance:
+                pilot.kill()
+                return
+            position = simulated.position
         elif random.randint(1, 100) <= self.game.settings.csar_ejection_chance:
             position = csar.fallback_position_for(flight)
         else:

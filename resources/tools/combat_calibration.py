@@ -18,7 +18,7 @@ from typing import Any, Callable, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from dcs import planes, vehicles  # noqa: E402
+from dcs import helicopters, planes, ships, vehicles  # noqa: E402
 from dcs.unit import Skill  # noqa: E402
 
 from datetime import timedelta  # noqa: E402
@@ -388,6 +388,106 @@ def ground_war(
     return Outcome(front.blue.losses, front.red.losses, float(front.red.broken))
 
 
+def antiship_strike(seed: int, defended: bool) -> Outcome:
+    """4 Hornets with 8 Harpoons against cargo ships, or a cruiser group."""
+    s = Scenario(seed)
+    units = (
+        [ships.MOSCOW, ships.REZKY, ships.NEUSTRASH]
+        if defended
+        else [ships.Dry_cargo_ship_1, ships.Dry_cargo_ship_2]
+    )
+    target = s.target("Group", point(120, 0), units)
+    package = s.package(Player.BLUE, target)
+    flight = s.flight(
+        Player.BLUE,
+        planes.FA_18C_hornet,
+        FlightType.ANTISHIP,
+        4,
+        loadout(("AGM-84D", 2)),
+        point(40, 0),
+        package=package,
+        altitude_m=6000,
+    )
+    report = s.strike(flight)
+    sunk = sum(1 for u in target.units if not u.alive)
+    return Outcome(report.hits, 0, sunk)
+
+
+def apache_vs_armor(seed: int) -> Outcome:
+    """2 AH-64Ds with Hellfires against an unprotected tank company."""
+    s = Scenario(seed)
+    target = s.target("Armor", point(8, 0), [vehicles.Armor.T_72B] * 8)
+    package = s.package(Player.BLUE, target)
+    flight = s.flight(
+        Player.BLUE,
+        helicopters.AH_64D_BLK_II,
+        FlightType.CAS,
+        2,
+        loadout(("AGM-114K * 4", 4)),
+        point(0, 0),
+        package=package,
+        altitude_m=60,
+        speed_kph=200,
+    )
+    report = s.strike(flight)
+    return Outcome(report.losses, 0, report.kills)
+
+
+def helicopters_vs_shorad(seed: int) -> Outcome:
+    """2 AH-64Ds low over a Strela-10 and a Shilka."""
+    s = Scenario(seed)
+    flight = s.flight(
+        Player.BLUE,
+        helicopters.AH_64D_BLK_II,
+        FlightType.CAS,
+        2,
+        loadout(("AGM-114K * 4", 4)),
+        point(0, 0),
+        altitude_m=50,
+        speed_kph=200,
+    )
+    site = s.sam("SHORAD", point(3, 0), [AD.Strela_10M3, AD.ZSU_23_4_Shilka])
+    return Outcome(s.sam_transit(flight, [site], windows=2), 0)
+
+
+def _edge_of_range_strike(seed: int, tanker: bool) -> int:
+    from types import SimpleNamespace
+
+    s = Scenario(seed)
+    target = s.target("Factory", point(50, 0), [Fortification.Barracks_2] * 6)
+    package = s.package(Player.BLUE, target)
+    flight = s.flight(
+        Player.BLUE,
+        planes.F_16C_50,
+        FlightType.STRIKE,
+        4,
+        loadout(("GBU-12", 2), ("AN/AAQ-28 LITENING", 1)),
+        point(30, 0),
+        package=package,
+        altitude_m=7000,
+    )
+    # 620 km out: beyond an F-16's ~510 km radius without help.
+    cast(Any, flight).departure = SimpleNamespace(position=point(-570, 0))
+    if tanker:
+        s.flight(
+            Player.BLUE,
+            planes.KC_135,
+            FlightType.REFUELING,
+            1,
+            loadout(),
+            point(-200, 0),
+            package=package,
+        )
+    return int(s.strike(flight).kills)
+
+
+def edge_of_range_strike(seed: int) -> Outcome:
+    """The same deep strike alone (blue) and with a package tanker (extra)."""
+    return Outcome(
+        _edge_of_range_strike(seed, False), 0, _edge_of_range_strike(seed, True)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Historical validation
 # ---------------------------------------------------------------------------
@@ -654,6 +754,36 @@ OVERCAST_LOW = CombatEnvironment(TimeOfDay.Day, 15, 800, 2500, 0.95, False, Fals
 NIGHT = CombatEnvironment(TimeOfDay.Night, 15, None, None, 0, False, False)
 
 CHECKS = [
+    Check(
+        "Anti-ship: 8 Harpoons vs 2 cargo ships",
+        lambda s: antiship_strike(s, defended=False),
+        "undefended ships are sunk (>= 1.8 of 2)",
+        lambda b, r, e: e >= 1.8,
+    ),
+    Check(
+        "Anti-ship: 8 Harpoons vs defended cruiser group",
+        lambda s: antiship_strike(s, defended=True),
+        "ship air defense stops most (0.5-3 hits, nothing sunk)",
+        lambda b, r, e: 0.5 <= b <= 3 and e <= 0.5,
+    ),
+    Check(
+        "Helicopters: 2 AH-64D vs 8 T-72 unopposed",
+        apache_vs_armor,
+        "Hellfires wreck an unprotected company (>= 5 kills, no losses)",
+        lambda b, r, e: e >= 5 and b == 0,
+    ),
+    Check(
+        "Helicopters: 2 AH-64D low over Strela-10/Shilka",
+        helicopters_vs_shorad,
+        "SHORAD bites low helicopters (0.2-1.5 lost)",
+        lambda b, r, e: 0.2 <= b <= 1.5,
+    ),
+    Check(
+        "Fuel: F-16 strike at the edge of range, alone (blue) vs tanker (extra)",
+        edge_of_range_strike,
+        "a tanker makes the strike work (>= 1.5x the kills)",
+        lambda b, r, e: e >= 1.5 * max(b, 0.5),
+    ),
     Check(
         "4 F-15C (AIM-120) vs 4 MiG-21",
         eagles_vs_fishbeds,

@@ -726,6 +726,7 @@ def test_invulnerable_player_pilot_survives() -> None:
     loss = _loss(pilot, Player.BLUE)
     debriefing = MagicMock()
     debriefing.ejected_pilot_positions = {}
+    debriefing.air_loss_by_pilot = {}
     processor._process_lost_pilot(loss, debriefing, CsarService(game))
     assert pilot.status is PilotStatus.Active
 
@@ -742,6 +743,7 @@ def test_ejection_downs_pilot() -> None:
     loss = _loss(pilot, Player.BLUE)
     debriefing = MagicMock()
     debriefing.ejected_pilot_positions = {id(pilot): Point(50.0, 60.0, _TERRAIN)}
+    debriefing.air_loss_by_pilot = {}
     with patch(
         "game.squadrons.csarservice.find_downed_pilot_position",
         return_value=Point(50.0, 60.0, _TERRAIN),
@@ -760,6 +762,7 @@ def test_no_ejection_failed_roll_kills() -> None:
     loss = _loss(pilot, Player.BLUE)
     debriefing = MagicMock()
     debriefing.ejected_pilot_positions = {}
+    debriefing.air_loss_by_pilot = {}
     processor._process_lost_pilot(loss, debriefing, CsarService(game))
     assert pilot.status is PilotStatus.Dead
 
@@ -774,6 +777,7 @@ def test_csar_disabled_kills() -> None:
     loss = _loss(pilot, Player.BLUE)
     debriefing = MagicMock()
     debriefing.ejected_pilot_positions = {id(pilot): Point(1.0, 2.0, _TERRAIN)}
+    debriefing.air_loss_by_pilot = {}
     processor._process_lost_pilot(loss, debriefing, CsarService(game))
     assert pilot.status is PilotStatus.Dead
 
@@ -1954,3 +1958,79 @@ def test_generate_csar_data_serializes_and_evaluates() -> None:
     assert "CH-47D" in rescue_ids
     assert "Hercules" not in rescue_ids
     assert "C-130J-30" not in rescue_ids
+
+
+# ---------------------------------------------------------------------------
+# Losses from the fast-forward combat model
+# ---------------------------------------------------------------------------
+
+
+def _sim_loss(pilot: Pilot, cause: Any, altitude_m: float = 6000.0) -> Any:
+    from game.sim.combat.model.aircrew import AirLossDetail
+
+    return AirLossDetail(
+        flight=MagicMock(),
+        pilot=pilot,
+        position=Point(10.0, 20.0, _TERRAIN),
+        altitude_m=altitude_m,
+        cause=cause,
+        description="SA-10 from Site",
+        helicopter=False,
+    )
+
+
+def test_simulated_loss_downs_pilot_where_the_aircraft_fell() -> None:
+    from game.sim.combat.model.aircrew import LossCause
+    from game.theater.player import Player
+
+    game = _make_game(csar_ejection_chance=60)
+    game.settings.invulnerable_player_pilots = False
+    game.theater.closest_control_point.return_value.is_friendly.return_value = True
+    game.theater.conflicts.return_value = []
+    processor = MissionResultsProcessor(game)
+    pilot = Pilot("P", player=False)
+    loss = _loss(pilot, Player.BLUE)
+    debriefing = MagicMock()
+    debriefing.ejected_pilot_positions = {}
+    debriefing.air_loss_by_pilot = {id(pilot): _sim_loss(pilot, LossCause.SAM)}
+    with patch(
+        "game.sim.missionresultsprocessor.random.random", return_value=0.5
+    ), patch(
+        "game.squadrons.csarservice.find_downed_pilot_position",
+        side_effect=lambda theater, position, *args, **kwargs: position,
+    ) as place:
+        processor._process_lost_pilot(loss, debriefing, CsarService(game))
+    assert pilot.downed
+    # Placed from the crash site, not the package's target.
+    assert place.call_args.args[1] == Point(10.0, 20.0, _TERRAIN)
+
+
+def test_simulated_loss_failed_ejection_kills() -> None:
+    from game.sim.combat.model.aircrew import LossCause
+    from game.theater.player import Player
+
+    game = _make_game(csar_ejection_chance=60)
+    game.settings.invulnerable_player_pilots = False
+    processor = MissionResultsProcessor(game)
+    pilot = Pilot("P", player=False)
+    loss = _loss(pilot, Player.BLUE)
+    debriefing = MagicMock()
+    debriefing.ejected_pilot_positions = {}
+    # Gun kill at low level: 60% x 0.9 x 0.6 = 32% survival.
+    debriefing.air_loss_by_pilot = {
+        id(pilot): _sim_loss(pilot, LossCause.AIR_GUN, altitude_m=100)
+    }
+    with patch("game.sim.missionresultsprocessor.random.random", return_value=0.4):
+        processor._process_lost_pilot(loss, debriefing, CsarService(game))
+    assert pilot.status is PilotStatus.Dead
+
+
+def test_survival_depends_on_the_kind_of_hit() -> None:
+    from game.sim.combat.model.aircrew import LossCause
+
+    pilot = Pilot("P", player=False)
+    missile = _sim_loss(pilot, LossCause.AIR_MISSILE).survival_chance(40)
+    gun_low = _sim_loss(pilot, LossCause.AIR_GUN, altitude_m=50).survival_chance(40)
+    assert missile > 0.4 > gun_low
+    assert _sim_loss(pilot, LossCause.SAM).survival_chance(100) <= 0.95
+    assert _sim_loss(pilot, LossCause.SAM).survival_chance(0) == 0.0

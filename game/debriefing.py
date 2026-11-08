@@ -228,6 +228,10 @@ class Debriefing:
         self.combat_credits: list[Any] = []
         self.flights_flown: list[Any] = []
         self.collateral_events: list[bool] = []
+        #: Where and how the combat model shot each aircraft down, keyed by
+        #: id(pilot) like ejected_pilot_positions (aircrew.AirLossDetail).
+        self.air_loss_details: list[Any] = []
+        self.air_loss_by_pilot: Dict[int, Any] = {}
         self.ejected_pilot_positions = self._ejected_pilot_positions()
         #: Downed pilots recovered this mission, keyed by their DownedPilot id so
         #: repeated state.json polls (and the AI-flight fallback added later by
@@ -321,6 +325,10 @@ class Debriefing:
         from game.unitmap import TheaterUnitMapping
 
         self.simulation_log = list(results.log)
+        self.air_loss_details = list(results.air_loss_details)
+        self.air_loss_by_pilot = {
+            id(d.pilot): d for d in self.air_loss_details if d.pilot is not None
+        }
         for air_loss in results.air_losses:
             if air_loss.flight.squadron.player.is_blue:
                 self.air_losses.player.append(air_loss)

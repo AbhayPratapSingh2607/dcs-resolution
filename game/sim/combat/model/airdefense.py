@@ -28,6 +28,7 @@ from game.data.radar_db import (
     UNITS_WITH_RADAR,
 )
 from game.sim.combatlog import CombatDomain
+from .aircrew import LossCause
 from .airframe import AirframeState, WeaponStore
 from .engine import CombatModel, clamp, distance_km, radar_horizon_km
 from .profiles import AirDefenseGuidance, AirDefenseProfile, WeaponRole
@@ -664,6 +665,11 @@ def engage_site(
                     events,
                     CombatDomain.AIR_DEFENSE,
                     f"{profile.system} from {site.tgo.name}",
+                    (
+                        LossCause.AAA
+                        if profile.guidance is AirDefenseGuidance.GUN
+                        else LossCause.SAM
+                    ),
                 ):
                     if engagement is not None:
                         engagement.losses += 1

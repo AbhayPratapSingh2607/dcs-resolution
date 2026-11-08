@@ -45,6 +45,8 @@ class SimulationResults:
     combat_credits: list[Any] = field(default_factory=list)
     #: Civilian casualty incidents: True when caused by blue.
     collateral_events: list[bool] = field(default_factory=list)
+    #: Where and how each aircraft was shot down (aircrew.AirLossDetail).
+    air_loss_details: list[Any] = field(default_factory=list)
     #: Every flight that took part in this turn's simulation.
     flights_flown: list[Any] = field(default_factory=list)
     #: Seed for the combat model, so auto-resolved results can be reproduced.

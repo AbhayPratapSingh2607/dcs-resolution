@@ -16,6 +16,7 @@ from .forcequality import NEUTRAL, ForceQuality, for_faction
 from .profiles import CombatProfiles
 
 if TYPE_CHECKING:
+    from .aircrew import LossCause
     from dcs import Point
 
     from game import Game
@@ -352,6 +353,7 @@ class CombatModel:
         events: GameUpdateEvents,
         domain: CombatDomain,
         cause: str,
+        loss_cause: Optional[LossCause] = None,
     ) -> bool:
         """Destroys an airframe. Player aircraft are never killed by the model; the
         player gets to fight for themselves in DCS."""
@@ -372,6 +374,12 @@ class CombatModel:
             )
             return False
         airframe.alive = False
+        # Where and how it went down, for the crew's fate (CSAR) and the report.
+        from .aircrew import LossCause, detail_for
+
+        self.results.air_loss_details.append(
+            detail_for(airframe, loss_cause or LossCause.OTHER, cause)
+        )
         self.results.kill_flight_member(airframe.flight, airframe.member, events)
         self.log(time, domain, side, f"{airframe.name} destroyed by {cause}")
         from game.ato.flighttype import FlightType

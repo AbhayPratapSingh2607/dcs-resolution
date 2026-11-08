@@ -21,6 +21,7 @@ from game.warfare.intel import player_estimate
 from game.theater import ParkingType, Player
 from qt_ui.uiconstants import ICONS
 from qt_ui.windows.finances.QFinancesMenu import FinancesLayout
+from qt_ui.windows.intel_picture import IntelPictureTab
 
 
 class ScrollingFrame(QFrame):
@@ -172,6 +173,8 @@ class IntelTabs(QTabWidget):
         self.addTab(EconomyIntelTab(game, player), "Economy")
         self.addTab(AircraftIntelTab(game, player), "Air forces")
         self.addTab(ArmyIntelTab(game, player), "Ground forces")
+        # Always our own picture of the enemy, whichever side is selected.
+        self.addTab(IntelPictureTab(game), "Intel picture")
 
 
 class IntelWindow(QDialog):

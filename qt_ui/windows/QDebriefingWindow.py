@@ -1,6 +1,7 @@
 import logging
 from typing import Callable, Dict, TypeVar
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap, QCloseEvent
 from PySide6.QtWidgets import (
     QDialog,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from game.debriefing import Debriefing
+from game.sim.aftaction import AfterActionReport
 from game.theater import Player
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
 
@@ -73,6 +75,24 @@ class ScrollingCasualtyReportContainer(QGroupBox):
         scroll_area.setWidget(scroll_content)
         layout = QVBoxLayout()
         layout.addWidget(scroll_area)
+        self.setLayout(layout)
+
+
+class AfterActionReportBox(QGroupBox):
+    """What happened and why, for turns resolved by the combat model: losses
+    by cause, crew fates, front-line results and key events."""
+
+    def __init__(self, report: AfterActionReport) -> None:
+        super().__init__("After-action report:")
+        label = QLabel(report.to_html())
+        label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(label)
+        scroll.setMinimumHeight(220)
+        layout = QVBoxLayout()
+        layout.addWidget(scroll)
         self.setLayout(layout)
 
 
@@ -175,6 +195,10 @@ class QDebriefingWindow(QDialog):
             debriefing, player=Player.RED
         )
         layout.addWidget(enemy_lost_units, 1)
+
+        report = AfterActionReport.from_debriefing(debriefing)
+        if getattr(debriefing, "simulation_log", None) and not report.empty:
+            layout.addWidget(AfterActionReportBox(report))
 
         layout.addWidget(RescueReport(debriefing))
         layout.addWidget(CaptureReport(debriefing))

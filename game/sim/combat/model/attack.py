@@ -24,6 +24,7 @@ from game.data.radar_db import TELARS, TRACK_RADARS, UNITS_WITH_RADAR
 from game.data.units import UnitClass
 from game.sim.combatlog import CombatDomain
 from .airdefense import engage_site, fire_arms, site_for
+from .aircrew import LossCause
 from .airframe import AirframeState, WeaponStore
 from .engine import CombatModel, clamp, distance_km
 from .profiles import Guidance, SHIP_HIT_POINTS, Warhead, WeaponRole
@@ -617,6 +618,7 @@ class AttackRun:
                     self.events,
                     CombatDomain.STRIKE,
                     "ground fire over the front",
+                    LossCause.GROUND_FIRE,
                 ):
                     self.report.losses += 1
         return self.model.airframes(self.flight)

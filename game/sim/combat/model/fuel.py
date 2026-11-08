@@ -12,8 +12,10 @@ down stops supporting its flights at once.
 
 Effects:
 
-* **Air-to-air:** fighters short of fuel reach bingo and break off sooner;
-  fighters with a tanker behind them can stay in the fight longer.
+* **Air-to-air:** fighters short of fuel reach bingo sooner, and fighters
+  with a tanker behind them later. Most model air fights are decided within
+  two minutes, so this only matters in the occasional long fight; how long a
+  CAP stays on station is set by its flight plan, not here.
 * **Strikes:** a flight at the edge of its range has no time to set up and
   makes one rushed pass, and may turn back short of the target.
 

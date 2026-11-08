@@ -34,6 +34,7 @@ from typing import Optional, TYPE_CHECKING
 from game.sim.combatlog import CombatDomain
 from .airframe import AirframeState, GUN, WeaponStore, flight_role
 from .engine import CombatModel, clamp, distance_km
+from .aircrew import LossCause
 from .profiles import Guidance, WeaponCombatProfile
 
 if TYPE_CHECKING:
@@ -619,6 +620,11 @@ class AirEngagement:
                     events,
                     CombatDomain.AIR,
                     f"{weapon.name} from {shooter.name}",
+                    (
+                        LossCause.AIR_GUN
+                        if weapon.guidance is Guidance.GUN
+                        else LossCause.AIR_MISSILE
+                    ),
                 ):
                     entry.losses += 1
                     self.model.credit(shooter.flight, "air_kill")

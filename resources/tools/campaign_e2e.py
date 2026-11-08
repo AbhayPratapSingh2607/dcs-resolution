@@ -1,0 +1,300 @@
+"""Runs a campaign end to end without the UI, resolving every turn with the
+fast-forward combat model.
+
+Generates a new campaign (or loads a save), then for each turn: plans it,
+fights the whole turn with the combat model, commits the results the same way
+the app does (losses, CSAR, intel, morale), and passes the turn. Prints an
+after-action report per turn and checks invariants:
+
+* no errors are logged by game code while simulating or committing,
+* no front line loses (almost) everything in one turn,
+* no side loses an implausible share of the aircraft it flew,
+* the game still saves (pickles) after every turn.
+
+Exits with status 1 when a check fails.
+
+Examples (from the repository root, with the project venv):
+
+    .venv/Scripts/python resources/tools/campaign_e2e.py --turns 3
+    .venv/Scripts/python resources/tools/campaign_e2e.py --campaign Caucasus_Multi_Georgia \\
+        --blue "Bluefor Modern" --red "Russia 2010" --date 2010-06-01 --turns 5 --seed 7
+    .venv/Scripts/python resources/tools/campaign_e2e.py --load "path/to/save.retribution" \\
+        --turns 2 --save out.retribution --json report.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import pickle
+import random
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+os.chdir(ROOT)
+
+#: A front this size or larger must not lose more than this share in a turn.
+FRONT_MIN_SIZE = 10
+FRONT_MAX_LOSS = 0.9
+#: Share of the aircraft a side flew that it may lose in one turn.
+AIR_MAX_LOSS = 0.35
+
+
+class ErrorCounter(logging.Handler):
+    """Counts errors logged by game code (not pydcs' payload parse noise)."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.ERROR)
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.name.startswith("pydcs"):
+            return
+        self.records.append(record)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--campaign", default="black_sea", help="campaign file stem")
+    parser.add_argument("--blue", default="USA 2020")
+    parser.add_argument("--red", default="[CH] Russia 2020")
+    parser.add_argument("--date", default=None, help="start date, YYYY-MM-DD")
+    parser.add_argument("--load", default=None, help="save game to start from")
+    parser.add_argument("--turns", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--save", default=None, help="write the final game here")
+    parser.add_argument("--json", default=None, help="write per-turn metrics here")
+    parser.add_argument("--no-csar", action="store_true", help="turn CSAR off")
+    parser.add_argument(
+        "--verbose", action="store_true", help="also print the full combat log"
+    )
+    return parser.parse_args()
+
+
+def setup() -> None:
+    logging.basicConfig(level=logging.ERROR, format="%(levelname)s %(message)s")
+    logging.getLogger("pydcs").setLevel(logging.CRITICAL)
+    import game  # noqa: F401  (import order matters)
+    from pydcs_extensions import load_mods
+    from qt_ui import liberation_install
+
+    if liberation_install.init():
+        sys.exit("Run the app once first to configure the DCS folders.")
+    load_mods()
+
+
+def new_game(args: argparse.Namespace) -> Any:
+    from qt_ui.main import create_game
+
+    campaign = ROOT / "resources" / "campaigns" / f"{args.campaign}.yaml"
+    if not campaign.exists():
+        sys.exit(f"No campaign {campaign}")
+    start = datetime.fromisoformat(args.date) if args.date else None
+    if start is None:
+        from game.campaignloader import Campaign
+
+        start = Campaign.from_file(campaign).recommended_start_date or datetime(
+            2005, 6, 1
+        )
+        if not isinstance(start, datetime):
+            start = datetime(start.year, start.month, start.day)
+    return create_game(
+        campaign,
+        args.blue,
+        args.red,
+        False,  # supercarrier
+        True,  # auto procurement
+        False,  # inverted
+        False,  # cheats
+        start,
+        False,  # restrict weapons by date
+        False,  # advanced IADS
+        True,  # squadrons start full
+    )
+
+
+def load_game(path: str) -> Any:
+    from game import persistency
+
+    loaded = persistency.load_game(path)
+    if loaded is None:
+        sys.exit(f"Could not load {path}")
+    return loaded
+
+
+def front_sizes(game: Any) -> dict[str, tuple[int, int]]:
+    sizes = {}
+    for front in game.theater.conflicts():
+        blue = game.ground_planners.get(front.blue_cp.id)
+        red = game.ground_planners.get(front.red_cp.id)
+        blue_n = sum(
+            g.size for g in (blue.units_per_cp.get(front.red_cp.id, []) if blue else [])
+        )
+        red_n = sum(
+            g.size for g in (red.units_per_cp.get(front.blue_cp.id, []) if red else [])
+        )
+        sizes[front.name] = (blue_n, red_n)
+    return sizes
+
+
+def aircraft_flown(game: Any) -> dict[bool, int]:
+    flown = {True: 0, False: 0}
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            for flight in package.flights:
+                flown[coalition.player.is_blue] += flight.count
+    return flown
+
+
+def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
+    from game.settings.settings import FastForwardStopCondition
+    from game.sim.aftaction import AfterActionReport
+    from game.sim.gameloop import GameLoop
+    from game.sim.gameupdatecallbacks import GameUpdateCallbacks
+    from game.theater.player import Player
+
+    turn = game.turn
+    fronts_before = front_sizes(game)
+    flown = aircraft_flown(game)
+    owners_before = {cp.name: cp.captured.name for cp in game.theater.controlpoints}
+    errors_before = len(errors.records)
+
+    game.settings.fast_forward_stop_condition = FastForwardStopCondition.END_OF_TURN
+    started = time.time()
+    loop = GameLoop(game, GameUpdateCallbacks(lambda: None, lambda e: None))
+    loop.run_to_first_contact()
+    debriefing = loop.sim.debrief_simulated()
+    simulated_s = time.time() - started
+    loop.complete_with_results(debriefing)
+    report = AfterActionReport.from_debriefing(debriefing)
+    game.pass_turn()
+
+    failures: list[str] = []
+    warnings: list[str] = []
+    new_errors = errors.records[errors_before:]
+    for record in new_errors:
+        failures.append(f"error logged: {record.getMessage()[:200]}")
+
+    front_losses = {}
+    for name, (blue_n, red_n) in fronts_before.items():
+        blue_lost = sum(
+            n for base, n in report.blue.front_line_by_base.items() if base in name
+        )
+        red_lost = sum(
+            n for base, n in report.red.front_line_by_base.items() if base in name
+        )
+        front_losses[name] = {
+            "blue": [blue_lost, blue_n],
+            "red": [red_lost, red_n],
+        }
+        for side, lost, size in (("blue", blue_lost, blue_n), ("red", red_lost, red_n)):
+            if size >= FRONT_MIN_SIZE and lost > FRONT_MAX_LOSS * size:
+                failures.append(f"{name}: {side} lost {lost} of {size} in one turn")
+
+    for side, player in (("blue", Player.BLUE), ("red", Player.RED)):
+        lost = debriefing.loss_counts(player).aircraft
+        total = flown[player.is_blue]
+        if total >= 8 and lost > AIR_MAX_LOSS * total:
+            warnings.append(f"{side} lost {lost} of {total} aircraft flown")
+
+    try:
+        pickle.dumps(game)
+    except Exception as ex:  # noqa: BLE001
+        failures.append(f"game no longer pickles: {ex}")
+
+    captured = [
+        cp.name
+        for cp in game.theater.controlpoints
+        if owners_before.get(cp.name) != cp.captured.name
+    ]
+
+    print(f"\n=== Turn {turn} ({simulated_s:.0f}s to simulate) ===")
+    print(f"Aircraft flown: blue {flown[True]}, red {flown[False]}")
+    print(report.to_text())
+    if captured:
+        print("Bases changing hands:", ", ".join(captured))
+    for name, losses in front_losses.items():
+        b, r = losses["blue"], losses["red"]
+        print(f"Front {name}: blue lost {b[0]}/{b[1]}, red lost {r[0]}/{r[1]}")
+    if verbose:
+        print("Combat log:")
+        for entry in debriefing.simulation_log:
+            print("  ", entry)
+    for w in warnings:
+        print("WARN", w)
+    for f in failures:
+        print("FAIL", f)
+
+    return {
+        "turn": turn,
+        "simulated_seconds": round(simulated_s, 1),
+        "aircraft_flown": {"blue": flown[True], "red": flown[False]},
+        "aircraft_lost": {
+            "blue": report.blue.aircraft_lost,
+            "red": report.red.aircraft_lost,
+        },
+        "aircraft_by_cause": {
+            "blue": dict(report.blue.aircraft_by_cause),
+            "red": dict(report.red.aircraft_by_cause),
+        },
+        "crews": {"blue": dict(report.blue.crew), "red": dict(report.red.crew)},
+        "fronts": front_losses,
+        "bases_captured": captured,
+        "events": [f"{h}: {t}" for h, t in report.events],
+        "warnings": warnings,
+        "failures": failures,
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    if args.seed is not None:
+        random.seed(args.seed)
+    setup()
+    errors = ErrorCounter()
+    logging.getLogger().addHandler(errors)
+
+    started = time.time()
+    game = load_game(args.load) if args.load else new_game(args)
+    if args.no_csar:
+        game.settings.csar_enabled = False
+        game.settings.csar_enabled_red = False
+    if game.turn == 0:
+        game.pass_turn(no_action=True)
+    print(
+        f"{game.blue.faction.name} vs {game.red.faction.name} on "
+        f"{game.theater.terrain.name}, turn {game.turn} "
+        f"(ready in {time.time() - started:.0f}s)"
+    )
+
+    turns = []
+    for _ in range(args.turns):
+        turns.append(run_turn(game, errors, args.verbose))
+
+    failed = sum(len(t["failures"]) for t in turns)
+    warned = sum(len(t["warnings"]) for t in turns)
+    print(f"\n{len(turns)} turns: {failed} failures, {warned} warnings")
+    if args.save:
+        from game import persistency
+
+        game.savepath = str(Path(args.save).resolve())
+        if persistency.save_game(game):
+            print("Saved to", game.savepath, "(open it in the app to inspect)")
+        else:
+            failed += 1
+            print("FAIL could not save the game")
+    if args.json:
+        Path(args.json).write_text(json.dumps(turns, indent=2, default=str))
+        print("Metrics written to", args.json)
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
