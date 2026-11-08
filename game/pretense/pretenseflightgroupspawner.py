@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from dcs import Mission
 from dcs.country import Country
@@ -125,7 +125,7 @@ class PretenseFlightGroupSpawner(FlightGroupSpawner):
         name = namegen.next_pretense_aircraft_name(cp, self.flight)
 
         try:
-            if self.start_type is StartType.IN_FLIGHT:
+            if self.start_type in {StartType.IN_FLIGHT, StartType.ON_STATION}:
                 self.insert_into_pretense(name)
                 group = self._generate_over_departure(name, cp)
                 return group
@@ -233,14 +233,18 @@ class PretenseFlightGroupSpawner(FlightGroupSpawner):
                 group = self._generate_over_departure(name, cp)
                 return group
 
-    def generate_mid_mission(self) -> FlyingGroup[Any]:
-        assert isinstance(self.flight.state, InFlight)
+    def generate_mid_mission(
+        self, state: Optional[InFlight] = None
+    ) -> FlyingGroup[Any]:
+        if state is None:
+            assert isinstance(self.flight.state, InFlight)
+            state = self.flight.state
         name = namegen.next_pretense_aircraft_name(self.flight.departure, self.flight)
 
-        speed = self.flight.state.estimate_speed()
-        pos = self.flight.state.estimate_position()
+        speed = state.estimate_speed()
+        pos = state.estimate_position()
         pos += Vector2(random.randint(100, 1000), random.randint(100, 1000))
-        alt, alt_type = self.flight.state.estimate_altitude()
+        alt, alt_type = state.estimate_altitude()
         cp = self.flight.squadron.location.id
 
         if cp not in self.mission_data.cp_stack:

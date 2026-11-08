@@ -41,6 +41,14 @@ class QFlightStartType(QGroupBox):
                 + "by OCA/Aircraft missions. This will affect game balance."
             )
         )
+        on_station = QLabel(
+            "On Station: the flight appears in the air at its station at its planned "
+            "time: the start of the racetrack for patrols (CAP, AWACS, tankers), the "
+            "IP for attack and escort flights. Tick ASAP on the package to have it "
+            "there at mission start."
+        )
+        on_station.setWordWrap(True)
+        self.layout.addWidget(on_station)
         self.setLayout(self.layout)
 
     def on_pilot_selected(self):

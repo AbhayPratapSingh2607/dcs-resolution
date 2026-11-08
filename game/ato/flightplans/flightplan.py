@@ -239,6 +239,13 @@ class FlightPlan(ABC, Generic[LayoutT]):
         return self.tot - self._travel_time_to_waypoint(self.tot_waypoint)
 
     def minimum_duration_from_start_to_tot(self) -> timedelta:
+        from game.ato.flightstate.onstation import (
+            duration_from_station_to_tot,
+            starts_on_station,
+        )
+
+        if starts_on_station(self.flight):
+            return duration_from_station_to_tot(self)
         return (
             self._travel_time_to_waypoint(self.tot_waypoint)
             + self.estimate_startup()
@@ -247,6 +254,11 @@ class FlightPlan(ABC, Generic[LayoutT]):
         )
 
     def startup_time(self) -> datetime:
+        from game.ato.flightstate.onstation import starts_on_station, station_time
+
+        if starts_on_station(self.flight):
+            # The flight appears at its station; nothing happens before that.
+            return station_time(self)
         return (
             self.takeoff_time()
             - self.estimate_startup()
@@ -266,7 +278,11 @@ class FlightPlan(ABC, Generic[LayoutT]):
         return timedelta()
 
     def estimate_ground_ops(self) -> timedelta:
-        if self.flight.start_type in {StartType.RUNWAY, StartType.IN_FLIGHT}:
+        if self.flight.start_type in {
+            StartType.RUNWAY,
+            StartType.IN_FLIGHT,
+            StartType.ON_STATION,
+        }:
             return timedelta()
         if self.flight.departure.is_fleet or self.flight.departure.is_fob:
             return timedelta(minutes=2)

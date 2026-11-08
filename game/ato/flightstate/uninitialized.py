@@ -44,6 +44,8 @@ class Uninitialized(FlightState):
             action = "Taking off"
         elif self.flight.start_type is StartType.IN_FLIGHT:
             action = "In flight"
+        elif self.flight.start_type is StartType.ON_STATION:
+            action = "On station"
         else:
             raise ValueError(f"Unhandled StartType: {self.flight.start_type}")
         return f"{action} at {self.flight.flight_plan.startup_time():%H:%M:%S}"

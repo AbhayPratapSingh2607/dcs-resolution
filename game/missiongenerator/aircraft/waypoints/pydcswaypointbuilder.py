@@ -125,7 +125,10 @@ class PydcsWaypointBuilder:
         arrival = self.flight.arrival
         offmap = isinstance(arrival, OffMapSpawn)
         ai_despawn = self.flight.coalition.game.settings.perf_ai_despawn_airstarted
-        ai_despawn &= self.flight.start_type == StartType.IN_FLIGHT
+        ai_despawn &= self.flight.start_type in {
+            StartType.IN_FLIGHT,
+            StartType.ON_STATION,
+        }
         is_landing_wpt = arrival.position == waypoint.position
         return (offmap or ai_despawn) and (is_landing_wpt or ignore_landing_wpt)
 
