@@ -24,9 +24,14 @@ class FlightState(ABC):
     def reinitialize(self, now: datetime) -> None:
         from game.ato.flightstate import WaitingForStart
 
+        from game.ato.flightstate.onstation import advance_to, starts_on_station
+
         start_time = self.flight.flight_plan.startup_time()
         if start_time <= now:
             self._set_active_flight_state(start_time)
+            if starts_on_station(self.flight) and start_time < now:
+                # Should have been on station for a while: catch up.
+                advance_to(self.flight, start_time, now)
         else:
             self.flight.set_state(
                 WaitingForStart(self.flight, self.settings, start_time)
@@ -49,6 +54,18 @@ class FlightState(ABC):
                 self.flight.set_state(
                     Navigating(self.flight, self.settings, waypoint_index=0)
                 )
+            case StartType.ON_STATION:
+                from game.ato.flightstate.onstation import (
+                    starts_on_station,
+                    station_state,
+                )
+
+                if starts_on_station(self.flight):
+                    self.flight.set_state(station_state(self.flight, self.settings))
+                else:
+                    self.flight.set_state(
+                        Navigating(self.flight, self.settings, waypoint_index=0)
+                    )
             case _:
                 raise ValueError(
                     f"Unknown start type {self.flight.start_type} for {self.flight}"

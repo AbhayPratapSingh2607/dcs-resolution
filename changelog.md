@@ -8,6 +8,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 * **[FARPs]** Dynamic FARPs. Build Wet Wing (C-130) or Fat Cow (CH-47) FARPs near the front, and station helicopter detachments at them.
 * **[Loadouts]** Payloads are listed by their mission editor label. Stations use mission editor labels, and weapons are sorted into category submenus.
 * **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
+* **[Flight Planning]** New "On Station" start type: flights appear in the air at their racetrack or IP instead of taking off.
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.

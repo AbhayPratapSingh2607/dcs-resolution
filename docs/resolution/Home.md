@@ -14,6 +14,8 @@ plugins), see [Retribution's wiki](https://github.com/dcs-retribution/dcs-retrib
 * [UH-60L Armed Blackhawk](Armed-Blackhawk.md): support for the Armed Blackhawk submod and the
   ANDR0ID Weapon Pack.
 * [Super Hornet](Super-Hornet.md): fixes for the CJS Super Hornet mod, including v2.4.6.
+* [On Station start](On-Station-Start.md): flights start in the air at their racetrack or IP,
+  so AWACS, tankers and CAP can be on station when the mission begins.
 
 ## Other pages
 
@@ -31,6 +33,6 @@ Resolution's options go into existing pages:
 | Campaign Management | Dynamic FARPs | FARPs on/off, costs, upkeep, capacity, limit, distance from the front |
 | Campaign Management | Flight Planner Automation | Single-helicopter CSAR packages |
 | Campaign Doctrine | General | Maximum CSAR flights per side each turn |
-| Mission Generator | Gameplay | CSAR start type, hover or landing extraction, rescuing AI pilots, player hover height and distance, cabin door requirement |
+| Mission Generator | Gameplay | "On Station" in the default start types, CSAR start type, hover or landing extraction, rescuing AI pilots, player hover height and distance, cabin door requirement |
 | Cheat Menu | | Enable Instant FARP Cheat |
 | New Game wizard | Mods | UH-60L Armed Blackhawk |

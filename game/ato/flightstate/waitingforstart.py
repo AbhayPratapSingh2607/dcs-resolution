@@ -7,6 +7,7 @@ from game.ato.starttype import StartType
 from .atdeparture import AtDeparture
 from .flightstate import FlightState
 from .navigating import Navigating
+from .onstation import starts_on_station, station_state
 from .startup import StartUp
 from .takeoff import Takeoff
 from .taxi import Taxi
@@ -44,6 +45,8 @@ class WaitingForStart(AtDeparture):
             new_state = Taxi(self.flight, self.settings, time)
         elif self.start_type is StartType.RUNWAY:
             new_state = Takeoff(self.flight, self.settings, time)
+        elif starts_on_station(self.flight):
+            new_state = station_state(self.flight, self.settings)
         else:
             new_state = Navigating(self.flight, self.settings, waypoint_index=0)
         self.flight.set_state(new_state)
@@ -69,6 +72,8 @@ class WaitingForStart(AtDeparture):
             start_type = "takeoff"
         elif self.start_type is StartType.IN_FLIGHT:
             start_type = "air start"
+        elif self.start_type is StartType.ON_STATION:
+            start_type = "on-station start"
         else:
             raise ValueError(f"Unhandled StartType: {self.start_type}")
         return f"Waiting for {start_type} at {self.start_time:%H:%M:%S}"
