@@ -146,6 +146,21 @@ class QAutoCreateDialog(QDialog):
         )
 
         hbox = QHBoxLayout()
+        self.recon = self._create_checkbox("Recon")
+        self.recon_count = _spinbox_template()
+        self.recon_count.setValue(1)
+        hbox.addWidget(self.recon)
+        hbox.addWidget(self.recon_count)
+        self.recon_type = self._create_type_selector(FlightType.RECON)
+        hbox.addWidget(self.recon_type)
+        self.layout.addLayout(hbox)
+        self.checkboxes[self.recon] = (
+            FlightType.RECON,
+            self.recon_count,
+            self.recon_type,
+        )
+
+        hbox = QHBoxLayout()
         self.refueling = self._create_checkbox("Refueling")
         self.refueling_count = _spinbox_template()
         self.refueling_count.setValue(1)
@@ -192,6 +207,7 @@ class QAutoCreateDialog(QDialog):
             FlightType.BAI,
             FlightType.CAS,
             FlightType.ARMED_RECON,
+            FlightType.RECON,
             FlightType.AIR_ASSAULT,
         }
         for mt in self.package.target.mission_types(

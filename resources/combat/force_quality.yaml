@@ -1,0 +1,99 @@
+# Force quality for the fast-forward combat model.
+#
+# Equipment is only part of the story. The record of modern air campaigns
+# (Desert Storm, Allied Force, Bekaa 1982, Yom Kippur 1973, Linebacker II) is
+# dominated by training, readiness, integration and doctrine: Iraqi and Syrian
+# SAM crews fired hundreds of missiles for a handful of kills, Serbian crews
+# survived 78 days by barely radiating and hit almost nothing, while NATO and
+# Israeli aircrews trained against realistic threats and flew with SEAD,
+# jamming and AWACS behind them.
+#
+# Each tier scales the side's combat performance:
+#   aircrew:          multiplier on pilot skill (shot discipline, defending
+#                     missiles, situational awareness, dogfighting).
+#   sam_crew:         SAM/AAA crew proficiency: track quality and the share of
+#                     launches made properly inside the envelope.
+#   readiness:        share of launches where the missile and ground equipment
+#                     actually work (maintenance, spares, missile age).
+#   iads_integration: how well the air defense network cues its sites. Low
+#                     values mean sites mostly fight on their own radars.
+#   arm_fear:         under anti-radiation missile threat, how readily crews
+#                     emit only briefly or fire without guidance to survive.
+#   standoff_doctrine: aircrews avoid lingering in known SAM envelopes once
+#                     engaged (vectored out by AWACS/RWR, re-routed).
+#   gci_dependent:    fighters rely on ground control; without AWACS/GCI
+#                     coverage their own awareness suffers.
+#   ew_support:       multiplier on self-protection jamming effectiveness
+#                     (pod quality, threat libraries, tactics).
+#
+# A faction is matched by the first pattern (case-insensitive regex on the
+# faction name) that matches. Unmatched factions use "default_tier".
+
+default_tier: western
+
+tiers:
+  nato_tier1:
+    aircrew: 1.1
+    sam_crew: 1.0
+    readiness: 0.95
+    iads_integration: 1.0
+    arm_fear: 0.3
+    standoff_doctrine: true
+    gci_dependent: false
+    ew_support: 1.2
+  western:
+    aircrew: 1.0
+    sam_crew: 0.9
+    readiness: 0.9
+    iads_integration: 0.9
+    arm_fear: 0.35
+    standoff_doctrine: true
+    gci_dependent: false
+    ew_support: 1.0
+  peer:
+    aircrew: 0.95
+    sam_crew: 0.9
+    readiness: 0.85
+    iads_integration: 0.9
+    arm_fear: 0.4
+    standoff_doctrine: false
+    gci_dependent: false
+    ew_support: 0.9
+  soviet_coldwar:
+    aircrew: 0.88
+    sam_crew: 0.8
+    readiness: 0.75
+    iads_integration: 0.8
+    arm_fear: 0.5
+    standoff_doctrine: false
+    gci_dependent: true
+    ew_support: 0.7
+  client_state:
+    aircrew: 0.75
+    sam_crew: 0.6
+    readiness: 0.6
+    iads_integration: 0.6
+    arm_fear: 0.65
+    standoff_doctrine: false
+    gci_dependent: true
+    ew_support: 0.5
+  irregular:
+    aircrew: 0.65
+    sam_crew: 0.45
+    readiness: 0.5
+    iads_integration: 0.2
+    arm_fear: 0.7
+    standoff_doctrine: false
+    gci_dependent: true
+    ew_support: 0.3
+
+# Ordered: the first match wins.
+factions:
+  - {pattern: "insurgent|taliban|vietcong|viet cong|pmc", tier: irregular}
+  - {pattern: "iraq|iran|syria|libya|egypt|north korea|dprk|wadiya|nva|vietnam 19|north vietnam|argentin|peru|georgia", tier: client_state}
+  - {pattern: "ussr|soviet|gdr|german democratic|russia 19[5-9]|russia_19|ukraine", tier: soviet_coldwar}
+  # US forces before the post-Vietnam training revolution (Red Flag, Topgun).
+  - {pattern: "^usa 19[4-7][0-4]|^usa 1970|1971 usa|^usa 196", tier: western}
+  - {pattern: "russia|china|redfor|india|pakistan", tier: peer}
+  - {pattern: "usa|usn|us navy|united states|nato|bluefor|blufor|uk |^uk|britain|royal|france|israel 19[89]|israel 20|israel_19[89]|israel_20|us_|aggressor", tier: nato_tier1}
+  - {pattern: "israel", tier: western}

@@ -21,7 +21,10 @@ def list_tgos(game: Game = Depends(GameContext.require)) -> list[TgoJs]:
 
 @router.get("/{tgo_id}", operation_id="get_tgo_by_id", response_model=TgoJs)
 def get_tgo(tgo_id: UUID, game: Game = Depends(GameContext.require)) -> TgoJs:
-    return TgoJs.for_tgo(game.db.tgos.get(tgo_id))
+    tgo = game.db.tgos.get(tgo_id)
+    if not TgoJs.visible(tgo):
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    return TgoJs.for_tgo(tgo)
 
 
 @router.get(

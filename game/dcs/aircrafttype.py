@@ -277,6 +277,16 @@ class AircraftType(UnitType[Type[FlyingType]]):
             ):
                 enrich[FlightType.SEAD_SWEEP] = value
 
+        if FlightType.RECON not in self.task_priorities:
+            from dcs import task as dcs_task
+
+            if (
+                dcs_task.Reconnaissance in self.dcs_unit_type.tasks
+                and FlightType.TRANSPORT not in self.task_priorities
+                and FlightType.AIR_ASSAULT not in self.task_priorities
+            ):
+                # Dedicated recon planes and UAVs first, scout helicopters next.
+                enrich[FlightType.RECON] = 300 if self.helicopter else 600
         if FlightType.ARMED_RECON not in self.task_priorities:
             if (value := self.task_priorities.get(FlightType.CAS)) or (
                 value := self.task_priorities.get(FlightType.BAI)
@@ -637,6 +647,9 @@ class AircraftType(UnitType[Type[FlyingType]]):
             and FlightType.SEAD in task_priorities
         ):
             task_priorities[FlightType.SEAD_SWEEP] = task_priorities[FlightType.SEAD]
+        if FlightType.RECON not in task_priorities:
+            if (value := cls._recon_priority(data, task_priorities)) is not None:
+                task_priorities[FlightType.RECON] = value
         if FlightType.ARMED_RECON not in task_priorities:
             if FlightType.CAS in task_priorities:
                 task_priorities[FlightType.ARMED_RECON] = task_priorities[
@@ -647,6 +660,29 @@ class AircraftType(UnitType[Type[FlyingType]]):
                     FlightType.BAI
                 ]
         return task_priorities
+
+    @staticmethod
+    def _recon_priority(
+        data: dict[str, Any], task_priorities: dict[FlightType, int]
+    ) -> Optional[int]:
+        """Aircraft built for reconnaissance (pydcs lists the task, or the
+        variant is a known recon platform) get a high priority; multirole
+        aircraft with targeting pods can fly it as a secondary role."""
+        recon_names = ("RBT", "MR", "TARPS", "CR", "Predator", "Reaper", "RF-", "OA-")
+        variant = str(data.get("variant", "")) + " " + str(data.get("display_name", ""))
+        if any(name in variant for name in recon_names):
+            return 700
+        if data.get("has_built_in_target_pod"):
+            return 150
+        if (
+            FlightType.ARMED_RECON in task_priorities
+            or FlightType.STRIKE in task_priorities
+        ):
+            base = task_priorities.get(FlightType.STRIKE) or task_priorities.get(
+                FlightType.ARMED_RECON, 0
+            )
+            return max(10, base // 5)
+        return None
 
     @staticmethod
     def _custom_weapon_injections(

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from game.server.combat.models import FrozenCombatJs
 from game.server.controlpoints.models import ControlPointJs
+from game.server.fogofwar import flight_visible
 from game.server.flights.models import FlightJs
 from game.server.frontlines.models import FrontLineJs
 from game.server.iadsnetwork.models import IadsConnectionJs
@@ -90,7 +91,9 @@ class GameUpdateEventsJs(BaseModel):
 
         return GameUpdateEventsJs(
             updated_flight_positions={
-                f[0].id: f[1].latlng() for f in events.updated_flight_positions
+                f[0].id: f[1].latlng()
+                for f in events.updated_flight_positions
+                if flight_visible(game, f[0])
             },
             new_combats=new_combats,
             updated_combats=updated_combats,
@@ -110,7 +113,9 @@ class GameUpdateEventsJs(BaseModel):
             deselected_flight=events.deselected_flight,
             updated_front_lines=updated_front_lines,
             deleted_front_lines=events.deleted_front_lines,
-            updated_tgos=[TgoJs.for_tgo(tgo) for tgo in events.updated_tgos],
+            updated_tgos=[
+                TgoJs.for_tgo(tgo) for tgo in events.updated_tgos if TgoJs.visible(tgo)
+            ],
             updated_control_points=[
                 ControlPointJs.for_control_point(cp)
                 for cp in events.updated_control_points

@@ -40,13 +40,18 @@ class BattlePositions:
             for tgo in control_point.ground_objects
             if isinstance(tgo, VehicleGroupGroundObject) and not tgo.is_dead
         ]
+        war_state = getattr(control_point.coalition.game, "war_state", None)
+        viewer = control_point.captured.opponent
         for battle_position in battle_positions:
             if (
                 meters(battle_position.distance_to(control_point))
                 < ControlPoint.CAPTURE_DISTANCE
             ):
+                # Forces dug in at the base itself can't be hidden.
                 blocking.append(battle_position)
-            else:
+            elif war_state is None or war_state.knows(
+                control_point.coalition.game, viewer, battle_position
+            ):
                 defending.append(battle_position)
 
         return BattlePositions(blocking, defending)

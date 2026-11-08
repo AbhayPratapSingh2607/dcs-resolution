@@ -35,11 +35,15 @@ class FlightJs(BaseModel):
         #
         # We also draw dead aircraft so the player has some feedback about what's being
         # lost.
+        from game.server.fogofwar import flight_visible, show_flight_routes
+
+        game = getattr(getattr(flight, "coalition", None), "game", None)
         position = None
         if isinstance(flight.state, InFlight) or isinstance(flight.state, Killed):
-            position = flight.position().latlng()
+            if flight_visible(game, flight):
+                position = flight.position().latlng()
         waypoints = None
-        if with_waypoints:
+        if with_waypoints and show_flight_routes(game, flight):
             waypoints = waypoints_for_flight(flight)
         if flight.blue.is_blue:
             blue = True

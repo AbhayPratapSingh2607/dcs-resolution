@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
-import random
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from shapely.ops import unary_union
 
@@ -16,11 +15,13 @@ from .. import GameUpdateEvents
 if TYPE_CHECKING:
     from game.ato import Flight
     from ..simulationresults import SimulationResults
+    from .model.airtoair import AirEngagement
 
 
 class AirCombat(JoinableCombat):
     def __init__(self, freeze_duration: timedelta, flights: list[Flight]) -> None:
         super().__init__(freeze_duration, flights)
+        self.engagement: Optional[AirEngagement] = None
         footprints = []
         for flight in self.flights:
             if (region := flight.state.a2a_commit_region()) is not None:
@@ -62,6 +63,35 @@ class AirCombat(JoinableCombat):
     def describe(self) -> str:
         return f"in air-to-air combat"
 
+    def join(self, flight: Flight) -> None:
+        super().join(flight)
+        if self.engagement is not None:
+            self.engagement.add_flight(flight)
+
+    def begin_model(self, time: datetime, events: GameUpdateEvents) -> None:
+        from .model.airtoair import AirEngagement
+
+        assert self.model is not None
+        self.engagement = AirEngagement.create(self.model, list(self.flights), time)
+
+    def advance_model(
+        self, time: datetime, duration: timedelta, events: GameUpdateEvents
+    ) -> bool:
+        assert self.engagement is not None
+        return self.engagement.step(duration.total_seconds(), events)
+
+    def finish_model(
+        self, time: datetime, elapsed_time: timedelta, events: GameUpdateEvents
+    ) -> None:
+        from game.sim.combatlog import CombatDomain
+
+        assert self.engagement is not None and self.model is not None
+        self.model.log(time, CombatDomain.AIR, "", self.engagement.summary())
+        logging.debug(f"{self} resolved: {self.engagement.summary()}")
+        self.release_flights(
+            events, time, elapsed_time, aborted=self.engagement.aborted_flights()
+        )
+
     def resolve(
         self,
         results: SimulationResults,
@@ -70,44 +100,7 @@ class AirCombat(JoinableCombat):
         elapsed_time: timedelta,
         resolution_method: CombatResolutionMethod,
     ) -> None:
-
-        if resolution_method is CombatResolutionMethod.SKIP:
-            for flight in self.flights:
-                assert isinstance(flight.state, InCombat)
-                flight.state.exit_combat(events, time, elapsed_time)
-            return
-
-        blue = []
-        red = []
+        # Only reached without a combat model, or when skipping combat.
         for flight in self.flights:
-            if flight.squadron.player.is_blue:
-                blue.append(flight)
-            else:
-                red.append(flight)
-        if len(blue) > len(red):
-            winner = blue
-            loser = red
-        elif len(blue) < len(red):
-            winner = red
-            loser = blue
-        elif random.random() >= 0.5:
-            winner = blue
-            loser = red
-        else:
-            winner = red
-            loser = blue
-
-        if winner == blue:
-            logging.debug(f"{self} auto-resolved as blue victory")
-        else:
-            logging.debug(f"{self} auto-resolved as red victory")
-
-        for flight in loser:
-            flight.kill(results, events)
-
-        for flight in winner:
-            assert isinstance(flight.state, InCombat)
-            if random.random() >= 0.5:
-                flight.kill(results, events)
-            else:
+            if isinstance(flight.state, InCombat):
                 flight.state.exit_combat(events, time, elapsed_time)

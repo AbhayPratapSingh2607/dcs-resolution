@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from game import Game
     from game.ato.flight import Flight
     from game.sim.simulationresults import SimulationResults
+    from game.sim.combatlog import CombatLogEntry
+    from game.squadrons import Squadron
     from game.transfers import CargoShip
     from game.unitmap import (
         AirliftUnits,
@@ -179,16 +181,69 @@ class Debriefing:
         self.player_country = game.blue.faction.country.name
         self.enemy_country = game.red.faction.country.name
 
-        self.air_losses = self.dead_aircraft()
-        self.ground_losses = self.dead_ground_units()
-        self.base_captures = self.base_capture_events()
+        self.air_losses: AirLosses = self.dead_aircraft()
+        self.ground_losses: GroundLosses = self.dead_ground_units()
+        self.base_captures: list[BaseCaptureEvent] = self.base_capture_events()
+        #: Aircraft destroyed on the ground by simulated OCA strikes.
+        self.parked_aircraft_losses: list[Squadron] = []
+        #: Narrative of the combat resolved while fast forwarding.
+        self.simulation_log: list[CombatLogEntry] = []
+        #: What each side learned, and what flights achieved (game.warfare).
+        self.intel_events: list[Any] = []
+        self.combat_credits: list[Any] = []
+        self.flights_flown: list[Any] = []
+        self.collateral_events: list[bool] = []
 
     def merge_simulation_results(self, results: SimulationResults) -> None:
+        """Adds the losses produced by the fast-forward combat model.
+
+        Units destroyed during fast forward are not spawned (or are spawned dead)
+        in the mission, so DCS never reports them and there is no double
+        counting with the state.json results.
+        """
+        from game.unitmap import TheaterUnitMapping
+
+        self.simulation_log = list(results.log)
         for air_loss in results.air_losses:
             if air_loss.flight.squadron.player.is_blue:
                 self.air_losses.player.append(air_loss)
             else:
                 self.air_losses.enemy.append(air_loss)
+
+        losses = self.ground_losses
+        for unit in results.ground_losses:
+            mapping = TheaterUnitMapping(unit, None)  # type: ignore[arg-type]
+            if unit.ground_object.is_friendly(to_player=Player.BLUE):
+                losses.player_ground_objects.append(mapping)
+            else:
+                losses.enemy_ground_objects.append(mapping)
+        for front_line_unit in results.front_line_losses:
+            if front_line_unit.origin.captured.is_blue:
+                losses.player_front_line.append(front_line_unit)
+            else:
+                losses.enemy_front_line.append(front_line_unit)
+        for convoy_unit in results.convoy_losses:
+            if convoy_unit.convoy.player_owned.is_blue:
+                losses.player_convoy.append(convoy_unit)
+            else:
+                losses.enemy_convoy.append(convoy_unit)
+        for ship in results.cargo_ship_losses:
+            if ship.player_owned.is_blue:
+                losses.player_cargo_ships.append(ship)
+            else:
+                losses.enemy_cargo_ships.append(ship)
+        for control_point in results.runway_damage:
+            if control_point.captured.is_blue:
+                losses.player_airfields.append(control_point)  # type: ignore[arg-type]
+            else:
+                losses.enemy_airfields.append(control_point)  # type: ignore[arg-type]
+        self.parked_aircraft_losses.extend(results.parked_aircraft_losses)
+        self.intel_events = list(results.intel_events)
+        self.combat_credits = list(results.combat_credits)
+        self.flights_flown = list(results.flights_flown)
+        self.collateral_events = list(results.collateral_events)
+        # Invalidate the cached casualty counts now that front-line losses changed.
+        self.__dict__.pop("_casualties_by_origin", None)
 
     @property
     def front_line_losses(self) -> Iterator[FrontLineUnit]:

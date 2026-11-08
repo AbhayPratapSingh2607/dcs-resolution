@@ -1,0 +1,68 @@
+# Fuel and air-to-air refueling for the fast-forward combat model.
+#
+# A flight's fuel margin (0..1) is how much fuel it has left for fighting,
+# loitering and re-attacking once it reaches its target. It comes from the
+# distance between the flight's base and its target, compared with the
+# aircraft's combat radius. A friendly tanker in reach tops it up, but only
+# for aircraft that can refuel in the air.
+#
+# Combat radius is derived from internal fuel (250 km + 0.08 km per kg of
+# fuel_max, which gives an F-16 about 510 km and a Su-27 about 1000 km).
+# Helicopters get 150 km and heavies 2000 km. Override it here where the
+# estimate is noticeably wrong.
+
+radius_km:
+  A-10A: 460
+  A-10C: 460
+  A-10C_2: 460
+  AV8BNA: 300
+  F-15E: 1100
+  F-15ESE: 1100
+  F-14A-135-GR: 900
+  F-14B: 900
+  FA-18C_hornet: 550
+  Su-24M: 600
+  Su-25: 375
+  Su-25T: 375
+  MiG-21Bis: 350
+  MiG-29A: 450
+  MiG-29S: 500
+  Tornado GR4: 750
+  Tornado IDS: 750
+  F-117A: 900
+  B-1B: 3000
+  B-52H: 3500
+  Tu-95MS: 3500
+  Tu-160: 3500
+  Tu-22M3: 2000
+
+# Fixed-wing aircraft without air-to-air refueling (no probe or receptacle as
+# modelled in DCS). Helicopters and aircraft from before 1960 never refuel.
+no_aar:
+  - MiG-15bis
+  - MiG-19P
+  - MiG-21Bis
+  - MiG-23MLD
+  - MiG-25PD
+  - MiG-25RBT
+  - MiG-29A
+  - MiG-29G
+  - MiG-29S
+  - Su-17M4
+  - Su-25
+  - Su-25T
+  - Su-25TM
+  - Su-27
+  - J-11A
+  - JF-17
+  - F-5E
+  - F-5E-3
+  - F-86F Sabre
+  - L-39C
+  - L-39ZA
+  - C-101CC
+  - C-101EB
+  - MB-339A
+  - MB-339APAN
+  - AJS37
+  - Hawk

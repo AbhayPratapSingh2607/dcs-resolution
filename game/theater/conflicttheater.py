@@ -12,6 +12,7 @@ from dcs.triggers import TriggerZone
 from shapely import geometry, ops
 
 from .daytimemap import DaytimeMap
+from .farpterrain import FARP_TERRAIN_FILE, FarpTerrain
 from .frontline import FrontLine
 from .iadsnetwork.iadsnetwork import IadsNetwork
 from .landmap import poly_contains, load_landmap
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
 
 
 THEATER_RESOURCE_DIR = Path("resources/theaters")
+
+_FARP_TERRAIN_CACHE: dict[Path, Optional[FarpTerrain]] = {}
 
 
 class ConflictTheater:
@@ -123,6 +126,18 @@ class ConflictTheater:
                 return True
 
         return False
+
+    @property
+    def farp_terrain(self) -> Optional[FarpTerrain]:
+        """The theater's FARP terrain grid, if it has one.
+
+        Loaded on first use and shared by every theater instance for the same
+        map. It is not stored in the save game.
+        """
+        path = self.landmap_path.with_name(FARP_TERRAIN_FILE)
+        if path not in _FARP_TERRAIN_CACHE:
+            _FARP_TERRAIN_CACHE[path] = FarpTerrain.load(path)
+        return _FARP_TERRAIN_CACHE[path]
 
     def is_on_land(self, point: Point, ignore_exclusion: bool = False) -> bool:
         if not self.landmap:

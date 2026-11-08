@@ -21,6 +21,7 @@ from game.theater import (
 )
 from game.ground_forces.ai_ground_planner import reserve_armor_for
 from game.theater.theatergroundobject import (
+    TheaterGroundObject,
     BuildingGroundObject,
     IadsGroundObject,
     MotorpoolGroundObject,
@@ -43,6 +44,16 @@ class ObjectiveFinder:
         self.game = game
         self.is_player = is_player
 
+    def known(self, ground_object: TheaterGroundObject) -> bool:
+        """Whether the planner's side knows about this target and believes it is
+        still alive (intelligence picture, see game.warfare.intel)."""
+        war_state = getattr(self.game, "war_state", None)
+        if war_state is None:
+            return True
+        return war_state.knows(
+            self.game, self.is_player, ground_object
+        ) and war_state.believed_alive(self.game, self.is_player, ground_object)
+
     def enemy_air_defenses(self) -> Iterator[IadsGroundObject]:
         """Iterates over all enemy SAM sites."""
         for cp in self.enemy_control_points():
@@ -50,7 +61,9 @@ class ObjectiveFinder:
                 if ground_object.is_dead:
                     continue
 
-                if isinstance(ground_object, IadsGroundObject):
+                if isinstance(ground_object, IadsGroundObject) and self.known(
+                    ground_object
+                ):
                     yield ground_object
 
     def enemy_ships(self) -> Iterator[NavalGroundObject]:
@@ -85,6 +98,54 @@ class ObjectiveFinder:
         target_ranges = sorted(target_ranges, key=operator.itemgetter(1))
         for target, _range in target_ranges:
             yield target
+
+    def restricted_by_roe(self, ground_object: TheaterGroundObject) -> bool:
+        """Restrictive rules of engagement rule out targets in built-up areas."""
+        from game.warfare.collateral import enabled, restrictive, tgo_risk
+
+        if not enabled(self.game) or not restrictive(self.game, self.is_player):
+            return False
+        return tgo_risk(self.game, ground_object) >= 0.5
+
+    def recon_targets(self, limit: int = 3) -> Iterator[TheaterGroundObject]:
+        """Known enemy targets whose picture is uncertain: struck last turn
+        (battle damage assessment) or never confirmed, high value first."""
+        from game.data.groups import GroupTask
+        from game.warfare.intel import CONFIRMED, IntelSource
+
+        war_state = getattr(self.game, "war_state", None)
+        if war_state is None or not war_state.intel_enabled(self.game):
+            return
+        picture = war_state.picture(self.game, self.is_player)
+        scored: list[tuple[float, TheaterGroundObject]] = []
+        for cp in self.enemy_control_points():
+            for tgo in cp.ground_objects:
+                if tgo.is_dead or not picture.knows(tgo):
+                    continue
+                contact = picture.contact(tgo)
+                if contact is None or contact.confirmed:
+                    continue
+                score = 0.0
+                if (
+                    contact.source is IntelSource.STRIKE
+                    and contact.last_seen_turn >= self.game.turn - 1
+                ):
+                    score += 3.0  # Battle damage assessment.
+                if tgo.task in (GroupTask.LORAD, GroupTask.MERAD):
+                    score += 2.0
+                elif isinstance(tgo, BuildingGroundObject):
+                    score += 1.0
+                score += 1.0 - min(contact.confidence / CONFIRMED, 1.0)
+                if score < 1.5:
+                    continue
+                distance = min(
+                    (tgo.distance_to(f) for f in self.friendly_control_points()),
+                    default=0.0,
+                )
+                scored.append((score - distance / 500_000, tgo))
+        scored.sort(key=lambda s: -s[0])
+        for _, tgo in scored[:limit]:
+            yield tgo
 
     def strike_targets(self) -> Iterator[BuildingGroundObject]:
         """Iterates over enemy strike targets.
@@ -126,6 +187,10 @@ class ObjectiveFinder:
                     continue
 
                 if ground_object.is_dead:
+                    continue
+                if not self.known(ground_object):
+                    continue
+                if self.restricted_by_roe(ground_object):
                     continue
                 if ground_object.name in found_targets:
                     continue

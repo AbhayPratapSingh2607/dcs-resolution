@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 from pathlib import Path
 from typing import Optional
@@ -58,16 +59,28 @@ class QWaitingForMissionResultWindow(QDialog):
         game: Game,
         sim_controller: SimController,
         parent: Optional[QWidget] = None,
+        simulated: Optional[Debriefing] = None,
     ) -> None:
         super(QWaitingForMissionResultWindow, self).__init__(parent=parent)
         self.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
         self.game = game
         self.sim_controller = sim_controller
-        self.setWindowTitle("Waiting for mission completion.")
+        self.setWindowTitle(
+            "Simulated turn results"
+            if simulated is not None
+            else "Waiting for mission completion."
+        )
         self.setWindowIcon(QIcon("./resources/icon.png"))
         self.setMinimumHeight(570)
 
         self.initUi()
+        self.wait_thread = None
+        if simulated is not None:
+            # The turn was fought by the combat model; there is no DCS mission
+            # to wait for.
+            self.manually_submit2.setVisible(False)
+            self.updateLayout(simulated)
+            return
         DebriefingFileWrittenSignal.get_instance().debriefingReceived.connect(
             self.updateLayout
         )
@@ -187,6 +200,9 @@ class QWaitingForMissionResultWindow(QDialog):
 
         # Set new window content
         self.gridLayout.addWidget(updateBox, 0, 0)
+        log = getattr(debriefing, "simulation_log", [])
+        if log:
+            self.gridLayout.addWidget(self.combat_log_box(log), 3, 0)
 
         if not debriefing.state_data.mission_ended:
             self.gridLayout.addWidget(QLabel("<b>Mission is being played</b>"), 1, 0)
@@ -194,6 +210,28 @@ class QWaitingForMissionResultWindow(QDialog):
         else:
             self.gridLayout.addWidget(QLabel("<b>Mission is over</b>"), 1, 0)
             self.gridLayout.addWidget(self.actions2, 2, 0)
+
+    @staticmethod
+    def combat_log_box(log: list) -> QGroupBox:
+        """Narrative of the combat resolved while fast forwarding."""
+        box = QGroupBox(f"Combat resolved while fast forwarding ({len(log)} events)")
+        layout = QGridLayout()
+        box.setLayout(layout)
+        browser = QTextBrowser()
+        colors = {"blue": "#5f9ee8", "red": "#e86060"}
+        lines = []
+        for entry in log:
+            color = colors.get(entry.side, "#c8c8c8")
+            text = html.escape(entry.text)
+            lines.append(
+                f"<span style='color:#888'>{entry.time:%H:%M:%S}</span> "
+                f"<b>{html.escape(entry.domain.value)}</b> "
+                f"<span style='color:{color}'>{text}</span>"
+            )
+        browser.setHtml("<br>".join(lines))
+        browser.setMinimumHeight(220)
+        layout.addWidget(browser, 0, 0)
+        return box
 
     def on_debriefing_update(self, debriefing: Debriefing) -> None:
         try:
@@ -245,7 +283,8 @@ class QWaitingForMissionResultWindow(QDialog):
         if file[0] != "":
             logging.debug("Processing manually submitted %s", file[0])
             # Stop the current waiting thread as we manually submit the results
-            self.wait_thread.stop()
+            if self.wait_thread is not None:
+                self.wait_thread.stop()
             self.on_debriefing_update(
                 self.sim_controller.debrief_current_state(Path(file[0]), force_end=True)
             )

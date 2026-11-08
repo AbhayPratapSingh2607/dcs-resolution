@@ -5,10 +5,10 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from game.settings.settings import CombatResolutionMethod
 from .frozencombat import FrozenCombat
 from .. import GameUpdateEvents
 from ...ato.flightstate import InCombat
-from game.settings.settings import CombatResolutionMethod
 
 if TYPE_CHECKING:
     from game.ato import Flight
@@ -16,6 +16,13 @@ if TYPE_CHECKING:
 
 
 class AtIp(FrozenCombat):
+    """A flight at its IP flying the attack on its target.
+
+    With the combat model the attack is resolved when the run completes: the
+    flight runs the target's point defenses and delivers its weapons. Without
+    the model the attack is skipped (mission failure, no losses).
+    """
+
     def __init__(self, freeze_duration: timedelta, flight: Flight) -> None:
         super().__init__(freeze_duration)
         self.flight = flight
@@ -29,6 +36,18 @@ class AtIp(FrozenCombat):
     def iter_flights(self) -> Iterator[Flight]:
         yield self.flight
 
+    def finish_model(
+        self, time: datetime, elapsed_time: timedelta, events: GameUpdateEvents
+    ) -> None:
+        from .model.attack import AttackRun
+
+        assert self.model is not None
+        try:
+            AttackRun(self.model, self.flight, time, events).run()
+        except Exception:
+            logging.exception(f"Combat model failed to resolve attack by {self.flight}")
+        self.release_flights(events, time, elapsed_time, avoid_further_combat=True)
+
     def resolve(
         self,
         results: SimulationResults,
@@ -38,7 +57,7 @@ class AtIp(FrozenCombat):
         resolution_method: CombatResolutionMethod,
     ) -> None:
         logging.debug(
-            f"{self.flight} attack on {self.flight.package.target} auto-resolved with "
+            f"{self.flight} attack on {self.flight.package.target} skipped with "
             "mission failure but no losses"
         )
         assert isinstance(self.flight.state, InCombat)

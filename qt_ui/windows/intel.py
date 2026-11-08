@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from game.game import Game
+from game.warfare.intel import player_estimate
 from game.theater import ParkingType, Player
 from qt_ui.uiconstants import ICONS
 from qt_ui.windows.finances.QFinancesMenu import FinancesLayout
@@ -67,7 +68,7 @@ class IntelTableLayout(QGridLayout):
             0,
         )
 
-    def add_row(self, text: str, count: Optional[int] = None) -> None:
+    def add_row(self, text: str, count: Optional[int | str] = None) -> None:
         row = next(self.row)
         self.addWidget(QLabel(text), row, 0)
         if count is not None:  # optional count for blank rows
@@ -89,15 +90,27 @@ class AircraftIntelLayout(IntelTableLayout):
             if not base_total:
                 continue
 
-            self.add_header(f"{control_point.name} ({base_total})")
+            estimate = player_estimate(
+                game, player, base_total, control_point.name, control_point.id
+            )
+            self.add_header(f"{control_point.name} ({estimate})")
             for airframe in sorted(allocation.present, key=lambda k: k.display_name):
                 count = allocation.present[airframe]
                 if not count:
                     continue
-                self.add_row(f"    {airframe.display_name}", count)
+                self.add_row(
+                    f"    {airframe.display_name}",
+                    player_estimate(
+                        game,
+                        player,
+                        count,
+                        f"{control_point.name}{airframe}",
+                        control_point.id,
+                    ),
+                )
             self.add_row("")
 
-        self.add_row("<b>Total</b>", total)
+        self.add_row("<b>Total</b>", player_estimate(game, player, total, "air"))
         self.add_spacer()
 
 
@@ -118,12 +131,28 @@ class ArmyIntelLayout(IntelTableLayout):
             if not base.total_armor:
                 continue
 
-            self.add_header(f"{control_point.name} ({base.total_armor})")
+            estimate = player_estimate(
+                game,
+                player,
+                base.total_armor,
+                f"armor{control_point.name}",
+                control_point.id,
+            )
+            self.add_header(f"{control_point.name} ({estimate})")
             for vehicle in sorted(base.armor, key=lambda k: k.display_name):
                 count = base.armor[vehicle]
                 if not count:
                     continue
-                self.add_row(f"    {vehicle.display_name}", count)
+                self.add_row(
+                    f"    {vehicle.display_name}",
+                    player_estimate(
+                        game,
+                        player,
+                        count,
+                        f"armor{control_point.name}{vehicle}",
+                        control_point.id,
+                    ),
+                )
             self.add_row("")
 
         self.add_row("<b>Total</b>", total)

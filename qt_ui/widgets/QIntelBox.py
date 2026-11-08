@@ -42,6 +42,11 @@ class QIntelBox(QGroupBox):
         self.economic_strength = QLabel()
         summary.addWidget(self.economic_strength, 2, 1)
 
+        resolve = QLabel("Resolve (us / them):")
+        summary.addWidget(resolve, 3, 0)
+        self.resolve = QLabel()
+        summary.addWidget(self.resolve, 3, 1)
+
         self.details = QPushButton()
         self.details.setMinimumHeight(50)
         self.details.setMinimumWidth(210)
@@ -94,11 +99,26 @@ class QIntelBox(QGroupBox):
             return "slight advantage"
         return "strong advantage"
 
+    def resolve_text(self) -> str:
+        """Own resolve exactly, the enemy's as an intelligence judgement."""
+        assert self.game is not None
+        war_state = getattr(self.game, "war_state", None)
+        if war_state is None or not getattr(
+            self.game.settings, "war_weariness_enabled", True
+        ):
+            return "n/a"
+        from game.warfare.morale import describe
+
+        own = war_state.morale.national_resolve(Player.BLUE)
+        enemy = war_state.morale.national_resolve(Player.RED)
+        return f"{describe(own)} / ~{describe(enemy)}"
+
     def update_summary(self) -> None:
         if self.game is None:
             self.air_strength.setText("no data")
             self.ground_strength.setText("no data")
             self.economic_strength.setText("no data")
+            self.resolve.setText("no data")
             return
 
         data = self.game.game_stats.data_per_turn[-1]
@@ -114,6 +134,7 @@ class QIntelBox(QGroupBox):
             )
         )
         self.economic_strength.setText(self.economic_strength_text())
+        self.resolve.setText(self.resolve_text())
 
         if self.game.turn == 0:
             self.air_strength.setText("gathering intel")

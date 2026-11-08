@@ -10,6 +10,10 @@ from typing_extensions import TYPE_CHECKING
 from game.ato.flightstate import Uninitialized, Completed, InCombat
 from game.settings.settings import FastForwardStopCondition, CombatResolutionMethod
 from .combat import CombatInitiator, FrozenCombat
+from .combat.model import CombatModel
+from .combat.model.airdefense import sead_hunt
+from .combat.model.groundbattle import GroundWar
+from .gameupdateevents import GameUpdateEvents as _Events
 from .simulationresults import SimulationResults
 
 if TYPE_CHECKING:
@@ -23,10 +27,25 @@ class AircraftSimulation:
         self.game = game
         self.combats: list[FrozenCombat] = []
         self.results = SimulationResults()
+        self.model = CombatModel(game, self.results)
+        self.ground_war: GroundWar | None = None
 
     def begin_simulation(self) -> None:
         self.reset()
+        self.results = SimulationResults()
+        self.model = CombatModel(self.game, self.results)
+        self.ground_war = None
+        if getattr(self.game.settings, "combat_model_ground_war", True):
+            self.ground_war = GroundWar(
+                self.model,
+                timedelta(
+                    minutes=getattr(
+                        self.game.settings, "combat_model_ground_interval", 10
+                    )
+                ),
+            )
         self.set_initial_flight_states()
+        self.results.flights_flown = list(self.iter_flights())
 
     def on_game_tick(
         self,
@@ -66,7 +85,14 @@ class AircraftSimulation:
 
         # Finish updating all flights before checking for combat so that the new
         # positions are used.
-        CombatInitiator(self.game, self.combats, events).update_active_combats()
+        CombatInitiator(
+            self.game, self.combats, events, self.model
+        ).update_active_combats()
+
+        if combat_resolution_method is CombatResolutionMethod.RESOLVE:
+            sead_hunt(self.model, time, events)
+            if self.ground_war is not None:
+                self.ground_war.on_game_tick(time)
 
         # After updating all combat states, check for halts.
         for flight in self.iter_flights():
@@ -88,14 +114,30 @@ class AircraftSimulation:
         ):
             events.complete_simulation()
 
+    def has_activity(self) -> bool:
+        """True while any flight is still flying (or yet to fly) or fighting."""
+        if self.combats:
+            return True
+        for flight in self.iter_flights():
+            if flight.alive and not isinstance(flight.state, Completed):
+                return True
+        return False
+
     def set_initial_flight_states(self) -> None:
         now = self.game.conditions.start_time
         for flight in self.iter_flights():
             flight.state.reinitialize(now)
 
     def reset(self) -> None:
+        self.revert_simulated_damage(_Events())
+        self.combats = []
         for flight in self.iter_flights():
             flight.set_state(Uninitialized(flight, self.game.settings))
+
+    def revert_simulated_damage(self, events: GameUpdateEvents) -> None:
+        """Undoes damage the combat model applied to the in-memory game, e.g. when
+        the player cancels the mission."""
+        self.results.revert(events)
 
     def iter_flights(self) -> Iterator[Flight]:
         packages = itertools.chain(

@@ -512,6 +512,10 @@ class QSettingsWidget(QtWidgets.QWizardPage, SettingsContainer):
         if self.game:
             events = GameUpdateEvents()
             self.game.compute_unculled_zones(events)
+            # Intelligence and fog of war settings change what the map may show:
+            # recompute threat zones and have the map reload everything.
+            self.game.compute_threat_zones(events)
+            events.game_loaded(self.game)
             EventStream.put_nowait(events)
             GameUpdateSignal.get_instance().updateGame(self.game)
 

@@ -32,9 +32,18 @@ class IadsConnectionJs(BaseModel):
 
     @staticmethod
     def connections_for_node(network_node: IadsNetworkNode) -> list[IadsConnectionJs]:
+        from game.server.fogofwar import game_of, tgo_view
+
         iads_connections = []
         tgo = network_node.group.ground_object
+        game = game_of(tgo)
         for id, connection in network_node.connections.items():
+            if tgo.control_point.captured.is_red:
+                # Fog of war: blue only sees links between sites it has confirmed.
+                a = tgo_view(game, tgo)
+                b = tgo_view(game, connection.ground_object)
+                if a is None or b is None or not (a.confirmed and b.confirmed):
+                    continue
             if connection.ground_object.is_friendly(Player.BLUE) != tgo.is_friendly(
                 Player.BLUE
             ):

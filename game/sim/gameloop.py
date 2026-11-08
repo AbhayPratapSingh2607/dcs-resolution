@@ -58,6 +58,12 @@ class GameLoop:
         with self.timer.locked_pause():
             yield
 
+    def revert_simulated_damage(self) -> None:
+        events = GameUpdateEvents()
+        self.sim.aircraft_simulation.revert_simulated_damage(events)
+        if not events.empty:
+            self.callbacks.on_update(events)
+
     def run_to_first_contact(self) -> None:
         self.pause()
         if not self.started:

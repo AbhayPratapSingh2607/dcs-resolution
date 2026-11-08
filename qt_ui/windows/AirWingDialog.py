@@ -65,10 +65,17 @@ class SquadronDelegate(TwoColumnRowDelegate):
             # "unassigned" counted airframes with no free pilot to fly them, which
             # overstated the real force available. Cap it at the crewed count.
             unassigned = squadron.untasked_crewed_aircraft
-            return (
+            text = (
                 f"{pilots} {'pilot' if pilots == 1 else 'pilots'}, "
                 f"{aircraft} aircraft ({unassigned} crewed unassigned)"
             )
+            game = squadron.coalition.game
+            war_state = getattr(game, "war_state", None)
+            if war_state is not None and war_state.morale_enabled(game):
+                from game.warfare.morale import describe
+
+                text += f", morale {describe(war_state.morale.squadron(squadron))}"
+            return text
         return ""
 
 

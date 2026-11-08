@@ -390,12 +390,20 @@ class SquadronDialog(QDialog):
 
     def _aircraft_stats_text(self) -> str:
         s = self.squadron
-        return (
+        text = (
             f"Initial: {s.initial_aircraft}\n"
             f"Current: {s.owned_aircraft}\n"
             f"Destroyed: {s.destroyed_aircraft}\n"
             f"Purchased: {s.purchased_aircraft}"
         )
+        game = s.coalition.game
+        war_state = getattr(game, "war_state", None)
+        if war_state is not None and war_state.morale_enabled(game):
+            from game.warfare.morale import describe
+
+            value = war_state.morale.squadron(s)
+            text += f"\nMorale: {describe(value)} ({value:.0%})"
+        return text
 
     @staticmethod
     def _purchase_amount() -> int:

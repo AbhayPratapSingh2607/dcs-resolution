@@ -14,6 +14,7 @@ from .minutesoption import minutes_option
 from .optiondescription import OptionDescription, SETTING_DESCRIPTION_KEY
 from .skilloption import skill_option
 from ..ato.starttype import StartType
+from ..warfare.collateral import RoeSetting
 
 Views = ForcedOptions.Views
 
@@ -42,6 +43,7 @@ class FastForwardStopCondition(Enum):
     PLAYER_STARTUP = "Player startup time"
     PLAYER_AT_IP = "Player at IP"
     MANUAL = "Manual fast forward control"
+    END_OF_TURN = "Simulate entire turn"
 
 
 @unique
@@ -49,6 +51,13 @@ class CombatResolutionMethod(Enum):
     PAUSE = "Pause simulation"
     RESOLVE = "Resolve combat"
     SKIP = "Skip combat"
+
+
+@unique
+class FogOfWar(Enum):
+    OFF = "Off"
+    SOFT = "Soft"
+    STRICT = "Strict"
 
 
 @unique
@@ -72,6 +81,7 @@ FLIGHT_PLANNER_AUTOMATION = "Flight Planner Automation"
 
 CAMPAIGN_DOCTRINE_PAGE = "Campaign Doctrine"
 DOCTRINE_DISTANCES_SECTION = "Doctrine distances"
+WARFARE_SECTION = "Intelligence, morale and electronic warfare"
 
 PRETENSE_PAGE = "Pretense"
 
@@ -855,6 +865,7 @@ class Settings:
             "Player at IP": FastForwardStopCondition.PLAYER_AT_IP,
             "First contact": FastForwardStopCondition.FIRST_CONTACT,
             "Manual": FastForwardStopCondition.MANUAL,
+            "Simulate entire turn (no DCS)": FastForwardStopCondition.END_OF_TURN,
         },
         detail=(
             "Determines when fast forwarding stops: "
@@ -863,7 +874,9 @@ class Settings:
             "Player taxi time: fast forward until player taxi time. "
             "Player takeoff time: fast forward until player takeoff time. "
             "First contact: fast forward until first contact between blue and red units. "
-            "Manual: manually control fast forward. Show manual controls with --show-sim-speed-controls."
+            "Manual: manually control fast forward. Show manual controls with --show-sim-speed-controls. "
+            "Simulate entire turn: the whole turn is fought by the combat model without launching "
+            "DCS, including player flights, and the results are presented for acceptance."
         ),
     )
     combat_resolution_method: CombatResolutionMethod = choices_option(
@@ -873,14 +886,178 @@ class Settings:
         default=CombatResolutionMethod.PAUSE,
         choices={
             "Pause": CombatResolutionMethod.PAUSE,
-            "Resolving combat (WIP)": CombatResolutionMethod.RESOLVE,
+            "Resolve combat (combat model)": CombatResolutionMethod.RESOLVE,
             "Skipping combat": CombatResolutionMethod.SKIP,
         },
         detail=(
             "Determines what happens when combat occurs when fast forwarding. "
             "Pause: pause fast forward and generate mission. Fast forwarding may stop before the condition specified in the above setting. "
-            "Resolving combat (WIP): auto resolve combat. This method is very rudimentary and will result in large losses. "
+            "Resolve combat: fight it out with the combat model. Air combat, air defenses, strikes and "
+            "front-line battles are simulated from the units, weapons, sensors, pilot skill, tactics "
+            "and weather involved. Losses and damage carry into the generated mission. "
             "Skipping combat: skip combat as if it did not occur."
+        ),
+    )
+    combat_model_lethality: float = bounded_float_option(
+        "Combat model lethality",
+        page=MISSION_GENERATOR_PAGE,
+        section=GAMEPLAY_SECTION,
+        min=0.25,
+        max=2.0,
+        divisor=100,
+        default=1.0,
+        detail=(
+            "Scales the kill probability of every weapon in the fast-forward combat "
+            "model. 1.0 is calibrated against historical performance."
+        ),
+    )
+    combat_model_force_quality: bool = boolean_option(
+        "Historical force quality in the combat model",
+        page=MISSION_GENERATOR_PAGE,
+        section=GAMEPLAY_SECTION,
+        default=True,
+        detail=(
+            "Training, readiness, air defense integration and doctrine differ by "
+            "faction (e.g. NATO vs. Iraq 1991), as they did historically. The skill "
+            "settings still apply on top as a difficulty adjustment. When off, all "
+            "factions are equally capable and only equipment differs."
+        ),
+    )
+    combat_model_ground_war: bool = boolean_option(
+        "Simulate front-line battles while fast forwarding",
+        page=MISSION_GENERATOR_PAGE,
+        section=GAMEPLAY_SECTION,
+        default=True,
+        detail=(
+            "When resolving combat, front-line ground forces fight during fast "
+            "forward. Their losses carry into the mission and move the front line."
+        ),
+    )
+    combat_model_ground_interval: int = bounded_int_option(
+        "Front-line battle round length (minutes)",
+        page=MISSION_GENERATOR_PAGE,
+        section=GAMEPLAY_SECTION,
+        min=2,
+        max=30,
+        default=10,
+    )
+    intel_enabled: bool = boolean_option(
+        "Intelligence: sides only know what they have detected",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Each side builds a picture of the enemy from pre-war intelligence, early "
+            "warning radars, AWACS, sightings, engagements, strike reports and "
+            "reconnaissance. The AI plans only against what it knows, unknown SAM "
+            "sites achieve surprise, and battle damage assessment can be wrong."
+        ),
+    )
+    fog_of_war: FogOfWar = choices_option(
+        "Fog of war on the map",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=FogOfWar.STRICT,
+        choices={
+            "Off: show all enemy forces": FogOfWar.OFF,
+            "Soft: show all, unconfirmed sites dimmed": FogOfWar.SOFT,
+            "Strict: show only detected, at estimated positions": FogOfWar.STRICT,
+        },
+        detail=(
+            "What the map shows of enemy forces. Strict hides undetected sites and "
+            "shows detected ones at their estimated position with an uncertainty "
+            "ring until confirmed. Soft shows everything but marks unconfirmed sites. "
+            "Requires intelligence to be enabled."
+        ),
+    )
+    morale_enabled: bool = boolean_option(
+        "Morale: squadrons, ground forces and SAM crews",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Losses and failures lower morale and success raises it. Shaken "
+            "squadrons fly worse and stand aircraft down, demoralised fronts break "
+            "and surrender units, and frightened SAM crews keep their radars dark."
+        ),
+    )
+    war_weariness_enabled: bool = boolean_option(
+        "National war-weariness",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Sustained losses relative to the size of a side's forces lower its "
+            "resolve, which reduces income and every morale baseline. It never ends "
+            "the war by itself."
+        ),
+    )
+    space_and_agency_intel: bool = boolean_option(
+        "Satellites and intelligence agencies",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Imaging satellites (by national capability; optical needs daylight and "
+            "clear skies) and agencies (order of battle, site tips, warnings of enemy "
+            "offensives and strikes). Both sides get them by the same rules, and "
+            "every report is uncertain."
+        ),
+    )
+    intel_source_strength: float = bounded_float_option(
+        "Strategic intelligence strength",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        min=0.25,
+        max=2.0,
+        divisor=100,
+        default=1.0,
+        detail="Scales satellite image quality and agency reliability for both sides.",
+    )
+    deception_enabled: bool = boolean_option(
+        "Deception: decoy sites and camouflage",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Forces with a deception doctrine set up decoys beside mobile air "
+            "defenses. Imagery and agents are fooled into reporting decoys as real "
+            "sites; strikes on them are wasted until reconnaissance sees through them."
+        ),
+    )
+    roe_strictness: RoeSetting = choices_option(
+        "Rules of engagement",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=RoeSetting.DOCTRINE,
+        choices={
+            "By doctrine (Western: restrictive)": RoeSetting.DOCTRINE,
+            "Permissive": RoeSetting.PERMISSIVE,
+            "Restrictive": RoeSetting.RESTRICTIVE,
+        },
+        detail=(
+            "Restrictive rules keep the AI from striking targets in built-up areas "
+            "and make pilots more careful with unguided weapons near towns."
+        ),
+    )
+    collateral_damage_enabled: bool = boolean_option(
+        "Collateral damage",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Weapons that go astray near towns cause civilian casualties, which cost "
+            "the striking side national resolve and boost the enemy's."
+        ),
+    )
+    ew_enabled: bool = boolean_option(
+        "Electronic warfare in the combat model",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Decoys, stand-off jamming of radars and communications, and GPS "
+            "jamming over territory held by forces that use it."
         ),
     )
     supercarrier: bool = boolean_option(

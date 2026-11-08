@@ -1,0 +1,109 @@
+# Combat profiles for the fast-forward combat model.
+#
+# Keyed by DCS unit type id. Any aircraft without an entry gets a profile
+# derived from its year of introduction, role and pydcs data, so this file only
+# needs entries where the derived values would be noticeably wrong.
+#
+# Fields (all optional):
+#   radar_km:  detection range of the onboard radar against a 5 m^2 target.
+#   radar:     none | pulse | pd (pulse-doppler, look-down capable) | aesa
+#   rcs:       frontal radar cross section, m^2 (clean-ish).
+#   irst:      has an infrared search and track sensor.
+#   hmcs:      helmet cueing for high off-boresight IR missiles.
+#   ecm:       self-protection jamming effectiveness, 0..0.5.
+#   rwr:       quality of radar warning, 0..1.
+#   maws:      has a missile approach warning system.
+#   agility:   close-in fight performance relative to a 4th gen fighter (1.0).
+#   datalink:  shares tracks with the package/AWACS.
+#   awacs_km:  surveillance radar range against a 5 m^2 target (AWACS only).
+#   towed_decoy: carries a towed radar decoy (ALE-50/55).
+
+# --- 4th / 4.5th generation fighters ---
+F-15C:          {radar_km: 110, radar: pd, rcs: 10, ecm: 0.25, rwr: 0.85, agility: 1.05, datalink: false}
+F-15E:          {radar_km: 110, radar: pd, rcs: 12, ecm: 0.25, rwr: 0.85, agility: 0.9, datalink: true}
+F-15ESE:        {radar_km: 140, radar: aesa, rcs: 12, ecm: 0.3, rwr: 0.9, agility: 0.9, datalink: true, hmcs: true}
+F-16C_50:       {radar_km: 80, radar: pd, rcs: 1.2, ecm: 0.2, rwr: 0.85, agility: 1.15, datalink: true, hmcs: true, towed_decoy: true}
+F-16C bl.50:    {radar_km: 80, radar: pd, rcs: 1.2, ecm: 0.2, rwr: 0.85, agility: 1.15, datalink: true, towed_decoy: true}
+F-16C bl.52d:   {radar_km: 80, radar: pd, rcs: 1.2, ecm: 0.2, rwr: 0.85, agility: 1.15, datalink: true, towed_decoy: true}
+F-16A:          {radar_km: 60, radar: pd, rcs: 1.2, ecm: 0.1, rwr: 0.7, agility: 1.15}
+F-16A MLU:      {radar_km: 75, radar: pd, rcs: 1.2, ecm: 0.15, rwr: 0.8, agility: 1.15, datalink: true}
+FA-18C_hornet:  {radar_km: 85, radar: pd, rcs: 3, ecm: 0.25, rwr: 0.85, agility: 1.05, datalink: true, hmcs: true}
+# Super Hornet mod (ids only exist when the mod is loaded).
+FA-18E:         {radar_km: 110, radar: aesa, rcs: 1.5, ecm: 0.3, rwr: 0.9, agility: 1.0, datalink: true, hmcs: true, towed_decoy: true}
+FA-18F:         {radar_km: 110, radar: aesa, rcs: 1.5, ecm: 0.3, rwr: 0.9, agility: 1.0, datalink: true, hmcs: true, towed_decoy: true}
+EA-18G:         {radar_km: 110, radar: aesa, rcs: 1.5, ecm: 0.35, rwr: 0.95, agility: 0.95, datalink: true, towed_decoy: true}
+F/A-18C:        {radar_km: 85, radar: pd, rcs: 3, ecm: 0.2, rwr: 0.85, agility: 1.05, datalink: true}
+F/A-18A:        {radar_km: 75, radar: pd, rcs: 3, ecm: 0.15, rwr: 0.8, agility: 1.05}
+F-14B:          {radar_km: 150, radar: pd, rcs: 12, ecm: 0.15, rwr: 0.8, agility: 0.95, datalink: true}
+F-14A:          {radar_km: 140, radar: pd, rcs: 12, ecm: 0.1, rwr: 0.7, agility: 0.9, datalink: true}
+F-14A-135-GR:   {radar_km: 140, radar: pd, rcs: 12, ecm: 0.1, rwr: 0.75, agility: 0.9, datalink: true}
+F-14A-135-GR-Early: {radar_km: 140, radar: pd, rcs: 12, ecm: 0.1, rwr: 0.7, agility: 0.9, datalink: true}
+F-14A-95-GR:    {radar_km: 140, radar: pd, rcs: 12, ecm: 0.1, rwr: 0.7, agility: 0.9, datalink: true}
+F-14BU:         {radar_km: 150, radar: pd, rcs: 12, ecm: 0.15, rwr: 0.8, agility: 0.95, datalink: true}
+M-2000C:        {radar_km: 70, radar: pd, rcs: 2, ecm: 0.2, rwr: 0.8, agility: 1.15}
+Mirage 2000-5:  {radar_km: 90, radar: pd, rcs: 2, ecm: 0.25, rwr: 0.85, agility: 1.15, datalink: true}
+JF-17:          {radar_km: 75, radar: pd, rcs: 2, ecm: 0.15, rwr: 0.8, agility: 1.05, datalink: true, hmcs: true, maws: true}
+J-11A:          {radar_km: 90, radar: pd, rcs: 12, irst: true, hmcs: true, ecm: 0.15, rwr: 0.75, agility: 1.15}
+Su-27:          {radar_km: 90, radar: pd, rcs: 12, irst: true, hmcs: true, ecm: 0.15, rwr: 0.7, agility: 1.15}
+Su-30:          {radar_km: 110, radar: pd, rcs: 12, irst: true, hmcs: true, ecm: 0.2, rwr: 0.8, agility: 1.2, datalink: true}
+Su-33:          {radar_km: 90, radar: pd, rcs: 12, irst: true, hmcs: true, ecm: 0.15, rwr: 0.7, agility: 1.1}
+Su-34:          {radar_km: 90, radar: pd, rcs: 15, irst: false, ecm: 0.3, rwr: 0.85, agility: 0.85, datalink: true, maws: true}
+MiG-29A:        {radar_km: 65, radar: pd, rcs: 5, irst: true, hmcs: true, ecm: 0.1, rwr: 0.65, agility: 1.15}
+MiG-29G:        {radar_km: 65, radar: pd, rcs: 5, irst: true, hmcs: true, ecm: 0.1, rwr: 0.7, agility: 1.15}
+MiG-29S:        {radar_km: 75, radar: pd, rcs: 5, irst: true, hmcs: true, ecm: 0.15, rwr: 0.7, agility: 1.15}
+MiG-29 Fulcrum: {radar_km: 70, radar: pd, rcs: 5, irst: true, hmcs: true, ecm: 0.15, rwr: 0.7, agility: 1.15}
+MiG-31:         {radar_km: 180, radar: pd, rcs: 20, irst: true, ecm: 0.15, rwr: 0.75, agility: 0.6, datalink: true}
+
+# --- 3rd generation ---
+F-4E:           {radar_km: 50, radar: pulse, rcs: 10, ecm: 0.1, rwr: 0.6, agility: 0.8}
+F-4E-45MC:      {radar_km: 55, radar: pulse, rcs: 10, ecm: 0.15, rwr: 0.65, agility: 0.8}
+QF-4E:          {radar_km: 50, radar: pulse, rcs: 10, ecm: 0.1, rwr: 0.6, agility: 0.8}
+F-5E-3:         {radar_km: 25, radar: pulse, rcs: 3, ecm: 0.05, rwr: 0.6, agility: 1.0}
+F-5E:           {radar_km: 25, radar: pulse, rcs: 3, ecm: 0.05, rwr: 0.55, agility: 1.0}
+F-5E-3_FC:      {radar_km: 25, radar: pulse, rcs: 3, ecm: 0.05, rwr: 0.6, agility: 1.0}
+MiG-21Bis:      {radar_km: 20, radar: pulse, rcs: 3, ecm: 0.05, rwr: 0.4, agility: 0.95}
+MiG-23MLD:      {radar_km: 50, radar: pd, rcs: 6, irst: true, ecm: 0.1, rwr: 0.55, agility: 0.85}
+MiG-25PD:       {radar_km: 70, radar: pulse, rcs: 25, ecm: 0.1, rwr: 0.5, agility: 0.5}
+MiG-19P:        {radar_km: 7, radar: pulse, rcs: 4, rwr: 0.2, agility: 0.9}
+Mirage-F1EE:    {radar_km: 40, radar: pulse, rcs: 5, ecm: 0.1, rwr: 0.65, agility: 0.95}
+Mirage-F1CE:    {radar_km: 40, radar: pulse, rcs: 5, ecm: 0.05, rwr: 0.6, agility: 0.95}
+Mirage-F1M-EE:  {radar_km: 45, radar: pulse, rcs: 5, ecm: 0.15, rwr: 0.7, agility: 0.95}
+AJS37:          {radar_km: 30, radar: pulse, rcs: 8, ecm: 0.15, rwr: 0.65, agility: 0.8}
+
+# --- 2nd generation and earlier ---
+MiG-15bis:      {radar_km: 0, radar: none, rcs: 3, rwr: 0, agility: 0.9}
+F-86F Sabre:    {radar_km: 0, radar: none, rcs: 3, rwr: 0, agility: 0.9}
+
+# --- Attack / strike ---
+A-10C:          {radar_km: 0, radar: none, rcs: 15, ecm: 0.2, rwr: 0.8, agility: 0.6, datalink: true, hmcs: true}
+A-10C_2:        {radar_km: 0, radar: none, rcs: 15, ecm: 0.2, rwr: 0.8, agility: 0.6, datalink: true, hmcs: true}
+A-10A:          {radar_km: 0, radar: none, rcs: 15, ecm: 0.15, rwr: 0.7, agility: 0.6}
+AV8BNA:         {radar_km: 0, radar: none, rcs: 4, ecm: 0.15, rwr: 0.75, agility: 0.7, datalink: true}
+Su-25:          {radar_km: 0, radar: none, rcs: 10, ecm: 0.1, rwr: 0.55, agility: 0.6}
+Su-25T:         {radar_km: 0, radar: none, rcs: 10, ecm: 0.2, rwr: 0.65, agility: 0.6}
+Su-24M:         {radar_km: 40, radar: pulse, rcs: 12, ecm: 0.2, rwr: 0.6, agility: 0.5}
+Su-17M4:        {radar_km: 0, radar: none, rcs: 8, ecm: 0.1, rwr: 0.5, agility: 0.6}
+MiG-27K:        {radar_km: 0, radar: none, rcs: 7, ecm: 0.1, rwr: 0.5, agility: 0.65}
+Tornado GR4:    {radar_km: 40, radar: pulse, rcs: 7, ecm: 0.25, rwr: 0.8, agility: 0.6}
+Tornado IDS:    {radar_km: 40, radar: pulse, rcs: 7, ecm: 0.2, rwr: 0.7, agility: 0.6}
+F-117A:         {radar_km: 0, radar: none, rcs: 0.003, rwr: 0.7, agility: 0.4}
+B-1B:           {radar_km: 50, radar: pd, rcs: 1, ecm: 0.35, rwr: 0.9, agility: 0.3, towed_decoy: true}
+# Heavy bombers carry large jamming suites and fly mutually supporting cells.
+B-52H:          {radar_km: 40, radar: pulse, rcs: 100, ecm: 0.5, rwr: 0.8, agility: 0.15}
+Tu-22M3:        {radar_km: 50, radar: pulse, rcs: 40, ecm: 0.3, rwr: 0.7, agility: 0.25}
+Tu-95MS:        {radar_km: 40, radar: pulse, rcs: 100, ecm: 0.25, rwr: 0.6, agility: 0.15}
+Tu-160:         {radar_km: 60, radar: pd, rcs: 15, ecm: 0.35, rwr: 0.8, agility: 0.3}
+
+# --- Support ---
+E-3A:           {radar_km: 0, radar: none, rcs: 100, awacs_km: 400, rwr: 0.6, agility: 0.1, datalink: true}
+A-50:           {radar_km: 0, radar: none, rcs: 100, awacs_km: 300, rwr: 0.5, agility: 0.1, datalink: true}
+KJ-2000:        {radar_km: 0, radar: none, rcs: 100, awacs_km: 400, rwr: 0.5, agility: 0.1, datalink: true}
+E-2C:           {radar_km: 0, radar: none, rcs: 40, awacs_km: 300, rwr: 0.6, agility: 0.15, datalink: true}
+
+# --- Helicopters ---
+AH-64D_BLK_II:  {radar_km: 8, radar: none, rcs: 5, ecm: 0.1, rwr: 0.8, maws: true, agility: 0.5, datalink: true}
+AH-64D:         {radar_km: 8, radar: none, rcs: 5, ecm: 0.1, rwr: 0.8, maws: true, agility: 0.5, datalink: true}
+Ka-50:          {radar_km: 0, radar: none, rcs: 5, rwr: 0.6, agility: 0.55}
+Ka-50_3:        {radar_km: 0, radar: none, rcs: 5, rwr: 0.7, maws: true, agility: 0.55}
+Mi-24P:         {radar_km: 0, radar: none, rcs: 10, rwr: 0.5, agility: 0.4}
+Mi-28N:         {radar_km: 8, radar: none, rcs: 6, rwr: 0.7, maws: true, agility: 0.5}

@@ -54,8 +54,25 @@ class FrontLineStanceTask(TheaterCommanderTask, ABC):
     @property
     def ground_force_balance(self) -> float:
         # TODO: Planned CAS missions should reduce the expected opposing force size.
-        friendly_forces = self.friendly_cp.deployable_front_line_units
-        enemy_forces = self.enemy_cp.deployable_front_line_units
+        friendly_forces = float(self.friendly_cp.deployable_front_line_units)
+        enemy_forces = float(self.enemy_cp.deployable_front_line_units)
+        game = self.friendly_cp.coalition.game
+        war_state = getattr(game, "war_state", None)
+        if war_state is not None:
+            # Commanders judge the enemy from intelligence estimates, and their
+            # own troops by how well they will actually fight.
+            if war_state.intel_enabled(game) and enemy_forces > 0:
+                from game.warfare.intel import estimate_count
+
+                player = self.friendly_cp.captured
+                picture = war_state.picture(game, player)
+                rng = war_state.rng(game, f"stance:{self.enemy_cp.id}")
+                enemy_forces = float(
+                    estimate_count(int(enemy_forces), picture.isr, rng)
+                )
+            if war_state.morale_enabled(game):
+                friendly_forces *= 0.5 + 0.67 * war_state.morale.front(self.friendly_cp)
+                enemy_forces *= 0.5 + 0.67 * war_state.morale.front(self.enemy_cp)
         if enemy_forces == 0:
             return math.inf
         return friendly_forces / enemy_forces
@@ -67,7 +84,27 @@ class FrontLineStanceTask(TheaterCommanderTask, ABC):
             return False
         if self.friendly_cp.deployable_front_line_units == 0:
             return False
+        if self.warned_of_offensive() and self.stance in (
+            CombatStance.AGGRESSIVE,
+            CombatStance.ELIMINATION,
+            CombatStance.BREAKTHROUGH,
+        ):
+            # Intelligence warns of an enemy attack: unless overwhelmingly
+            # stronger, receive it from prepared positions.
+            if self.ground_force_balance < 2.0:
+                return False
         return self.have_sufficient_front_line_advantage
+
+    def warned_of_offensive(self) -> bool:
+        game = self.friendly_cp.coalition.game
+        war_state = getattr(game, "war_state", None)
+        if war_state is None or not war_state.intel_enabled(game):
+            return False
+        from game.warfare.agencies import expects_offensive
+
+        return expects_offensive(
+            game, war_state, self.friendly_cp.captured, self.enemy_cp, self.friendly_cp
+        )
 
     def apply_effects(self, state: TheaterState) -> None:
         state.front_line_stances[self.front_line] = self.stance

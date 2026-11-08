@@ -61,6 +61,9 @@ class SimController(QObject):
     def recreate_game_loop(self, game: Optional[Game]) -> None:
         if self.game_loop is not None:
             self.game_loop.pause()
+            # Undo anything the combat model did to the in-memory game that was
+            # never committed by a debriefing (e.g. the mission was cancelled).
+            self.game_loop.revert_simulated_damage()
         self.game_loop = None
         if game is not None:
             self.game_loop = GameLoop(
@@ -100,6 +103,10 @@ class SimController(QObject):
         self, state_path: Path, force_end: bool = False
     ) -> Debriefing:
         return self.game_loop.pause_and_debrief(state_path, force_end)
+
+    def debrief_simulated(self) -> Debriefing:
+        self.game_loop.pause()
+        return self.game_loop.sim.debrief_simulated()
 
     def process_results(self, debriefing: Debriefing) -> None:
         return self.game_loop.complete_with_results(debriefing)

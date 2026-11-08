@@ -27,6 +27,8 @@ class MissionResultsProcessor:
         with logged_duration("Committing mission results"):
             with logged_duration("commit_air_losses"):
                 self.commit_air_losses(debriefing)
+            with logged_duration("commit_parked_aircraft_losses"):
+                self.commit_parked_aircraft_losses(debriefing)
             with logged_duration("commit_pilot_experience"):
                 self.commit_pilot_experience()
             with logged_duration("commit_front_line_losses"):
@@ -54,6 +56,22 @@ class MissionResultsProcessor:
                 self.commit_captures(debriefing, events)
             with logged_duration("record_carcasses"):
                 self.record_carcasses(debriefing)
+            with logged_duration("update_war_state"):
+                self.update_war_state(debriefing)
+
+    def update_war_state(self, debriefing: Debriefing) -> None:
+        war_state = getattr(self.game, "war_state", None)
+        if war_state is not None:
+            war_state.after_mission(self.game, debriefing)
+
+    @staticmethod
+    def commit_parked_aircraft_losses(debriefing: Debriefing) -> None:
+        for squadron in getattr(debriefing, "parked_aircraft_losses", []):
+            if squadron.owned_aircraft <= 0:
+                continue
+            logging.info(f"Parked {squadron.aircraft} destroyed at {squadron.location}")
+            squadron.owned_aircraft -= 1
+            squadron.destroyed_aircraft += 1
 
     def commit_air_losses(self, debriefing: Debriefing) -> None:
         for loss in debriefing.air_losses.losses:

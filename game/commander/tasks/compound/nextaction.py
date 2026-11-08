@@ -15,6 +15,7 @@ from game.commander.tasks.compound.interdictreinforcements import (
     InterdictReinforcements,
 )
 from game.commander.tasks.compound.protectairspace import ProtectAirSpace
+from game.commander.tasks.compound.reconnoitertargets import ReconnoiterTargets
 from game.commander.tasks.compound.recoverysupport import RecoverySupport
 from game.commander.tasks.compound.theatersupport import TheaterSupport
 from game.commander.theaterstate import TheaterState
@@ -26,9 +27,19 @@ class PlanNextAction(CompoundTask[TheaterState]):
     aircraft_cold_start: bool
 
     def each_valid_method(self, state: TheaterState) -> Iterator[Method[TheaterState]]:
+        from game.warfare.doctrine import for_faction_obj
+
+        doctrine = for_faction_obj(state.context.coalition.faction)
         yield [TheaterSupport()]
         yield [ProtectAirSpace()]
         yield [DefendBases()]
+        # Know before you strike: confirm targets and assess damage.
+        yield [ReconnoiterTargets()]
+        if doctrine.iads_rollback_first:
+            # Roll back the air defense network before the deep strikes.
+            yield [DegradeIads(rollback_only=True)]
+        if doctrine.ground_support_priority:
+            yield [AttackBattlePositions()]
         yield [InterdictReinforcements()]
         yield [AttackBattlePositions()]
         yield [CaptureBases()]

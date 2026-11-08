@@ -31,6 +31,9 @@ def new_tgo_package(
     game: Game = Depends(GameContext.require),
     qt: QtCallbacks = Depends(QtContext.get),
 ) -> None:
+    if tgo_id not in game.db.tgos.objects:
+        # A reported site that intelligence can't tie to anything real.
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     qt.create_new_package(game.db.tgos.get(tgo_id))
 
 
@@ -44,6 +47,8 @@ def show_tgo_info(
     game: Game = Depends(GameContext.require),
     qt: QtCallbacks = Depends(QtContext.get),
 ) -> None:
+    if tgo_id not in game.db.tgos.objects:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
     qt.show_tgo_info(game.db.tgos.get(tgo_id))
 
 

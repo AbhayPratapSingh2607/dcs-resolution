@@ -19,15 +19,21 @@ if TYPE_CHECKING:
     from game import Game
     from game.ato import Flight
     from .frozencombat import FrozenCombat
+    from .model import CombatModel
 
 
 class CombatInitiator:
     def __init__(
-        self, game: Game, combats: list[FrozenCombat], events: GameUpdateEvents
+        self,
+        game: Game,
+        combats: list[FrozenCombat],
+        events: GameUpdateEvents,
+        model: Optional[CombatModel] = None,
     ) -> None:
         self.game = game
         self.combats = combats
         self.events = events
+        self.model = model
 
     def update_active_combats(self) -> None:
         blue_a2a = AircraftEngagementZones.from_ato(self.game.blue.ato)
@@ -47,7 +53,7 @@ class CombatInitiator:
         # another tick.
         for flight in self.iter_flights():
             if flight.state.in_combat:
-                return
+                continue
 
             if flight.squadron.player.is_blue:
                 a2a = red_a2a
@@ -73,6 +79,7 @@ class CombatInitiator:
             self.events.update_combat(joined)
         elif (combat := self.check_flight_for_new_combat(flight, a2a, sam)) is not None:
             logging.info(f"Creating new combat because {combat.because()}")
+            combat.model = self.model
             combat.update_flight_states()
             # Remove any preoccupied flights from the list of potential air-to-air
             # threats. This prevents BARCAPs (and other air-to-air types) from getting

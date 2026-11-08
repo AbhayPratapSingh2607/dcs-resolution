@@ -129,7 +129,36 @@ class QGroundObjectMenu(QDialog):
         self.intelBox = QGroupBox("Units :")
         self.intelLayout = QGridLayout()
         i = 0
-        for g in self.ground_object.groups:
+        from game.server.fogofwar import tgo_view
+
+        view = tgo_view(self.game, self.ground_object)
+        hidden = view is None or not view.confirmed
+        if hidden:
+            # Fog of war: the player only has an unconfirmed report.
+            text = (
+                "No intelligence on this site."
+                if view is None or not view.known
+                else "Unconfirmed: units and exact position unknown. "
+                "Reconnaissance would confirm it."
+            )
+            self.intelLayout.addWidget(QLabel(f"<i>{text}</i>"), i, 0)
+            i += 1
+        from game.server.fogofwar import detection_summary
+
+        detection = detection_summary(self.game, self.ground_object)
+        if detection is not None:
+            self.intelLayout.addWidget(QLabel(f"<i>{detection}</i>"), i, 0)
+            i += 1
+        if not self.cp.captured.is_blue:
+            from game.warfare.collateral import describe, enabled, tgo_risk
+
+            if enabled(self.game):
+                risk = tgo_risk(self.game, self.ground_object)
+                self.intelLayout.addWidget(
+                    QLabel(f"<i>Collateral damage risk: {describe(risk)}</i>"), i, 0
+                )
+                i += 1
+        for g in [] if hidden else self.ground_object.groups:
             for unit in g.units:
                 self.intelLayout.addWidget(
                     QLabel(f"<b>Unit {str(unit.display_name)}</b>"), i, 0

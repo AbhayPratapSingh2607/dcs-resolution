@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import singledispatchmethod
-from typing import Iterable, Optional, TYPE_CHECKING, Union
+from typing import Callable, Iterable, Optional, TYPE_CHECKING, Union
 
 from dcs.mapping import Point as DcsPoint
 from shapely.geometry import (
@@ -207,9 +207,45 @@ class ThreatZones:
             air_threats.append(cp)
             air_defenses.extend([go for go in cp.ground_objects if go.has_aa])
 
-        return cls.for_threats(
-            game.theater, game.faction_for(player).doctrine, air_threats, air_defenses
+        # The enemy only avoids what it knows about, where it thinks it is.
+        estimate = None
+        war_state = getattr(game, "war_state", None)
+        viewer = player.opponent
+        if (
+            war_state is not None
+            and war_state.intel_enabled(game)
+            and not viewer.is_neutral
+        ):
+            picture = war_state.picture(game, viewer)
+            air_defenses = [go for go in air_defenses if picture.knows(go)]
+
+            def estimate(go: TheaterGroundObject) -> tuple[DcsPoint, float]:
+                return picture.estimated_position(go), picture.error_m(go)
+
+        zones = cls.for_threats(
+            game.theater,
+            game.faction_for(player).doctrine,
+            air_threats,
+            air_defenses,
+            estimate,
         )
+        if estimate is not None and picture.phantoms:
+            # Reported SAMs that may not exist are avoided all the same.
+            phantom_zones = [
+                ShapelyPoint(p.x, p.y).buffer(p.threat_m + p.error_m)
+                for p in picture.phantoms.values()
+                if p.confidence >= 0.3
+            ]
+            if phantom_zones:
+                zones = ThreatZones(
+                    game.theater,
+                    airbases=zones.airbases,
+                    air_defenses=unary_union([zones.air_defenses, *phantom_zones]),
+                    radar_sam_threats=unary_union(
+                        [zones.radar_sam_threats, *phantom_zones]
+                    ),
+                )
+        return zones
 
     @classmethod
     def for_threats(
@@ -218,6 +254,9 @@ class ThreatZones:
         doctrine: Doctrine,
         barcap_locations: Iterable[ControlPoint],
         air_defenses: Iterable[TheaterGroundObject],
+        estimate: Optional[
+            Callable[[TheaterGroundObject], tuple[DcsPoint, float]]
+        ] = None,
     ) -> ThreatZones:
         """Generates the threat zones projected by the given locations.
 
@@ -242,6 +281,9 @@ class ThreatZones:
 
         settings = theater.controlpoints[0].coalition.game.settings
         for tgo in air_defenses:
+            position, error = (
+                estimate(tgo) if estimate is not None else (tgo.position, 0.0)
+            )
             for group in tgo.groups:
                 # cap threat-range, otherwise it can cause issues wrt NavMesh calculations
                 threat_range = min(
@@ -250,13 +292,13 @@ class ThreatZones:
                 # Any system with a shorter range than this is not worth
                 # even avoiding.
                 if threat_range > nautical_miles(3):
-                    point = ShapelyPoint(tgo.position.x, tgo.position.y)
-                    threat_zone = point.buffer(threat_range.meters)
+                    point = ShapelyPoint(position.x, position.y)
+                    threat_zone = point.buffer(threat_range.meters + error)
                     air_defense_threats.append(threat_zone)
                 radar_threat_range = group.max_threat_range(radar_only=True)
                 if radar_threat_range > nautical_miles(3):
-                    point = ShapelyPoint(tgo.position.x, tgo.position.y)
-                    threat_zone = point.buffer(radar_threat_range.meters)
+                    point = ShapelyPoint(position.x, position.y)
+                    threat_zone = point.buffer(radar_threat_range.meters + error)
                     radar_sam_threats.append(threat_zone)
 
         return ThreatZones(

@@ -777,6 +777,9 @@ class FlotGenerator:
         country = self.game.coalition_for(is_player).faction.country
         country = self.mission.country(country.name)
         for group in groups:
+            if group.size <= 0:
+                # Wiped out while fast forwarding.
+                continue
             if group.role == CombatGroupRole.ARTILLERY:
                 distance_from_frontline = (
                     self.get_artilery_group_distance_from_frontline(group)

@@ -33,6 +33,7 @@ from dcs.task import (
     OptVerticalTakeoffLanding,
     Tanker,
     RecoveryTanker,
+    Reconnaissance,
     ActivateBeaconCommand,
     ControlledTask,
 )
@@ -76,6 +77,8 @@ class AircraftBehavior:
             self.configure_cas(group, flight)
         elif self.task == FlightType.ARMED_RECON:
             self.configure_armed_recon(group, flight)
+        elif self.task == FlightType.RECON:
+            self.configure_recon(group, flight)
         elif self.task == FlightType.DEAD:
             self.configure_dead(group, flight)
         elif self.task in [FlightType.SEAD, FlightType.SEAD_SWEEP]:
@@ -476,6 +479,18 @@ class AircraftBehavior:
             group,
             react_on_threat=OptReactOnThreat.Values.EvadeFire,
             roe=roe,
+            restrict_jettison=True,
+        )
+
+    def configure_recon(self, group: FlyingGroup[Any], flight: Flight) -> None:
+        self.configure_task(
+            flight, group, Reconnaissance, [GroundAttack, CAS, PinpointStrike]
+        )
+        self.configure_behavior(
+            flight,
+            group,
+            react_on_threat=OptReactOnThreat.Values.EvadeFire,
+            roe=OptROE.Values.WeaponHold,
             restrict_jettison=True,
         )
 

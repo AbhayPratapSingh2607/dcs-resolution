@@ -179,6 +179,8 @@ class Coalition:
         # Needs to happen *before* planning transfers so we don't cancel them.
         self.ato.clear()
         self.air_wing.reset()
+        # Squadrons whose morale has collapsed stand aircraft down.
+        self.game.war_state.apply_readiness(self.game, self)
         self.refund_outstanding_orders()
         self.procurement_requests.clear()
 

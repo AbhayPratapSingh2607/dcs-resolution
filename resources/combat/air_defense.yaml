@@ -1,0 +1,77 @@
+# Air defense profiles for the fast-forward combat model.
+#
+# Keyed by the DCS id of the unit that *fires* (launcher, TELAR or gun). Units
+# without an entry are derived from their unit class and pydcs threat range.
+#
+#   guidance:   radar (needs a live tracking radar in the group) | telar (radar
+#               on the launcher itself) | ir (optical/IR, no emitter) | gun
+#   min_alt_m / max_alt_m: engagement altitude envelope.
+#   pk:         per-missile (or per-burst for guns) kill probability against a
+#               non-manoeuvring target inside the envelope.
+#   channels:   simultaneous targets the site can guide missiles onto.
+#   salvo:      missiles fired per target per engagement.
+#   missiles:   ready rounds per launcher.
+#   reaction_s: time from cue to first launch.
+#   eccm:       resistance to jamming, 0..1.
+#   emcon:      chance the site shuts its radar down when it detects an ARM
+#               launch (Skynet's harm_detection_chance is used when present).
+#   mast_m:     antenna height used for the radar horizon.
+#   reliability: share of missiles that work as designed. Old systems were
+#               notoriously unreliable (SA-2 ~0.6), modern ones ~0.9.
+
+# --- Long range ---
+S-300PS 5P85C ln:  {system: SA-10, guidance: radar, min_alt_m: 25, max_alt_m: 27000, pk: 0.75, channels: 6, salvo: 2, missiles: 4, reaction_s: 10, eccm: 0.7, emcon: 0.6, mast_m: 25, reliability: 0.9}
+S-300PS 5P85D ln:  {system: SA-10, guidance: radar, min_alt_m: 25, max_alt_m: 27000, pk: 0.75, channels: 6, salvo: 2, missiles: 4, reaction_s: 10, eccm: 0.7, emcon: 0.6, mast_m: 25, reliability: 0.9}
+Patriot ln:        {system: Patriot, guidance: radar, min_alt_m: 60, max_alt_m: 24000, pk: 0.75, channels: 9, salvo: 2, missiles: 4, reaction_s: 10, eccm: 0.75, emcon: 0.6, mast_m: 5, reliability: 0.92}
+S-200_Launcher:    {system: SA-5, guidance: radar, min_alt_m: 300, max_alt_m: 40000, pk: 0.55, channels: 1, salvo: 2, missiles: 1, reaction_s: 40, eccm: 0.3, emcon: 0.3, mast_m: 10, reliability: 0.7}
+CHAP_IRISTSLM_LN:  {system: IRIS-T SLM, guidance: radar, min_alt_m: 20, max_alt_m: 20000, pk: 0.8, channels: 8, salvo: 1, missiles: 8, reaction_s: 8, eccm: 0.8, emcon: 0.5, mast_m: 8, reliability: 0.92}
+
+# --- Medium range ---
+SA-11 Buk LN 9A310M1: {system: SA-11, guidance: telar, min_alt_m: 15, max_alt_m: 22000, pk: 0.65, channels: 1, salvo: 2, missiles: 4, reaction_s: 20, eccm: 0.55, emcon: 0.5, mast_m: 5, reliability: 0.85}
+Kub 2P25 ln:       {system: SA-6, guidance: radar, min_alt_m: 30, max_alt_m: 14000, pk: 0.55, channels: 1, salvo: 2, missiles: 3, reaction_s: 25, eccm: 0.35, emcon: 0.45, mast_m: 5, reliability: 0.75}
+S_75M_Volhov:      {system: SA-2, guidance: radar, min_alt_m: 300, max_alt_m: 27000, pk: 0.4, channels: 1, salvo: 3, missiles: 1, reaction_s: 45, eccm: 0.2, emcon: 0.35, mast_m: 6, reliability: 0.6}
+5p73 s-125 ln:     {system: SA-3, guidance: radar, min_alt_m: 30, max_alt_m: 18000, pk: 0.45, channels: 1, salvo: 2, missiles: 4, reaction_s: 30, eccm: 0.3, emcon: 0.4, mast_m: 6, reliability: 0.7}
+Hawk ln:           {system: Hawk, guidance: radar, min_alt_m: 30, max_alt_m: 17000, pk: 0.55, channels: 1, salvo: 2, missiles: 3, reaction_s: 20, eccm: 0.45, emcon: 0.45, mast_m: 5, reliability: 0.8}
+NASAMS_LN_B:       {system: NASAMS, guidance: radar, min_alt_m: 20, max_alt_m: 15000, pk: 0.7, channels: 6, salvo: 1, missiles: 6, reaction_s: 8, eccm: 0.7, emcon: 0.5, mast_m: 6, reliability: 0.9}
+NASAMS_LN_C:       {system: NASAMS, guidance: radar, min_alt_m: 20, max_alt_m: 15000, pk: 0.72, channels: 6, salvo: 1, missiles: 6, reaction_s: 8, eccm: 0.7, emcon: 0.5, mast_m: 6, reliability: 0.9}
+HQ-7_LN_SP:        {system: HQ-7, guidance: radar, min_alt_m: 15, max_alt_m: 5500, pk: 0.55, channels: 1, salvo: 2, missiles: 4, reaction_s: 10, eccm: 0.4, emcon: 0.3, mast_m: 4, reliability: 0.8}
+HQ-7_LN_P:         {system: HQ-7, guidance: radar, min_alt_m: 15, max_alt_m: 5500, pk: 0.55, channels: 1, salvo: 2, missiles: 4, reaction_s: 10, eccm: 0.4, emcon: 0.3, mast_m: 4, reliability: 0.8}
+
+# --- Short range / SHORAD ---
+Tor 9A331:         {system: SA-15, guidance: telar, min_alt_m: 10, max_alt_m: 6000, pk: 0.65, channels: 2, salvo: 1, missiles: 8, reaction_s: 8, eccm: 0.55, emcon: 0.2, mast_m: 4, reliability: 0.85}
+CHAP_TorM2:        {system: SA-15 M2, guidance: telar, min_alt_m: 10, max_alt_m: 10000, pk: 0.72, channels: 4, salvo: 1, missiles: 16, reaction_s: 6, eccm: 0.65, emcon: 0.15, mast_m: 4, reliability: 0.9}
+CHAP_PantsirS1:    {system: SA-22, guidance: telar, min_alt_m: 5, max_alt_m: 15000, pk: 0.65, channels: 4, salvo: 1, missiles: 12, reaction_s: 6, eccm: 0.6, emcon: 0.1, mast_m: 4, reliability: 0.88}
+Osa 9A33 ln:       {system: SA-8, guidance: telar, min_alt_m: 10, max_alt_m: 5000, pk: 0.5, channels: 1, salvo: 2, missiles: 6, reaction_s: 15, eccm: 0.3, emcon: 0.3, mast_m: 4, reliability: 0.72}
+2S6 Tunguska:      {system: SA-19, guidance: telar, min_alt_m: 5, max_alt_m: 3500, pk: 0.55, channels: 1, salvo: 1, missiles: 8, reaction_s: 8, eccm: 0.4, emcon: 0.1, mast_m: 4, reliability: 0.8}
+Roland ADS:        {system: Roland, guidance: telar, min_alt_m: 10, max_alt_m: 5500, pk: 0.5, channels: 1, salvo: 1, missiles: 10, reaction_s: 10, eccm: 0.4, emcon: 0.2, mast_m: 4, reliability: 0.78}
+rapier_fsa_launcher: {system: Rapier, guidance: telar, min_alt_m: 10, max_alt_m: 3000, pk: 0.5, channels: 1, salvo: 1, missiles: 4, reaction_s: 8, eccm: 0.4, emcon: 0.1, mast_m: 3, reliability: 0.78}
+Strela-10M3:       {system: SA-13, guidance: ir, min_alt_m: 10, max_alt_m: 3500, pk: 0.4, channels: 1, salvo: 1, missiles: 8, reaction_s: 8, reliability: 0.75}
+Strela-1 9P31:     {system: SA-9, guidance: ir, min_alt_m: 30, max_alt_m: 3000, pk: 0.3, channels: 1, salvo: 1, missiles: 4, reaction_s: 10, reliability: 0.65}
+M48 Chaparral:     {system: Chaparral, guidance: ir, min_alt_m: 15, max_alt_m: 3000, pk: 0.35, channels: 1, salvo: 1, missiles: 4, reaction_s: 10, reliability: 0.7}
+M1097 Avenger:     {system: Avenger, guidance: ir, min_alt_m: 10, max_alt_m: 3800, pk: 0.45, channels: 1, salvo: 1, missiles: 8, reaction_s: 6, reliability: 0.85}
+M6 Linebacker:     {system: Linebacker, guidance: ir, min_alt_m: 10, max_alt_m: 3800, pk: 0.45, channels: 1, salvo: 1, missiles: 4, reaction_s: 6, reliability: 0.85}
+
+# --- MANPADS ---
+SA-18 Igla manpad:   {system: SA-18, guidance: ir, min_alt_m: 10, max_alt_m: 3500, pk: 0.4, channels: 1, salvo: 1, missiles: 2, reaction_s: 10, reliability: 0.8}
+SA-18 Igla-S manpad: {system: SA-24, guidance: ir, min_alt_m: 10, max_alt_m: 3500, pk: 0.45, channels: 1, salvo: 1, missiles: 2, reaction_s: 10, reliability: 0.85}
+Igla manpad INS:     {system: SA-18, guidance: ir, min_alt_m: 10, max_alt_m: 3500, pk: 0.4, channels: 1, salvo: 1, missiles: 2, reaction_s: 10, reliability: 0.8}
+Soldier stinger:     {system: Stinger, guidance: ir, min_alt_m: 10, max_alt_m: 3800, pk: 0.45, channels: 1, salvo: 1, missiles: 2, reaction_s: 10, reliability: 0.85}
+
+# --- Guns ---
+ZSU-23-4 Shilka:   {system: Shilka, guidance: gun, min_alt_m: 0, max_alt_m: 2000, pk: 0.15, channels: 1, salvo: 1, missiles: 20, reaction_s: 4, eccm: 0.2, emcon: 0.0, reliability: 0.9}
+Gepard:            {system: Gepard, guidance: gun, min_alt_m: 0, max_alt_m: 3000, pk: 0.2, channels: 1, salvo: 1, missiles: 20, reaction_s: 4, eccm: 0.4, emcon: 0.0, reliability: 0.92}
+Vulcan:            {system: Vulcan, guidance: gun, min_alt_m: 0, max_alt_m: 1200, pk: 0.1, channels: 1, salvo: 1, missiles: 20, reaction_s: 4, reliability: 0.9}
+HEMTT_C-RAM_Phalanx: {system: C-RAM, guidance: gun, min_alt_m: 0, max_alt_m: 1500, pk: 0.15, channels: 1, salvo: 1, missiles: 20, reaction_s: 3, reliability: 0.92}
+
+# Heavier and older AAA. Per-burst Pk is low: in Vietnam and the Gulf, heavy
+# flak needed hundreds to thousands of rounds per kill, and almost all AAA
+# kills came from aircraft operating low. Radar-directed guns (SON-9 / Fire
+# Can) are better than optically aimed ones.
+KS-19:             {system: KS-19 100mm, guidance: gun, min_alt_m: 300, max_alt_m: 7000, pk: 0.025, channels: 1, salvo: 1, missiles: 40, reaction_s: 10, eccm: 0.1, emcon: 0.0, reliability: 0.9}
+S-60_Type59_Artillery: {system: S-60 57mm, guidance: gun, min_alt_m: 100, max_alt_m: 4500, pk: 0.035, channels: 1, salvo: 1, missiles: 40, reaction_s: 8, eccm: 0.1, emcon: 0.0, reliability: 0.9}
+ZSU_57_2:          {system: ZSU-57-2, guidance: gun, min_alt_m: 0, max_alt_m: 3000, pk: 0.03, channels: 1, salvo: 1, missiles: 30, reaction_s: 6, reliability: 0.9}
+ZU-23 Emplacement: {system: ZU-23, guidance: gun, min_alt_m: 0, max_alt_m: 1500, pk: 0.06, channels: 1, salvo: 1, missiles: 30, reaction_s: 4, reliability: 0.95}
+ZU-23 Emplacement Closed: {system: ZU-23, guidance: gun, min_alt_m: 0, max_alt_m: 1500, pk: 0.06, channels: 1, salvo: 1, missiles: 30, reaction_s: 4, reliability: 0.95}
+Ural-375 ZU-23:    {system: ZU-23, guidance: gun, min_alt_m: 0, max_alt_m: 1500, pk: 0.06, channels: 1, salvo: 1, missiles: 30, reaction_s: 4, reliability: 0.95}
+bofors40:          {system: Bofors 40mm, guidance: gun, min_alt_m: 0, max_alt_m: 2000, pk: 0.035, channels: 1, salvo: 1, missiles: 30, reaction_s: 5, reliability: 0.95}
+M1_37mm:           {system: M1 37mm, guidance: gun, min_alt_m: 0, max_alt_m: 2500, pk: 0.03, channels: 1, salvo: 1, missiles: 30, reaction_s: 5, reliability: 0.95}

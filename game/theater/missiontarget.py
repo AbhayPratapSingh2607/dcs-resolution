@@ -41,9 +41,9 @@ class MissionTarget:
                 FlightType.SEAD_SWEEP,
                 FlightType.ARMED_RECON,
                 FlightType.SWEEP,
+                FlightType.RECON,
                 # TODO: FlightType.ELINT,
                 # TODO: FlightType.EWAR,
-                # TODO: FlightType.RECON,
             ]
 
     @property

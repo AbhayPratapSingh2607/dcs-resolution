@@ -69,6 +69,8 @@ class TheaterState(WorldState["TheaterState"]):
     oca_targets: list[ControlPoint]
     strike_targets: list[TheaterGroundObject]
     motorpool_targets: list[MotorpoolGroundObject]
+    #: Targets that need photographing (confirmation or battle damage).
+    recon_targets: list[TheaterGroundObject]
     enemy_barcaps: list[ControlPoint]
     threat_zones: ThreatZones
     vulnerable_control_points: list[ControlPoint]
@@ -139,6 +141,7 @@ class TheaterState(WorldState["TheaterState"]):
             oca_targets=list(self.oca_targets),
             strike_targets=list(self.strike_targets),
             motorpool_targets=list(self.motorpool_targets),
+            recon_targets=list(self.recon_targets),
             enemy_barcaps=list(self.enemy_barcaps),
             threat_zones=self.threat_zones,
             # Persistent properties are not copied. These are a way for failed subtasks
@@ -193,12 +196,21 @@ class TheaterState(WorldState["TheaterState"]):
         aewc_targets = [cp for cp in finder.friendly_control_points() if cp.is_carrier]
         aewc_targets.append(finder.farthest_friendly_control_point())
 
+        barcaps_needed = {
+            cp: 2 * barcap_rounds if cp.is_fleet else barcap_rounds
+            for cp in finder.vulnerable_control_points()
+        }
+        from game.warfare.doctrine import for_faction_obj
+
+        if for_faction_obj(coalition.faction).cap_over_hvaa:
+            # Keep fighters over the AWACS and tanker orbits.
+            for cp in aewc_targets:
+                if isinstance(cp, ControlPoint) and cp not in barcaps_needed:
+                    barcaps_needed[cp] = barcap_rounds
+
         return TheaterState(
             context=context,
-            barcaps_needed={
-                cp: 2 * barcap_rounds if cp.is_fleet else barcap_rounds
-                for cp in finder.vulnerable_control_points()
-            },
+            barcaps_needed=barcaps_needed,
             active_front_lines=list(finder.front_lines()),
             front_line_stances={f: None for f in finder.front_lines()},
             vulnerable_front_lines=list(finder.front_lines()),
@@ -219,6 +231,7 @@ class TheaterState(WorldState["TheaterState"]):
             ),
             strike_targets=list(finder.strike_targets()),
             motorpool_targets=list(finder.motorpool_targets()),
+            recon_targets=list(finder.recon_targets()),
             enemy_barcaps=list(game.theater.control_points_for(player.opponent)),
             threat_zones=game.threat_zone_for(player.opponent),
             vulnerable_control_points=vulnerable_control_points,

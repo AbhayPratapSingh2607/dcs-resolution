@@ -1,0 +1,79 @@
+# Air-to-air missile profiles for the fast-forward combat model.
+#
+# Keyed by weapon group name (resources/weapons/**). A "-2X"/"-4X" suffix on a
+# group name is stripped before lookup and used as the count per pylon.
+# Air-to-ground weapons are classified from their names (see
+# game/sim/combat/model/profiles.py); add an entry here to override that.
+#
+#   guidance:  arh (active radar) | sarh (semi-active radar) | ir | beam
+#   range_km:  maximum kinematic range, head-on at medium altitude.
+#   nez_km:    no-escape zone against a manoeuvring target.
+#   pk:        probability of kill against a target that does not react, inside
+#              the NEZ, before countermeasures, skill and ECM are applied.
+#   all_aspect: IR missile can lock from the front hemisphere.
+#   hobs:      high off-boresight seeker (big advantage in close-in fights).
+#   year:      for informational purposes.
+#
+# Historic combat Pk is far lower than these numbers because most real shots
+# were taken outside the NEZ, at defending targets, by stressed pilots. The
+# model applies those penalties itself.
+
+# --- Active radar ---
+AIM-120C:   {guidance: arh, range_km: 105, nez_km: 30, pk: 0.72}
+AIM-120B:   {guidance: arh, range_km: 75, nez_km: 25, pk: 0.68}
+AIM-54A-MK47: {guidance: arh, range_km: 150, nez_km: 35, pk: 0.5}
+AIM-54A-MK60: {guidance: arh, range_km: 150, nez_km: 35, pk: 0.5}
+AIM-54C-MK47: {guidance: arh, range_km: 160, nez_km: 40, pk: 0.56}
+AIM-54C-MK60: {guidance: arh, range_km: 160, nez_km: 40, pk: 0.56}
+R-77:       {guidance: arh, range_km: 80, nez_km: 25, pk: 0.62}
+R-37:       {guidance: arh, range_km: 200, nez_km: 50, pk: 0.5}
+R-37M:      {guidance: arh, range_km: 220, nez_km: 55, pk: 0.52}
+
+# --- Semi-active radar ---
+AIM-7M:     {guidance: sarh, range_km: 70, nez_km: 20, pk: 0.55}
+AIM-7MH:    {guidance: sarh, range_km: 70, nez_km: 20, pk: 0.57}
+AIM-7P:     {guidance: sarh, range_km: 72, nez_km: 21, pk: 0.58}
+AIM-7F:     {guidance: sarh, range_km: 60, nez_km: 18, pk: 0.47}
+AIM-7E:     {guidance: sarh, range_km: 40, nez_km: 10, pk: 0.3}
+AIM-7E-2:   {guidance: sarh, range_km: 40, nez_km: 10, pk: 0.33}
+Aspide: {guidance: sarh, range_km: 65, nez_km: 18, pk: 0.5}
+R-27R:      {guidance: sarh, range_km: 60, nez_km: 18, pk: 0.48}
+R-27ER:     {guidance: sarh, range_km: 90, nez_km: 25, pk: 0.52}
+R-24R:      {guidance: sarh, range_km: 50, nez_km: 14, pk: 0.38}
+R-40R:      {guidance: sarh, range_km: 50, nez_km: 15, pk: 0.32}
+R-3R:       {guidance: sarh, range_km: 8, nez_km: 3, pk: 0.22}
+R-530F EM:  {guidance: sarh, range_km: 20, nez_km: 8, pk: 0.3}
+S-530D:     {guidance: sarh, range_km: 40, nez_km: 12, pk: 0.47}
+S-530F:     {guidance: sarh, range_km: 30, nez_km: 10, pk: 0.38}
+RS2US:      {guidance: beam, range_km: 5, nez_km: 2, pk: 0.1}
+
+# --- Infrared ---
+AIM-9X:     {guidance: ir, range_km: 18, nez_km: 5, pk: 0.78, all_aspect: true, hobs: true}
+AIM-9M:     {guidance: ir, range_km: 14, nez_km: 4, pk: 0.68, all_aspect: true}
+AIM-9L:     {guidance: ir, range_km: 14, nez_km: 4, pk: 0.65, all_aspect: true}
+AIM-9P5:    {guidance: ir, range_km: 8, nez_km: 3, pk: 0.5, all_aspect: true}
+AIM-9P:     {guidance: ir, range_km: 7, nez_km: 2.5, pk: 0.38}
+AIM-9JULI:  {guidance: ir, range_km: 8, nez_km: 3, pk: 0.45, all_aspect: true}
+AIM-9J:     {guidance: ir, range_km: 7, nez_km: 2.5, pk: 0.32}
+AIM-9H:     {guidance: ir, range_km: 7, nez_km: 2.5, pk: 0.35}
+AIM-9G:     {guidance: ir, range_km: 6, nez_km: 2.5, pk: 0.32}
+AIM-9D:     {guidance: ir, range_km: 6, nez_km: 2.5, pk: 0.28}
+AIM-9B:     {guidance: ir, range_km: 4, nez_km: 1.5, pk: 0.18}
+AIM-4D:     {guidance: ir, range_km: 8, nez_km: 2.5, pk: 0.13}
+R-73:       {guidance: ir, range_km: 20, nez_km: 6, pk: 0.72, all_aspect: true, hobs: true}
+R-60M:      {guidance: ir, range_km: 8, nez_km: 3, pk: 0.5, all_aspect: true}
+R-60:       {guidance: ir, range_km: 8, nez_km: 3, pk: 0.45}
+R-27T:      {guidance: ir, range_km: 50, nez_km: 12, pk: 0.42, all_aspect: true}
+R-27ET:     {guidance: ir, range_km: 70, nez_km: 15, pk: 0.46, all_aspect: true}
+R-24T:      {guidance: ir, range_km: 25, nez_km: 8, pk: 0.35, all_aspect: true}
+R-40T:      {guidance: ir, range_km: 30, nez_km: 10, pk: 0.3}
+R-13M1:     {guidance: ir, range_km: 9, nez_km: 3, pk: 0.33}
+R-13M:      {guidance: ir, range_km: 8, nez_km: 3, pk: 0.3}
+R-3S:       {guidance: ir, range_km: 6, nez_km: 2, pk: 0.2}
+K-13A:      {guidance: ir, range_km: 6, nez_km: 2, pk: 0.2}
+R-55:       {guidance: ir, range_km: 7, nez_km: 2.5, pk: 0.25}
+R-530F IR:  {guidance: ir, range_km: 15, nez_km: 6, pk: 0.3}
+R550 Magic 2 IR AAM: {guidance: ir, range_km: 12, nez_km: 4, pk: 0.58, all_aspect: true}
+R550 Magic 1 IR AAM: {guidance: ir, range_km: 8, nez_km: 3, pk: 0.4}
+FIM-92 Stinger: {guidance: ir, range_km: 5, nez_km: 2, pk: 0.5, all_aspect: true}
+9M39-Igla:  {guidance: ir, range_km: 5, nez_km: 2, pk: 0.45, all_aspect: true}

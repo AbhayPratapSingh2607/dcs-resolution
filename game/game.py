@@ -132,6 +132,10 @@ class Game:
         self.current_group_id = 0
         self.name_generator = naming.namegen
         self.laser_code_registry = LaserCodeRegistry()
+        from game.warfare import WarState
+
+        #: Intelligence pictures, morale and other campaign warfare state.
+        self.war_state = WarState()
 
         self.db = GameDb()
 
@@ -179,6 +183,10 @@ class Game:
         # arrives without it and must not AttributeError here.
         if hasattr(self, "_Game__destroyed_units"):
             self._dedup_destroyed_units()
+        if not hasattr(self, "war_state"):
+            from game.warfare import WarState
+
+            self.war_state = WarState()
         if not hasattr(self, "laser_code_registry"):
             self.laser_code_registry = LaserCodeRegistry()
             for front_line in self.theater.conflicts():
@@ -336,6 +344,7 @@ class Game:
         # bases, and freshly delivered units will spawn one leg through their journey.
         self.blue.end_turn()
         self.red.end_turn()
+        self.war_state.end_turn(self)
 
         for control_point in self.theater.controlpoints:
             control_point.process_turn(self)
@@ -507,6 +516,9 @@ class Game:
         # Update cull zones
         with logged_duration("Computing culling positions"):
             self.compute_unculled_zones(events)
+
+        # Agencies report what they've picked up about the enemy's plans.
+        self.war_state.after_planning(self)
 
         events.begin_new_turn()
 

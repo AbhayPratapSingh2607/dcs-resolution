@@ -1,12 +1,15 @@
 from datetime import datetime
 from typing import List, Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
 )
 
@@ -288,6 +291,13 @@ class QTopPanel(QFrame):
 
     def launch_mission(self):
         """Finishes planning and waits for mission completion."""
+        if (
+            self.game.settings.fast_forward_stop_condition
+            is FastForwardStopCondition.END_OF_TURN
+        ):
+            self.simulate_turn()
+            return
+
         if not self.game.ato_has_clients() and not self.confirm_no_client_launch():
             return
 
@@ -312,6 +322,28 @@ class QTopPanel(QFrame):
         )
 
         waiting = QWaitingForMissionResultWindow(self.game, self.sim_controller, self)
+        waiting.exec_()
+
+    def simulate_turn(self) -> None:
+        """Fights the whole turn with the combat model instead of DCS."""
+        if self.check_no_missing_pilots():
+            return
+        progress = QProgressDialog("Simulating the turn...", "", 0, 0, self)
+        progress.setWindowTitle("Simulating")
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.show()
+        QApplication.processEvents()
+        try:
+            with logged_duration("Simulating entire turn"):
+                self.sim_controller.run_to_first_contact()
+                debriefing = self.sim_controller.debrief_simulated()
+        finally:
+            progress.close()
+        waiting = QWaitingForMissionResultWindow(
+            self.game, self.sim_controller, self, simulated=debriefing
+        )
         waiting.exec_()
 
     def budget_update(self, game: Game):

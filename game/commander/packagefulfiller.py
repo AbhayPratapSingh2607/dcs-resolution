@@ -157,6 +157,14 @@ class PackageFulfiller:
             return self.air_wing_can_plan(FlightType.REFUELING)
         return False
 
+    def _requires_sead_escort(self) -> bool:
+        from game.warfare.doctrine import for_faction_obj
+
+        try:
+            return for_faction_obj(self.coalition.faction).require_sead_escort
+        except Exception:
+            return False
+
     def plan_mission(
         self,
         mission: ProposedMission,
@@ -238,6 +246,18 @@ class PackageFulfiller:
                     self.plan_flight(
                         mission, escort, builder, missing_types, purchase_multiplier
                     )
+
+        # Doctrine: some air forces won't send strikers into known radar SAM
+        # coverage without SEAD or jamming support.
+        if needed_escorts[EscortType.Sead] and self._requires_sead_escort():
+            sead_types = {
+                FlightType.SEAD,
+                FlightType.SEAD_ESCORT,
+                FlightType.SEAD_SWEEP,
+                FlightType.DEAD,
+            }
+            if not any(f.flight_type in sead_types for f in builder.package.flights):
+                missing_types.add(FlightType.SEAD_ESCORT)
 
         # Check again for unavailable aircraft. If the escort was required and
         # none were found, scrub the mission.

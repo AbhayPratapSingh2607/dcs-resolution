@@ -49,6 +49,16 @@ class MissionSimulation:
         self.time += TICK
         if self.completed:
             raise RuntimeError("Simulation already completed")
+        stop_condition = self.game.settings.fast_forward_stop_condition
+        if stop_condition is FastForwardStopCondition.END_OF_TURN:
+            # The whole turn is fought by the combat model; nothing can pause it.
+            self.aircraft_simulation.on_game_tick(
+                events, self.time, TICK, CombatResolutionMethod.RESOLVE, True
+            )
+            if self.simulated_turn_over():
+                events.complete_simulation()
+            self.completed = events.simulation_complete
+            return events
         if (
             self.game.settings.fast_forward_stop_condition
             == FastForwardStopCondition.DISABLED
@@ -75,6 +85,25 @@ class MissionSimulation:
         )
         self.completed = events.simulation_complete
         return events
+
+    def simulated_turn_over(self) -> bool:
+        elapsed = self.time - self.game.conditions.start_time
+        limit = self.game.settings.desired_player_mission_duration + timedelta(
+            minutes=45
+        )
+        if elapsed >= limit:
+            return True
+        if elapsed < timedelta(minutes=5):
+            return False
+        return not self.aircraft_simulation.has_activity()
+
+    def debrief_simulated(self) -> Debriefing:
+        """Debriefing for a turn fought entirely by the combat model."""
+        if self.unit_map is None:
+            self.unit_map = UnitMap()
+        debriefing = Debriefing({"mission_ended": True}, self.game, self.unit_map)
+        debriefing.merge_simulation_results(self.aircraft_simulation.results)
+        return debriefing
 
     def generate_miz(self, output: Path) -> None:
         with logged_duration("Mission generation"):
@@ -106,6 +135,8 @@ class MissionSimulation:
             )
 
         MissionResultsProcessor(self.game).commit(debriefing, events)
+        # The simulated damage is now part of the game; it must not be reverted.
+        self.aircraft_simulation.results.forget_undo()
 
     def finish(self) -> None:
         self.unit_map = None

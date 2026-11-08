@@ -49,4 +49,13 @@ class Income:
 
         self.from_bases = sum(cp.income_per_turn for cp in self.control_points)
         self.total_buildings = sum(b.income for b in self.buildings)
-        self.total = (self.total_buildings + self.from_bases) * self.multiplier
+        # War-weariness: a nation whose resolve is failing funds its war less.
+        self.war_weariness = 1.0
+        war_state = getattr(game, "war_state", None)
+        if war_state is not None:
+            self.war_weariness = war_state.income_factor(game, player)
+        self.total = (
+            (self.total_buildings + self.from_bases)
+            * self.multiplier
+            * self.war_weariness
+        )

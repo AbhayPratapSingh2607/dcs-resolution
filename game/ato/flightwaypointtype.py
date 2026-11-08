@@ -52,4 +52,5 @@ class FlightWaypointType(IntEnum):
     INGRESS_ANTI_SHIP = 32
     INGRESS_SEAD_SWEEP = 33
     INGRESS_ARMED_RECON = 34
+    INGRESS_RECON = 60
     RECOVERY_TANKER = 35  # Tanker recovery point

@@ -22,6 +22,7 @@ from game.utils import Distance, meters
 
 if TYPE_CHECKING:
     from game.coalition import Coalition
+    from game.dcs.aircrafttype import AircraftType
 
 MissionTargetT = TypeVar("MissionTargetT", bound=MissionTarget)
 
@@ -103,6 +104,7 @@ class PackagePlanningTask(TheaterCommanderTask, Generic[MissionTargetT]):
 
     def fulfill_mission(self, state: TheaterState) -> bool:
         color = "blue" if state.context.coalition.player.is_blue else "red"
+        self._planning_coalition = state.context.coalition
         self.propose_flights()
         fulfiller = PackageFulfiller(
             state.context.coalition,
@@ -126,9 +128,29 @@ class PackagePlanningTask(TheaterCommanderTask, Generic[MissionTargetT]):
         return self.package is not None
 
     def propose_common_escorts(self) -> None:
+        jammer = self._escort_jammer_type()
+        if jammer is not None:
+            # Dedicated electronic attack aircraft escort into radar SAM coverage.
+            self.flights.append(
+                ProposedFlight(FlightType.SEAD_ESCORT, 1, EscortType.Sead, jammer)
+            )
         self.propose_flight(FlightType.SEAD_ESCORT, 2, EscortType.Sead)
         self.propose_flight(FlightType.ESCORT, 2, EscortType.AirToAir)
         self.propose_flight(FlightType.SEAD_SWEEP, 2, EscortType.Sead)
+
+    def _escort_jammer_type(self) -> Optional[AircraftType]:
+        coalition = getattr(self, "_planning_coalition", None)
+        if coalition is None or not getattr(
+            coalition.game.settings, "ew_enabled", True
+        ):
+            return None
+        for squadron in coalition.air_wing.iter_squadrons():
+            aircraft = squadron.aircraft
+            if aircraft.has_built_in_jamming and aircraft.capable_of(
+                FlightType.SEAD_ESCORT
+            ):
+                return aircraft
+        return None
 
     def iter_iads_ranges(
         self, state: TheaterState, range_type: RangeType
