@@ -47,6 +47,13 @@ LOW_RADAR_FACTOR = 0.35
 #: Low-level ingress: exposure per short-range air defense site (guns,
 #: MANPADS, IR and radar SHORAD) near the track or the target.
 SHORAD_EXPOSURE = 0.012
+#: CAP stations: share of the SAM exposure of a strike package with the same
+#: route weight. A CAP orbits at altitude near the edge of coverage and turns
+#: away; it doesn't press through the engagement zone to a target. Fitted to
+#: the combat model (USA 2005 vs Iran 2015, Caucasus): blue CAPs whose routes
+#: crossed SAM weight ~14 (no SEAD) lost 2.9% per sortie (2-4.3% over four
+#: runs), where the strike fit gives about 60%.
+STATION_EXPOSURE = 0.04
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,7 @@ class RiskModel:
     air_loss_per_fighter: float = AIR_LOSS_PER_FIGHTER
     low_radar_factor: float = LOW_RADAR_FACTOR
     shorad_exposure: float = SHORAD_EXPOSURE
+    station_exposure: float = STATION_EXPOSURE
 
     @staticmethod
     def from_profile(data: Optional[dict[str, Any]]) -> RiskModel:
@@ -96,7 +104,10 @@ def estimate(
     front_line: bool = False,
     low_level: bool = False,
     model: RiskModel = DEFAULT_MODEL,
+    station: bool = False,
 ) -> RiskEstimate:
+    """Expected losses per sortie. ``station``: a CAP holding a station
+    rather than a package attacking a target."""
     # --- SAMs: suppression from SEAD shooters (HARM) and stand-off jamming.
     # A HARM shooter covers more than one emitter (two missiles, plus
     # pre-emptive shots), so the shooters needed grow with half the weight.
@@ -119,6 +130,8 @@ def estimate(
         suppression *= model.transit_only
     if front_line:
         suppression *= model.front_line
+    if station:
+        suppression *= model.station_exposure
     exposure = (
         model.sam_exposure
         * w

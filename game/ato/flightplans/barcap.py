@@ -18,6 +18,9 @@ class BarCapFlightPlan(PatrollingFlightPlan[PatrollingLayout]):
 
     @property
     def patrol_duration(self) -> timedelta:
+        override = getattr(self.flight, "patrol_duration_override", None)
+        if override is not None:
+            return override
         return self.flight.coalition.game.settings.desired_barcap_mission_duration
 
     @property

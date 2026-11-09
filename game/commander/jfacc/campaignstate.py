@@ -120,7 +120,13 @@ class SideCampaign:
         # DEFENSE as an index into the Western phase order.
         legacy_resume = self.baseline.pop("resume_phase", None)
         if legacy_resume is not None and not self.resume_phase:
-            order = ["posture", "strategic", "sead_rollback", "battlefield_prep", "ground_offensive"]
+            order = [
+                "posture",
+                "strategic",
+                "sead_rollback",
+                "battlefield_prep",
+                "ground_offensive",
+            ]
             index = min(max(int(legacy_resume), 0), len(order) - 1)
             self.resume_phase = order[index]
 
@@ -155,21 +161,37 @@ class AirCampaignState:
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
     period_turn: int = -1
+    #: A focused turn (settings.focused_turns): the DCS window is fixed at
+    #: the end of the lead-in and covers the rest of the period.
+    focused: bool = False
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**AirCampaignState().__dict__, **state})
 
     def period_for(self, turn: int) -> Optional[tuple[datetime, datetime]]:
-        if self.period_turn != turn or self.period_start is None or self.period_end is None:
+        if (
+            self.period_turn != turn
+            or self.period_start is None
+            or self.period_end is None
+        ):
             return None
         return self.period_start, self.period_end
 
-    def note_period(self, turn: int, start: datetime, end: datetime) -> None:
+    def note_period(
+        self,
+        turn: int,
+        start: datetime,
+        end: datetime,
+        lead_in_min: Optional[int] = None,
+    ) -> None:
+        """Record the period planned this turn. ``lead_in_min`` makes it a
+        focused turn whose DCS window starts after that lead-in."""
         if self.period_turn != turn or self.period_start is None:
             self.period_turn = turn
             self.period_start = start
             self.period_end = end
-            self.window_offset_min = 0
+            self.focused = lead_in_min is not None
+            self.window_offset_min = lead_in_min or 0
             self.deferred_packages = {}
             return
         self.period_start = min(self.period_start, start)

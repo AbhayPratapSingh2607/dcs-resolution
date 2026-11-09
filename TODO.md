@@ -39,7 +39,13 @@ something.
 
 ### Turn model
 
-- [ ] **F1. Add a "Focused turn" setting and make it the default.** The planning period
+- [x] **F1. Add a "Focused turn" setting and make it the default.** Done 2026-11-09:
+  **Focused turns** (on by default) and **Focused turns: lead-in** (30 min) in Settings →
+  Campaign management. The period is lead-in + mission duration; the DCS window starts when
+  the lead-in ends, there's no window picker, and flights that took off during the lead-in
+  are fought into place by the combat model and spawn in the air. Peer test, 60 min: blue
+  25 → 12 packages, red 29 → 15; Iraq: blue 35 → 12. Still open: the sortie ledger's
+  turnaround and `max_sorties_per_airframe` (F26), and CAS sizing per period. The planning period
   becomes the mission window plus a short lead-in, and there's no separate 6 h period or
   window offset. Keep the 6 h period as the "theater" option for people who want it.
   - Every phase, apportionment and MOE that assumes 6 h (sortie counts, turnaround,
@@ -48,7 +54,10 @@ something.
   - **Decided:** turns keep 6 h steps, so day and night still cycle. Each turn is a
     focused window at the start of its 6 h step, and the rest of the step is fully quiet
     (see F9).
-- [ ] **F2. Fit the timeline to the window.**
+- [ ] **F2. Fit the timeline to the window.** Partly done 2026-11-09: in a focused turn,
+  strike TOTs fall between H-hour (`period.h_hour_min`, 5 min after the window opens) and
+  `period.window_egress_min` (15 min) before it closes, with the waves spread over that
+  span. Still to do: wave sequencing minutes apart (with item 2).
   - H-hour is a few minutes after mission start.
   - Every TOT falls inside the window, leaving time to egress before it ends.
   - Nothing is planned to take off after the window, so `defer_after_window` and
@@ -97,7 +106,12 @@ something.
 
 ### Planning scale
 
-- [ ] **F6. Make the sortie budget per turn follow the window length.**
+- [x] **F6. Make the sortie budget per turn follow the window length.** Done 2026-11-09:
+  **Focused turns: packages per side (guidance)**, default 10. Once a side has that many
+  combat packages, further OCA, SEAD, strike, interdiction and CAS packages are dropped
+  ("packages per turn reached" in the scrub list). Ground alerts, AEW&C, tankers and HVAA
+  CAPs don't count; CSAR, enablers and DCA are planned first, and raids may go over. The
+  sortie total itself already follows the shorter period.
   - Today a side has ~250 sorties per 6 h. A 60-minute window should plan roughly what
     fights in that hour, not 1/6 of the sorties spread over relays.
   - Apportionment shares stay, so doctrine still sets the mix; only the total changes.
@@ -107,7 +121,12 @@ something.
     response).
     - Add a "target packages per turn" setting, default 10.
     - Packages that start in the RTB stage (F3) don't count toward it.
-- [ ] **F7. Plan one CAP per threat axis for the whole window.**
+- [x] **F7. Plan one CAP per threat axis for the whole window.** Done 2026-11-09: a CAP
+  in a focused turn stays on station until the window ends (`dca.max_patrol_min` 90,
+  `min_patrol_min` 20), AEW&C and theater tankers stretch their time on station by up to
+  half again, no relief is planned for a gap under `period.min_relief_gap_min` (15 min), HVAA
+  CAP stops at the window end, and stations within 10 nm of each other are merged. HVAA CAP
+  was already only planned where enemy fighters can reach the orbit.
   - A single flight covers the window when its endurance on station is longer than the
     window, so there are no relays.
   - HVAA CAP only where enemy fighters can actually reach the AWACS or tanker track.
@@ -230,7 +249,9 @@ period, or interacts with the new starts.
     per squadron per turn.
   - Check with the F17 data whether the AI over-buys or runs out of parking, and whether
     income or prices need scaling.
-- [ ] **F29. The turn-0 plan looks like the first turn.** Before **Begin Campaign**, the
+- [x] **F29. The turn-0 plan looks like the first turn.** Done 2026-11-09: at turn 0 the
+  ATO panel shows "Pre-war posture: this plan is never flown. Begin Campaign plans turn 1,
+  when hostilities start." Before **Begin Campaign**, the
   ATO shows the pre-war "Phase 0: Posture" plan: DCA and support only. It's replanned when
   the campaign begins and never flown, but it reads as the first turn's plan (it confused
   the user on 2026-11-09). Fix one of two ways:
@@ -346,7 +367,11 @@ the few packages of a turn are.
 
 ## Fast forward: fights restart with nothing happening
 
-- [ ] **5. Stop fights that can't produce a shot from restarting.** In one fast-forwarded
+- [x] **5. Stop fights that can't produce a shot from restarting.** Done 2026-11-09: after
+  an air engagement with no shots fired, the same opposing pairs of flights don't start
+  another one for 5 minutes (`QUIET_ENGAGEMENT_COOLDOWN` in `model/engine.py`). SAM
+  engagements are unchanged on purpose: the model is calibrated so that time spent inside
+  a SAM zone is what costs aircraft. Original report: In one fast-forwarded
   turn on 2026-11-09, 135 of 362 new fights were BARCAP fighters (F-14B, F-15E) against the
   red A-50 AWACS. Each ended "Air engagement over after 40s, 0 shots" and was started again
   a few seconds later. The same pattern showed up for F-15E vs Su-33 CAPs. Find out why the
@@ -365,14 +390,48 @@ only a short run (3 seeds, 4 turns).
 - [ ] **6. Iran: nobody fights.** In all 4 runs Iran lost 0 aircraft and blue lost 1–12.
   - After turn 1, blue plans only 2-ship packages and drops ~170 packages a turn.
   - Red flew ~170 sorties with 0 GCI scrambles and 0 SAM moves.
-  - Confirm the cause before tuning. It's probably items 1–3 against a much denser IADS,
-    but also check:
-    - why Iran's ground alerts never scramble;
-    - why its mobile SAMs never move;
-    - whether blue's risk estimate is broken (next item).
-- [ ] **7. Blue's risk estimate shows 0.0%.** In the iran runs, blue reports "est. risk
-  0.0%" from turn 2 on while its actual losses are 2–4.3% per sortie. Find where the
-  estimate drops to zero (2-ship packages, DCA-only plans, or a missing threat input).
+  - **Cause found (2026-11-09): the rollback never starts.** On turn 1 blue scrubbed 114
+    packages for "expected attrition above the limit" and planned no SEAD, DEAD, OCA or
+    strike.
+    - The cheapest DEAD target in Iran's IADS still has a route SAM weight of 11 or more,
+      so its estimate is 14–20% per sortie against a 4.5% limit. Deeper targets are
+      30–75%.
+    - The rollback allowance (up to 10% for DEAD on the outer layer) only applies at a
+      route SAM weight of 8 or less, so it never applies against a dense modern IADS.
+    - The result is a deadlock: no target is ever acceptable, so the IADS is never
+      thinned.
+  - **Possible fixes, to decide on:**
+    - "The rollback has to start somewhere": when no IADS target is within the limits,
+      allow DEAD on the least-defended SAMs up to the rollback limit, sized by the IADS
+      rather than a fixed weight of 8.
+    - Stand-off SEAD: ARM shooters that fire from outside the MEZ shouldn't be charged
+      the full route SAM weight. The risk model counts the whole route through coverage
+      today.
+    - Corridor SEAD (item 1), which concentrates suppression on one route.
+  - Still to check: why Iran's ground alerts never scramble and its SAMs never move. Both
+    are probably because blue never sends anything offensive to react to.
+- [x] **7. Blue's risk estimate shows 0.0%.** Fixed 2026-11-09:
+  - DCA packages are now estimated and gated (risk kind "defense"). Before, they had no
+    estimate at all, so a turn of only CAPs averaged to 0%. The e2e report says how many
+    packages were estimated and weights the mean by sorties.
+  - The CAP estimate counts SAM sites within 15 nm of the station (`packages.
+    station_margin_nm`) at reduced weight, and uses its own fitted exposure
+    (`risk.model.station_exposure` 0.04): Iran CAPs now estimate 3.6–3.8% against 2–4.3%
+    actual. The strike fit gave ~60%.
+  - CAPs no longer get SEAD escorts added by the "one more try" step.
+  - Not done: pulling stations back from suspected coverage (the estimate now allows
+    them), and enemy sweeps in the CAP estimate (item 8). In the iran runs, blue reports "est. risk
+  0.0%" from turn 2 on while its actual losses are 2–4.3% per sortie.
+  - **Cause (2026-11-09):** from turn 2 blue only plans DCA, about 46 BARCAP sorties a
+    turn (item 6). A CAP's risk is estimated for its route, against the SAMs blue knows
+    about, so a station placed "outside SAM coverage" estimates 0%.
+  - The losses are all to SAMs while on station: CAPs orbiting for hours near an IADS
+    blue hasn't fully located.
+  - **Fix:**
+    - estimate a CAP's risk for the time it spends on station, including the allowance
+      for unlocated SAMs near the station;
+    - keep stations further from suspected coverage.
+  - Also count enemy fighters that can reach the station (item 8).
 - [ ] **8. Red CAPs get swept.** Red's standing CAPs lose badly to blue fighter sweeps
   supported by AWACS.
   - In one run, Russia 1990 lost 49 of 75 aircraft on turn 1, most of them Su-33 BARCAPs.
@@ -386,34 +445,111 @@ only a short run (3 seeds, 4 turns).
   84–99 sorties (over 50% per sortie) against a 6% risk limit. Its estimate is far too low.
   Either Iraq should fly much less (ground alerts only when outclassed), or the estimate
   should stop those sorties.
+- [ ] **Focused turns raise the loss rate per sortie.** First focused e2e runs (2 turns,
+  2026-11-09): peer blue 7.4–9.7% and red 18–25% per sortie, against limits of 2% and 4%;
+  Iran red 23–29%. Part of this is arithmetic: the idle CAP sorties that used to dilute the
+  rate are gone. The rest is items 8 and 9 (CAPs swept, red estimates too low). Judge the
+  bands per turn as well as per sortie (F17, F18) before tuning risk constants.
 - [ ] **10. The full matrix.** Run all four scenarios at full length (8 turns × 5 seeds;
   6 turns for red_wins). Peer hasn't been run at full length, or since base captures
   became possible in fast forward. Re-run after items 1–9, and again in focused mode (F18).
 
 ## Checks in DCS (nobody has flown these yet)
 
-- [ ] **D1. GCI scramble plugin.** A red alert pair activates when a blue package crosses
-  an EWR sector, and nothing launches once the EWR is dead or jammed.
-- [ ] **D2. Skynet emission control.** Dark and ambush orders behave as intended, and the
-  `autonomous_behaviour` fix works.
-- [ ] **D3. Low-level ingress.** Strikers with low ingress fly at about 500 ft AGL.
-- [ ] **D4. Raids.** The echelons of a massed raid arrive minutes apart.
-- [ ] **D5. Moved SAMs and decoys.** They appear at their new positions in DCS, while
-  blue's map still shows the old position until the site is found again.
-- [ ] **D6. Fast-forward base capture.** The captured base, its units and the new front
-  generate correctly in the next mission.
-- [ ] **D7. Mixed start stages (after F3).** Each stage spawns sensibly:
+The running list of what to check in DCS. Add an item whenever a feature that changes the
+generated mission lands, and tick items once they're flown. Report problems with
+`Saved Games\DCS\Logs\dcs.log` or a Tacview recording.
+
+**Setup:**
+- A campaign with blue against a modern Russian faction. Russia's planner profile uses
+  ground alerts, massed raids, SAM emission control and SAM moves. Use a Soviet-era faction
+  for the low-level check (D3).
+- Fog of war off (Settings → Campaign doctrine), so the app shows red's ATO to compare
+  with DCS.
+- Plugins (Settings → Plugins): **GCI ground alert scrambles** on, with its `announce` and
+  `debug` options on, and **Skynet IADS** on.
+- Tacview helps. The GCI plugin's debug output goes to `dcs.log`.
+
+- [ ] **D1. GCI scramble plugin.**
+  - In the app, find red BARCAP packages named "Alert \<base\>".
+  - Send or fly a blue package toward that base, inside red early warning radar coverage.
+  - **Expect:**
+    - the alert pair appears and takes off when the package is detected; it's late
+      activated, so it isn't visible before;
+    - an announce message, and the scramble shown in `dcs.log`;
+    - no more pairs per raid than the doctrine allows (2 for Russia);
+    - pairs that are never scrambled stay hidden all mission.
+  - Then kill red's early warning radars (or test where they don't cover) and repeat.
+    Nothing should launch.
+- [ ] **D2. Skynet emission control.** Find SAMs set to ambush or dark (the app's air
+  campaign page, IADS orders). **Expect:**
+  - ambush sites stay off your radar warner until you're close, then fire;
+  - dark sites stay silent;
+  - active sites radiate normally;
+  - no Skynet errors in `dcs.log`, especially about `autonomous_behaviour`, which was
+    fixed on this branch.
+- [ ] **D3. Low-level ingress.** With a Soviet-era red, red strikers fly ingress and egress
+  at about 500 ft above ground (Tacview).
+- [ ] **D4. Raids.** Russian or Soviet red in its initial air operation phase plans raids;
+  its packages share a raid id, shown in their planning details. **Expect** them to arrive
+  in this order, minutes apart:
+  1. suppression, about 8 minutes before the strike;
+  2. fighter sweep, about 4 minutes before;
+  3. main strike group;
+  4. follow-up group.
+- [ ] **D5. Moved SAMs and decoys.** After a turn where a red mobile SAM fired, the turn's
+  report lists the red SAM moves. **Expect:**
+  - with fog of war on, your map still shows the site at its old position;
+  - in DCS it's at the new one (F10 map with all units shown, or Tacview);
+  - decoys sit near the radar SAMs.
+- [ ] **D6. Fast-forward base capture.** Fast-forward until a front collapses and a base
+  changes hands (red against a weak blue gets there in a few turns). Then generate and fly
+  the next mission. **Expect:**
+  - the base belongs to its new owner, with the new owner's units and a new front line;
+  - no errors when the mission loads.
+- [ ] **D7. Mixed start stages (after F3; not built yet).** Each stage spawns sensibly:
   - air starts at the right altitude, speed and next waypoint;
   - ground starts on free parking;
   - RTB flights land;
   - tankers and AWACS start their orbit task.
+- [ ] **D9. Focused turn (default for new and loaded games).** Generate a turn-1 mission.
+  **Expect:**
+  - **Take off** goes straight to the mission, with no window picker;
+  - the mission starts 30 minutes after the turn's start time (the lead-in), and the
+    combat model fights those 30 minutes first;
+  - flights that took off during the lead-in are in the air on their route, not at their
+    base; flights that take off later are on the ramp;
+  - every package's TOT falls inside the mission (the ATO list's TOT column);
+  - each CAP stays on station until about the end of the mission; there are no reliefs
+    arriving in the last minutes;
+  - about 10 combat packages per side, plus AWACS, tankers and ground alerts.
+  - Watch for a player flight whose takeoff falls in the lead-in: it should still start
+    with the start type you chose (F3 will make sure; not yet guaranteed).
+- [ ] **D8. Things that already existed, worth checking while in DCS.**
+  - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
+    mission start.
+  - **Ground alerts:** red has fewer BARCAPs in the air than before, since part of its
+    defense is now on ground alert.
+
+**Checked in the app (no DCS needed):**
+- [ ] **A4. Focused turn settings.** Settings → Campaign management shows **Focused turns**,
+  its lead-in and packages-per-side guidance. Turn it off and replan (or start a new turn):
+  the 6 h period and the window picker come back.
+- [ ] **A2. Pre-war note.** Create a new campaign: above the package list, an amber note
+  says the pre-war posture plan is never flown. It disappears after Begin Campaign.
+- [ ] **A3. Fast forward speed.** Fast-forwarding a turn with CAPs near an enemy AWACS
+  should be noticeably quicker than before. The log no longer shows the same air
+  engagement ("0 shots") restarting every few seconds.
+- [ ] **A1. Fog of war map refresh.**
+  - With fog of war on, switch it off in Settings: red routes and sites appear right away,
+    with nothing still marked "not confirmed".
+  - Switch fog of war back on while the enemy's ATO is shown: the list switches back to
+    yours.
 
 ## Suggested order
 
-0. **Quick fixes first:** item 5 (fights restarting with no shots), F29 (turn-0 plan
-   label), item 7 (risk estimate at 0%). Small, and they make everything after easier to
-   test.
-1. **Turn model:** F1, F2, F6 and F7, with F25 and F26 (focused period, timeline in the
+0. ~~**Quick fixes first:** item 5, F29, item 7.~~ Done 2026-11-09.
+1. **Turn model:** ~~F1, F6, F7~~ done; F2 partly. Still: F25 and F26 (focused period, timeline in the
    window, ~10 packages, one CAP per axis, window picker and second sorties). This is
    where most of the reduction comes from.
 2. **Mixed starts and life after the window:** F3, F4, F5, F30 and F32. This is the core

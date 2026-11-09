@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from game.theater.player import Player
     from game.squadrons import Squadron
     from game.theater.frontline import FrontLine
+    from .threat import RouteThreat
 
 
 def request_replacements(
@@ -67,7 +68,9 @@ def request_replacements(
     shares = {category: share.share for category, share in spec.apportionment.items()}
     wanted = []
     for squadron in coalition.air_wing.iter_squadrons():
-        missing = squadron.max_size - squadron.owned_aircraft - squadron.pending_deliveries
+        missing = (
+            squadron.max_size - squadron.owned_aircraft - squadron.pending_deliveries
+        )
         if missing <= 0:
             continue
         if per_squadron is not None:
@@ -117,7 +120,9 @@ def request_csar_readiness(coalition: Coalition, ready: int) -> int:
     # Fill the emptiest squadrons first, closest to the fight being where
     # the CSAR squadrons are based anyway.
     requested = 0
-    for squadron in sorted(squadrons, key=lambda s: s.owned_aircraft + s.pending_deliveries):
+    for squadron in sorted(
+        squadrons, key=lambda s: s.owned_aircraft + s.pending_deliveries
+    ):
         room = squadron.max_size - squadron.owned_aircraft - squadron.pending_deliveries
         number = min(room, missing - requested)
         if number <= 0:
@@ -162,8 +167,50 @@ def profile_for(game: Game, player: Player) -> Optional[PlanningProfile]:
     return load_profile(name) if name else None
 
 
+#: Categories the focused-turn package guidance limits (F6). Personnel
+#: recovery, support and DCA are planned first and aren't limited.
+BUDGETED_CATEGORIES = {
+    Category.OCA,
+    Category.SEAD,
+    Category.STRIKE,
+    Category.INTERDICTION,
+    Category.CAS,
+}
+
+
+def counts_toward_target(package: Any) -> bool:
+    """Whether a package counts toward the focused-turn package guidance."""
+    flights = list(package.flights)
+    if not flights or all(getattr(f, "alert", False) for f in flights):
+        return False
+    if all(f.flight_type in UNCOUNTED_TASKS for f in flights):
+        return False
+    from .dca import HVAA_PREFIX
+
+    return not str(getattr(package.target, "name", "")).startswith(HVAA_PREFIX)
+
+
+#: Support lines that don't count toward the package guidance.
+UNCOUNTED_TASKS = {FlightType.AEWC, FlightType.REFUELING, FlightType.RECOVERY}
+
+
+def focused_lead_in(game: Game) -> Optional[timedelta]:
+    """The lead-in of a focused turn (settings.focused_turns), or None when
+    turns plan a whole ATO period."""
+    settings = game.settings
+    if not getattr(settings, "focused_turns", False):
+        return None
+    return timedelta(minutes=int(getattr(settings, "focused_lead_in_min", 30)))
+
+
 def period_hours(game: Game, profile: PlanningProfile) -> float:
-    return float(min(profile.period_hours, getattr(game.settings, "ato_period_hours", 6)))
+    lead_in = focused_lead_in(game)
+    if lead_in is not None:
+        span = lead_in + game.settings.desired_player_mission_duration
+        return span.total_seconds() / 3600
+    return float(
+        min(profile.period_hours, getattr(game.settings, "ato_period_hours", 6))
+    )
 
 
 class JfaccPlanner:
@@ -212,9 +259,20 @@ class JfaccPlanner:
 
         end = now + timedelta(hours=period_hours(game, self.profile))
         seed = getattr(game.war_state, "seed", 0) * 31 + game.turn * 2 + int(blue)
-        game.air_campaign.note_period(game.turn, now, end)
+        lead_in = focused_lead_in(game)
+        game.air_campaign.note_period(
+            game.turn,
+            now,
+            end,
+            None if lead_in is None else int(lead_in.total_seconds() // 60),
+        )
         self.ledger = SortieLedger(self.profile, now, end, seed)
-        self.timeline = Timeline(self.profile, now, end)
+        self.timeline = Timeline(
+            self.profile,
+            now,
+            end,
+            window=None if lead_in is None else (now + lead_in, end),
+        )
         self.conditions = weaponeering.conditions_for(game, self.profile)
 
         from game.commander.theaterstate import TheaterState
@@ -223,7 +281,9 @@ class JfaccPlanner:
             self.state = TheaterState.from_game(game, self.player, now, tracer)
         self._set_stances()
 
-        planning_allowed = not (blue and settings.auto_ato_behavior is AutoAtoBehavior.Disabled)
+        planning_allowed = not (
+            blue and settings.auto_ato_behavior is AutoAtoBehavior.Disabled
+        )
 
         with tracer.trace("JFACC target nomination"):
             self.nominations = TargetNominator(
@@ -238,6 +298,14 @@ class JfaccPlanner:
             self.conditions,
             aewc_available=self.coalition.air_wing.can_auto_plan(FlightType.AEWC),
         )
+        #: Focused turns: about this many packages (guidance, F6).
+        self.package_target: Optional[int] = None
+        #: Set while planning packages that may exceed the guidance (raids).
+        self.budget_exempt = False
+        self.budget_reached = False
+        if self.timeline.window is not None:
+            self.composer.patrol_until = self.timeline.end
+            self.package_target = int(getattr(settings, "focused_package_target", 10))
         self.side.qra = self._plan_alerts() if planning_allowed else []
         with tracer.trace("JFACC IADS management"):
             from .iads import plan_emcon
@@ -256,10 +324,15 @@ class JfaccPlanner:
         #: SAM site id -> TOT of the DEAD package tasked against it.
         self.suppressed: dict[object, datetime] = {}
         self.aewc_planned = False
+        risk_scale = self.effect("risk_scale", 1.0)
         self.composer.risk_multiplier = float(
             self.spec.flag("risk_multiplier", 1.0)
-        ) * float(self.effect("risk_scale", 1.0))  # type: ignore[arg-type]
-        self.composer.rollback_allowed = bool(self.spec.flag("rollback_allowance", False))
+        ) * float(
+            risk_scale  # type: ignore[arg-type]
+        )
+        self.composer.rollback_allowed = bool(
+            self.spec.flag("rollback_allowance", False)
+        )
         self.composer.phase_name = self.phase.value
 
         if planning_allowed:
@@ -275,7 +348,11 @@ class JfaccPlanner:
             with tracer.trace("JFACC air assault"):
                 self._plan_air_assault()
             with tracer.trace("JFACC raids"):
-                self._plan_raids()
+                self.budget_exempt = True
+                try:
+                    self._plan_raids()
+                finally:
+                    self.budget_exempt = False
             with tracer.trace("JFACC offensive packages"):
                 self._plan_jiptl()
             self.apportionment.begin_overflow()
@@ -303,7 +380,12 @@ class JfaccPlanner:
             if name not in modifier.effects:
                 continue
             new = modifier.effects[name]
-            if found and isinstance(new, (int, float)) and not isinstance(new, bool) and name.endswith("_scale"):
+            if (
+                found
+                and isinstance(new, (int, float))
+                and not isinstance(new, bool)
+                and name.endswith("_scale")
+            ):
                 value = float(value) * float(new)  # type: ignore[arg-type]
             elif found and isinstance(new, bool):
                 value = bool(value) or new
@@ -441,7 +523,9 @@ class JfaccPlanner:
             for _ in range(pairs):
                 request = PackageRequest(
                     target=station,
-                    flights=[FlightRequest(FlightType.BARCAP, size, home=base, alert=True)],
+                    flights=[
+                        FlightRequest(FlightType.BARCAP, size, home=base, alert=True)
+                    ],
                     category_name="dca",
                     reason=f"Ground alert at {base.name}",
                 )
@@ -465,7 +549,9 @@ class JfaccPlanner:
                 }
                 self.coalition.ato.add_package(package)
                 flight = package.flights[0]
-                held.append(f"{flight.count}x {flight.unit_type.display_name} at {base.name}")
+                held.append(
+                    f"{flight.count}x {flight.unit_type.display_name} at {base.name}"
+                )
         return held
 
     def _alert_bases(self, reach_nm: float, limit: int) -> list[Any]:
@@ -473,7 +559,9 @@ class JfaccPlanner:
         enemy's fighter bases first, within reach of at least one."""
         from .dca import _enemy_fighter_bases
 
-        enemy = [base.position for base, _ in _enemy_fighter_bases(self.game, self.player)]
+        enemy = [
+            base.position for base, _ in _enemy_fighter_bases(self.game, self.player)
+        ]
         if not enemy:
             return []
         ranked: list[tuple[float, Any]] = []
@@ -521,6 +609,17 @@ class JfaccPlanner:
         category: Optional[Category],
         quiet: bool = False,
     ) -> Optional[ComposedPackage]:
+        if category in BUDGETED_CATEGORIES and self._over_package_target():
+            if not self.budget_reached:
+                self.budget_reached = True
+                self.side.scrubbed.append(
+                    (
+                        request.target.name,
+                        f"packages per turn reached ({self.package_target}): "
+                        "no further offensive packages",
+                    )
+                )
+            return None
         composed, why = self.composer.compose(request, tot, self.now)
         if composed is None:
             if not quiet:
@@ -546,6 +645,17 @@ class JfaccPlanner:
             self.apportionment.spend(category, composed.sorties)
         self.timeline.reserve(package.time_over_target, request.target.position)
         return composed
+
+    def _over_package_target(self) -> bool:
+        """Whether the side already has the turn's guidance of combat
+        packages. Ground alerts (they only fly when scrambled), AEW&C, tankers
+        and their HVAA CAPs don't count."""
+        if self.package_target is None or self.budget_exempt:
+            return False
+        return (
+            sum(1 for p in self.coalition.ato.packages if counts_toward_target(p))
+            >= self.package_target
+        )
 
     def _support_allowed(self, setting: str) -> bool:
         if not self.player.is_blue:
@@ -607,7 +717,9 @@ class JfaccPlanner:
         tot = first or self.timeline.earliest
         end = until or self.timeline.end
         while tot < end and len(planned) < max_packages:
-            if category is not None and not self.apportionment.can_afford(category, size):
+            if category is not None and not self.apportionment.can_afford(
+                category, size
+            ):
                 break
             request = PackageRequest(
                 target=target,
@@ -624,8 +736,21 @@ class JfaccPlanner:
             next_tot = patrol_end(composed.package)
             if next_tot is None or next_tot <= tot:
                 next_tot = tot + timedelta(hours=1)
+            if not self._relief_needed(next_tot, end):
+                break
             tot = next_tot - timedelta(minutes=5)
         return planned
+
+    def _relief_needed(self, line_ends: datetime, until: datetime) -> bool:
+        """Whether a line ending at ``line_ends`` needs a relief to cover up to
+        ``until``. In a focused turn a gap at the very end of the window isn't
+        worth another flight."""
+        if self.timeline.window is None:
+            return line_ends < until
+        gap = timedelta(
+            minutes=float(self.profile.get("period", "min_relief_gap_min", 15))
+        )
+        return line_ends < until - gap
 
     def _plan_enablers(self) -> None:
         enablers = self.profile.section("enablers")
@@ -678,6 +803,8 @@ class JfaccPlanner:
         station = hvaa_station(self.player, defended, position, label)
         start = packages[0].package.time_over_target
         end_time = patrol_end(packages[-1].package) or self.timeline.end
+        if self.timeline.window is not None:
+            end_time = min(end_time, self.timeline.end)
         self._plan_line(
             station,
             FlightType.BARCAP,
@@ -695,7 +822,9 @@ class JfaccPlanner:
         reach = float(dca.get("threat_reach_nm", 200))
         size = int(dca.get("cap_flight_size", 2))
         scale = float(self.effect("dca_forward_scale", 1.0))  # type: ignore[arg-type]
-        forward = tuple(float(f) * scale for f in dca.get("station_forward_nm", [25, 60]))
+        forward = tuple(
+            float(f) * scale for f in dca.get("station_forward_nm", [25, 60])
+        )
         under_own_sams = bool(self.effect("cap_under_own_sam", False))
         axes = threat_axes(
             self.game,
@@ -722,15 +851,28 @@ class JfaccPlanner:
             for cp in threatened_bases(self.game, self.player, reach):
                 if cp.is_fleet:
                     stations.append(cp)  # type: ignore[arg-type]
+        # Two axes can end up at the same station (a learned axis next to a
+        # geometric one): one CAP covers both.
+        merge_m = float(dca.get("station_merge_nm", 10)) * 1852
+        unique: list[Any] = []
+        for station in stations:
+            if all(
+                station.position.distance_to_point(other.position) > merge_m
+                for other in unique
+            ):
+                unique.append(station)
+        stations = unique
         if not stations:
             return
         # Round-robin in time so every axis is covered before any line is
         # extended: limited DCA sorties cover all axes for part of the period
         # rather than one axis all day.
         next_tot: dict[int, datetime] = {
-            i: self.timeline.earliest - timedelta(minutes=10) for i in range(len(stations))
+            i: self.timeline.earliest - timedelta(minutes=10)
+            for i in range(len(stations))
         }
         open_lines = set(range(len(stations)))
+        station_threats: dict[int, RouteThreat] = {}
         while open_lines:
             index = min(open_lines, key=lambda i: next_tot[i])
             tot = next_tot[index]
@@ -745,11 +887,15 @@ class JfaccPlanner:
                 if hasattr(station, "axis_heading")
                 else f"Point defense of {station.name}"
             )
+            if index not in station_threats:
+                station_threats[index] = self.composer.threat_for(station)
             request = PackageRequest(
                 target=station,
                 flights=[FlightRequest(FlightType.BARCAP, size)],
                 category_name="dca",
                 reason=reason,
+                risk_kind="defense",
+                threat=station_threats[index],
             )
             composed = self._commit(
                 request, max(tot, self.now), Category.DCA, quiet=True
@@ -757,15 +903,20 @@ class JfaccPlanner:
             if composed is None:
                 next_tot[index] = tot + timedelta(minutes=30)
                 continue
-            end = patrol_end(composed.package)
-            next_tot[index] = (end or tot + timedelta(hours=1)) - timedelta(minutes=5)
+            end = patrol_end(composed.package) or tot + timedelta(hours=1)
+            if not self._relief_needed(end, self.timeline.end):
+                open_lines.discard(index)
+                continue
+            next_tot[index] = end - timedelta(minutes=5)
 
     # ===================================================== ground support
 
     def _suppressed_before(self, tot: datetime) -> set[object]:
         """SAM sites a DEAD package this period hits before ``tot``."""
         margin = timedelta(minutes=10)
-        return {tgo_id for tgo_id, when in self.suppressed.items() if when + margin <= tot}
+        return {
+            tgo_id for tgo_id, when in self.suppressed.items() if when + margin <= tot
+        }
 
     def _offensive_request(
         self,
@@ -787,17 +938,23 @@ class JfaccPlanner:
             from game.ato.starttype import StartType
 
             if self.game.settings.default_start_type is StartType.COLD:
-                flights.append(FlightRequest(FlightType.OCA_AIRCRAFT, 2, required=False))
+                flights.append(
+                    FlightRequest(FlightType.OCA_AIRCRAFT, 2, required=False)
+                )
         exclude = target if isinstance(target, SamGroundObject) else None
         suppressed = self._suppressed_before(tot) if tot is not None else None
-        threat = self.composer.threat_for(target, exclude=exclude, suppressed=suppressed)
+        threat = self.composer.threat_for(
+            target, exclude=exclude, suppressed=suppressed
+        )
         flights += self.composer.support_for(threat, strikers)
         best = self.coalition.air_wing.best_squadron_for(
             target, mission, strikers, False, this_turn=False
         )
         if best is not None and self.composer.needs_tanker(target, best.aircraft):
             flights.append(
-                FlightRequest(FlightType.REFUELING, 1, required=False, note="package tanker")
+                FlightRequest(
+                    FlightType.REFUELING, 1, required=False, note="package tanker"
+                )
             )
         reason = (
             f"JIPTL #{nomination.rank} {nomination.target_class.replace('_', ' ')} "
@@ -911,7 +1068,11 @@ class JfaccPlanner:
                 category_name="cas",
                 reason=(
                     "CAS for troops in contact"
-                    + (" (main effort)" if effort is not None and front is effort.front else "")
+                    + (
+                        " (main effort)"
+                        if effort is not None and front is effort.front
+                        else ""
+                    )
                 ),
                 risk_kind="troops_in_contact",
                 threat=threat,

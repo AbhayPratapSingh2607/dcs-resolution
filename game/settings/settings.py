@@ -983,6 +983,48 @@ class Settings:
         default=PlannerEngine.AUTO,
         choices={v.value: v for v in PlannerEngine},
     )
+    focused_turns: bool = boolean_option(
+        "Focused turns",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=True,
+        detail=(
+            "Doctrine-driven planner only. Each turn plans the air war of one "
+            "mission: the desired mission duration plus a short lead-in, with "
+            "every time on target inside the mission. Flights that took off "
+            "during the lead-in are already in the air when the mission starts. "
+            "Turns still advance 6 hours, so day and night cycle; nothing flies "
+            "between missions. Turn off to plan a whole air tasking order period "
+            "instead."
+        ),
+    )
+    focused_lead_in_min: int = bounded_int_option(
+        "Focused turns: lead-in (minutes)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=30,
+        min=0,
+        max=90,
+        detail=(
+            "How long before the mission starts flights may take off. Their "
+            "flight up to mission start is fought by the combat model, and they "
+            "appear in the mission where they are by then."
+        ),
+    )
+    focused_package_target: int = bounded_int_option(
+        "Focused turns: packages per side (guidance)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=10,
+        min=4,
+        max=40,
+        detail=(
+            "Roughly how many packages each side plans per turn. Once a side "
+            "reaches it, the planner stops adding further strike, interdiction, "
+            "SEAD and CAS packages. Personnel recovery, AEW&C, tankers, CAPs, "
+            "ground alerts and raids can still take a side past it."
+        ),
+    )
     ato_period_hours: int = bounded_int_option(
         "Air tasking order period (hours)",
         CAMPAIGN_MANAGEMENT_PAGE,
@@ -991,10 +1033,10 @@ class Settings:
         min=1,
         max=6,
         detail=(
-            "Doctrine-driven planner only. Each turn plans this many hours of "
-            "air operations. The DCS mission covers a window of it (chosen before "
-            "take off); everything outside that window is resolved by the combat "
-            "model."
+            "Doctrine-driven planner with focused turns off. Each turn plans this "
+            "many hours of air operations. The DCS mission covers a window of it "
+            "(chosen before take off); everything outside that window is resolved "
+            "by the combat model."
         ),
     )
     jfacc_attrition_limit_override: int = bounded_int_option(

@@ -8,6 +8,9 @@ from .patrolling import PatrollingFlightPlan, PatrollingLayout
 class RefuelingFlightPlan(PatrollingFlightPlan[PatrollingLayout], ABC):
     @property
     def patrol_duration(self) -> timedelta:
+        override = getattr(self.flight, "patrol_duration_override", None)
+        if override is not None:
+            return override
         return self.flight.coalition.game.settings.desired_tanker_on_station_time
 
     @property

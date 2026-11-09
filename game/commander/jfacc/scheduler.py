@@ -35,6 +35,10 @@ class Timeline:
     end: datetime
     slots: list[Slot] = field(default_factory=list)
     wave_load: dict[int, int] = field(default_factory=dict)
+    #: Focused turns: strike TOTs fall between H-hour (just after the DCS
+    #: window opens) and this long before it closes, so packages strike and
+    #: egress inside the mission. None: anywhere in the period.
+    window: Optional[tuple[datetime, datetime]] = None
 
     @property
     def length(self) -> timedelta:
@@ -42,7 +46,9 @@ class Timeline:
 
     @property
     def separation(self) -> timedelta:
-        return timedelta(minutes=float(self.profile.get("period", "tot_separation_min", 6)))
+        return timedelta(
+            minutes=float(self.profile.get("period", "tot_separation_min", 6))
+        )
 
     @property
     def corridor_m(self) -> float:
@@ -50,11 +56,30 @@ class Timeline:
 
     @property
     def earliest(self) -> datetime:
-        return self.start + timedelta(
+        earliest = self.start + timedelta(
             minutes=float(self.profile.get("period", "earliest_tot_min", 20))
         )
+        if self.window is not None:
+            h_hour = self.window[0] + timedelta(
+                minutes=float(self.profile.get("period", "h_hour_min", 5))
+            )
+            earliest = max(earliest, h_hour)
+        return earliest
+
+    @property
+    def latest(self) -> datetime:
+        """The last TOT a strike package may have."""
+        if self.window is None:
+            return self.end
+        egress = timedelta(
+            minutes=float(self.profile.get("period", "window_egress_min", 15))
+        )
+        return max(self.earliest, self.window[1] - egress)
 
     def wave_times(self) -> list[datetime]:
+        if self.window is not None:
+            span = self.latest - self.earliest
+            return [self.earliest + span * f for f in self.profile.wave_fractions]
         times = [self.start + self.length * f for f in self.profile.wave_fractions]
         return [max(t, self.earliest) for t in times]
 
@@ -66,7 +91,9 @@ class Timeline:
                 return True
         return False
 
-    def strike_tot(self, position: Point, preferred_wave: Optional[int] = None) -> Optional[datetime]:
+    def strike_tot(
+        self, position: Point, preferred_wave: Optional[int] = None
+    ) -> Optional[datetime]:
         """A deconflicted TOT for a strike package against this position."""
         waves = self.wave_times()
         if not waves:
@@ -84,7 +111,7 @@ class Timeline:
             # Within a wave packages flow through in TOT order.
             for step in range(0, 8):
                 tot = base + self.separation * step
-                if tot >= self.end:
+                if tot > self.latest or tot >= self.end:
                     break
                 if not self._conflicts(tot, position):
                     return tot
@@ -114,7 +141,12 @@ class Timeline:
             )
             self.wave_load[index] = max(0, self.wave_load.get(index, 0) - 1)
 
-    def relief_tots(self, on_station: timedelta, first: Optional[datetime] = None, overlap: timedelta = timedelta(minutes=5)) -> list[datetime]:
+    def relief_tots(
+        self,
+        on_station: timedelta,
+        first: Optional[datetime] = None,
+        overlap: timedelta = timedelta(minutes=5),
+    ) -> list[datetime]:
         """Station arrival times that keep a line continuous over the period."""
         tot = first or self.start + timedelta(minutes=10)
         times: list[datetime] = []

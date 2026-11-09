@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 
 LEVELS = ("low", "medium", "high", "extreme")
 
+#: Weight of a SAM site just outside a CAP station's margin, relative to one
+#: whose envelope the station is inside (falls to 0 at the margin's edge).
+STATION_MARGIN_DEPTH = 0.4
+
 
 @dataclass
 class RouteThreat:
@@ -108,9 +112,16 @@ def _add_sam_exposure(
     packages_cfg: dict[str, object],
     exclude: Optional[TheaterGroundObject],
     suppressed: Optional[set[object]],
+    margin_m: float = 0.0,
 ) -> None:
     """Add the radar SAMs whose envelope the route crosses, plus an allowance
-    for sites intelligence hasn't found."""
+    for sites intelligence hasn't found.
+
+    ``margin_m`` widens each envelope for flights that stay in the area for a
+    long time (CAP stations): a site just outside the station is still a
+    threat while the CAP turns, chases and drifts, and its believed position
+    can be off. Sites within the margin count at reduced weight.
+    """
     from game.theater.theatergroundobject import IadsGroundObject, NavalGroundObject
     from game.warfare.intel import is_mobile
     from .assessment import enemy_tgos
@@ -145,14 +156,18 @@ def _add_sam_exposure(
             continue
         site = ShapelyPoint(position.x, position.y)
         distance = route.distance(site)
-        if distance <= reach:
-            # The edge of a long-range envelope is less dangerous than its core.
-            depth = 1.0 - 0.5 * distance / reach
+        if distance <= reach + margin_m:
+            if distance <= reach:
+                # The edge of a long-range envelope is less dangerous than
+                # its core.
+                depth = 1.0 - 0.5 * distance / reach
+            else:
+                depth = STATION_MARGIN_DEPTH * (1.0 - (distance - reach) / margin_m)
             threat.sam_weight += weight * depth
             if tgo.task not in (GroupTask.LORAD, GroupTask.MERAD):
                 threat.radar_shorad_weight += weight * depth
             threat.sams.append(tgo)
-            if target_point.distance(site) <= reach:
+            if distance <= reach and target_point.distance(site) <= reach:
                 threat.target_defended = True
             if is_mobile(tgo) and not isinstance(tgo, NavalGroundObject):
                 known_mobile += 1
@@ -173,8 +188,11 @@ def analyse_path(
     packages_cfg: dict[str, object],
     exclude: Optional[TheaterGroundObject] = None,
     suppressed: Optional[set[object]] = None,
+    margin_m: float = 0.0,
 ) -> RouteThreat:
-    """SAM threat along a planned route (waypoints from take-off to landing)."""
+    """SAM threat along a planned route (waypoints from take-off to landing).
+
+    ``margin_m``: see ``_add_sam_exposure`` (CAP stations)."""
     threat = RouteThreat()
     from game.sim.combat.model.forcequality import for_faction
 
@@ -197,6 +215,7 @@ def analyse_path(
         packages_cfg,
         exclude,
         suppressed,
+        margin_m,
     )
     from .assessment import believed_alive
     from .intelview import believed_live_radar_sam

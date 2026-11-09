@@ -15,6 +15,9 @@ from game.utils import Distance, Heading, Speed, knots, meters, nautical_miles
 class AewcFlightPlan(PatrollingFlightPlan[PatrollingLayout]):
     @property
     def patrol_duration(self) -> timedelta:
+        override = getattr(self.flight, "patrol_duration_override", None)
+        if override is not None:
+            return override
         return self.flight.coalition.game.settings.desired_awacs_mission_duration
 
     @property

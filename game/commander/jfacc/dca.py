@@ -63,7 +63,9 @@ class ThreatAxis:
     source_names: list[str]
 
 
-def _enemy_fighter_bases(game: Game, player: Player) -> Iterator[tuple[ControlPoint, float]]:
+def _enemy_fighter_bases(
+    game: Game, player: Player
+) -> Iterator[tuple[ControlPoint, float]]:
     from .assessment import fighter_value
     from .intelview import enemy_squadrons
 
@@ -101,14 +103,17 @@ def _merge_axis(
         if delta <= merge_deg:
             total = axis.strength + weight
             # Strength-weighted mean heading.
-            axis.heading = math.degrees(
-                math.atan2(
-                    axis.strength * math.sin(math.radians(axis.heading))
-                    + weight * math.sin(math.radians(heading)),
-                    axis.strength * math.cos(math.radians(axis.heading))
-                    + weight * math.cos(math.radians(heading)),
+            axis.heading = (
+                math.degrees(
+                    math.atan2(
+                        axis.strength * math.sin(math.radians(axis.heading))
+                        + weight * math.sin(math.radians(heading)),
+                        axis.strength * math.cos(math.radians(axis.heading))
+                        + weight * math.cos(math.radians(heading)),
+                    )
                 )
-            ) % 360
+                % 360
+            )
             axis.strength = total
             if source not in axis.source_names:
                 axis.source_names.append(source)
@@ -218,10 +223,14 @@ def station_for(
     return CapStation(name, best, player, axis.defended, axis.heading)
 
 
+#: Name prefix of the CAP stations that protect AEW&C and tanker orbits.
+HVAA_PREFIX = "HVAA CAP"
+
+
 def hvaa_station(
     player: Player, defended: ControlPoint, position: Point, label: str
 ) -> CapStation:
-    return CapStation(f"HVAA CAP {label}", position, player, defended, 0.0)
+    return CapStation(f"{HVAA_PREFIX} {label}", position, player, defended, 0.0)
 
 
 def threatened_bases(game: Game, player: Player, reach_nm: float) -> list[ControlPoint]:

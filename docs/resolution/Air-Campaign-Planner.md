@@ -11,8 +11,11 @@ defense, or an irregular force's handful of aircraft. It works from the top down
 5. build packages sized to the threat,
 6. lay them out on a deconflicted timeline.
 
-Each turn is one 6 hour air tasking order (ATO) period. You choose which part of it to fly in
-DCS. The fast-forward combat model fights the rest.
+By default each turn is a **focused turn**: the planner plans the air war of one mission, the
+desired mission duration plus a short lead-in, with about 10 combat packages per side (see
+[Focused turns](#focused-turns)). Turns still advance 6 hours, so day and night cycle. With
+focused turns off, each turn is one 6 hour air tasking order (ATO) period; you choose which part
+of it to fly in DCS, and the fast-forward combat model fights the rest.
 
 Every doctrine except WWII uses it by default, each with its own planning profile (see
 [Doctrines](#doctrines)). WWII factions keep the legacy planner. Both can be changed per side.
@@ -28,7 +31,10 @@ Settings > Campaign Management > HQ Automation:
 | Setting | What it does |
 |---|---|
 | Air campaign planner (OWNFOR / OPFOR) | **By faction doctrine** (Western doctrine uses the new planner), **Doctrine-driven air campaign (JFACC)**, or **Legacy priority planner**. |
-| Air tasking order period (hours) | How much of the day one turn plans, 1–6 hours. The default is 6. |
+| Focused turns | On by default. Each turn plans one mission window plus a lead-in (see [Focused turns](#focused-turns)). |
+| Focused turns: lead-in (minutes) | How long before the mission starts flights may take off, 0–90. The default is 30. |
+| Focused turns: packages per side (guidance) | Roughly how many combat packages each side plans, 4–40. The default is 10. |
+| Air tasking order period (hours) | With focused turns off: how much of the day one turn plans, 1–6 hours. The default is 6. |
 | Acceptable attrition per sortie override | Replaces the doctrine's loss limits (see [Risk](#risk-and-scrubbing)). 0 keeps the doctrine's limits. |
 
 Which planning profile a doctrine uses is set by `planning_profile:` in
@@ -236,6 +242,11 @@ SAM sites compound, and SEAD removes at most about half the threat.
 The rollback allowance exists because the fast-forward combat model is far deadlier against an
 intact modern IADS than history. Without it the planner would never start the rollback.
 
+CAPs are estimated too, with the defense limit. A CAP orbits near the edge of SAM coverage and
+turns away rather than pressing through it to a target, so its SAM exposure is a fraction (4%)
+of a strike package's on the same route. SAM sites within 15 nm of its station count at reduced
+weight, since the CAP turns and chases near there and the site's position may be off.
+
 The **Air campaign** page of the Intelligence window shows:
 
 * the phase, the commander's intent and the MOEs,
@@ -282,7 +293,35 @@ Gantt chart.
   * Double-click a bar to edit the package.
   * Hold Ctrl and use the mouse wheel to zoom. **Fit** shows the whole period.
 
+## Focused turns
+
+A focused turn plans only what the mission needs:
+
+* **The period is the lead-in plus the mission.** With a 60 minute mission and a 30 minute
+  lead-in, the turn plans 90 minutes. The mission starts when the lead-in ends.
+* **Flights already in the air.** A package that took off during the lead-in is flown there by
+  the combat model, and it appears in the mission where it is by then. Flights that take off
+  later start at their base.
+* **Every time on target is inside the mission:** from H-hour, 5 minutes after the mission
+  starts, to 15 minutes before its planned end, so packages can strike and egress in the mission.
+* **One CAP per station.** A CAP stays on station until the mission's planned end (90 minutes at
+  most), so it isn't relieved. AEW&C and tankers stretch their time on station by up to half
+  again for the same reason. A line isn't relieved for its last 15 minutes. Stations within
+  10 nm of each other are merged.
+* **About 10 combat packages per side.** Once a side has as many CAP, strike, SEAD,
+  interdiction and CAS packages as the guidance, it stops adding strike, SEAD, interdiction and
+  CAS packages. Personnel recovery, AEW&C, tankers, HVAA CAPs and ground alerts don't count,
+  and raids may go over.
+* **There's no window to pick.** **Take off** goes straight to the mission.
+* **Nothing happens between missions.** The rest of the 6 hour step is quiet. Repairs,
+  purchases, intelligence decay and SAM moves still happen between turns.
+
+Peer test (USA 2005 against Russia 2010, Caucasus, 60 minute mission): blue planned 12 packages
+instead of 25, red 15 instead of 29. Against Iraq 1991, blue planned 12 instead of 35.
+
 ## Flying a window of the period
+
+With focused turns off:
 
 When the ATO covers more than one mission's worth of time, **Take off** first asks which window
 to fly. The slider moves in 15 minute steps. A compact timeline shows the window against the

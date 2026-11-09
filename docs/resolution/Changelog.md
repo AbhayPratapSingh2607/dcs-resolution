@@ -88,7 +88,22 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   chart, with relief chains in one lane and the DCS window shaded. The DCS window picker shows the
   same timeline. [Guide](Air-Campaign-Planner.md#reading-the-ato)
 
+* **[Auto Planner]** **Focused turns**, on by default. Each turn plans the air war of one mission,
+  the desired mission duration plus a 30 minute lead-in, instead of a 6 hour ATO:
+  * flights that took off during the lead-in are already in the air when the mission starts;
+  * every time on target falls inside the mission, with time to egress;
+  * one CAP per station covers the whole mission, with no reliefs for its last minutes;
+  * about 10 combat packages per side (a setting, as guidance).
+
+  Turns still advance 6 hours, so day and night cycle, and there's no window to pick. In a peer
+  test blue planned 12 packages instead of 25. The 6 hour period is still available with the
+  setting off. [Guide](Air-Campaign-Planner.md#focused-turns)
+
 ## Fixes
+
+* **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs
+  reported 0% while losing 2–4% per sortie to SAMs. The estimate counts SAM sites near the station
+  and is fitted to what the combat model does to CAPs. CAPs no longer get SEAD escorts added.
 
 * **[Fog of War]** Changing the fog of war or intelligence setting now refreshes the map. Before,
   the map kept what it showed under the old setting until the next turn: with fog of war turned

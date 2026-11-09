@@ -175,6 +175,7 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
         sizes: list[int] = []
         reused = 0
         risks: list[float] = []
+        estimated = 0
         for package in coalition.ato.packages:
             n = sum(f.count for f in package.flights)
             sizes.append(n)
@@ -183,7 +184,9 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
                 reused += getattr(flight, "reused_airframes", 0)
             risk = getattr(package, "planning_risk", None)
             if risk:
-                risks.append(float(risk["estimate"]))
+                # Weighted by sorties, like the actual loss rate.
+                risks.extend([float(risk["estimate"])] * n)
+                estimated += 1
         metrics["blue" if coalition.player.is_blue else "red"] = {
             "phase": side.phase.value,
             "intent": side.intent,
@@ -196,6 +199,7 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "max_package_size": max(sizes, default=0),
             "second_sorties": reused,
             "mean_estimated_risk": round(sum(risks) / len(risks), 4) if risks else 0,
+            "estimated_packages": estimated,
             "scrubbed": len(side.scrubbed),
             "modifiers": sorted(side.modifiers),
             "raids": list(side.raids),
@@ -204,7 +208,9 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "iads_moves": list(getattr(side, "iads_moves", [])),
             "qra": list(side.qra),
             "iads_orders": dict(
-                __import__("collections").Counter(getattr(side, "iads_orders", {}).values())
+                __import__("collections").Counter(
+                    getattr(side, "iads_orders", {}).values()
+                )
             ),
         }
     return metrics
@@ -261,7 +267,9 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     for coalition in (game.blue, game.red):
         for package in coalition.ato.packages:
             for f in package.flights:
-                if getattr(f, "alert", False) and not getattr(f, "alert_released", False):
+                if getattr(f, "alert", False) and not getattr(
+                    f, "alert_released", False
+                ):
                     flown[coalition.player.is_blue] -= f.count
     for name, m in jfacc.items():
         m["scrambles"] = scrambles[name == "blue"]
@@ -272,7 +280,9 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     front_position = {}
     for front in game.theater.conflicts():
         blue_s, red_s = front.blue_cp.base.strength, front.red_cp.base.strength
-        front_position[front.name] = round(blue_s / (blue_s + red_s), 3) if blue_s + red_s else 0.5
+        front_position[front.name] = (
+            round(blue_s / (blue_s + red_s), 3) if blue_s + red_s else 0.5
+        )
     report = AfterActionReport.from_debriefing(debriefing)
     game.pass_turn()
 
@@ -319,8 +329,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         limit = jfacc_limits[name]
         if total >= 8 and limit > 0 and rate > JFACC_LOSS_TOLERANCE * limit:
             warnings.append(
-                f"{name} JFACC loss rate {rate:.1%} per sortie, "
-                f"limit {limit:.1%}"
+                f"{name} JFACC loss rate {rate:.1%} per sortie, " f"limit {limit:.1%}"
             )
 
     captured = [
@@ -335,7 +344,9 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     if captured:
         print("Bases changing hands:", ", ".join(captured))
     for name, position in front_position.items():
-        print(f"Front {name} position: {position:.2f} (0 = at blue's base, 1 = at red's)")
+        print(
+            f"Front {name} position: {position:.2f} (0 = at blue's base, 1 = at red's)"
+        )
     for name, losses in front_losses.items():
         b, r = losses["blue"], losses["red"]
         print(f"Front {name}: blue lost {b[0]}/{b[1]}, red lost {r[0]}/{r[1]}")
@@ -344,15 +355,25 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
             f"JFACC {name}: {m['phase']}, {m['packages']} packages "
             f"(mean {m['mean_package_size']}, max {m['max_package_size']} aircraft), "
             f"{m['second_sorties']} second sorties, {m['scrubbed']} scrubbed, "
-            f"est. risk {m['mean_estimated_risk']:.1%}, "
+            f"est. risk {m['mean_estimated_risk']:.1%} "
+            f"({m.get('estimated_packages', 0)}/{m['packages']} packages estimated), "
             f"actual {m['loss_rate']:.1%} (limit {m['attrition_limit']:.1%})"
         )
-        print("  planned:", ", ".join(f"{k} {v}/{m['apportioned'].get(k, 0)}" for k, v in m["planned"].items()))
+        print(
+            "  planned:",
+            ", ".join(
+                f"{k} {v}/{m['apportioned'].get(k, 0)}" for k, v in m["planned"].items()
+            ),
+        )
         print("  mix:", ", ".join(f"{v} {k}" for k, v in m["sortie_mix"].items()))
         if m["modifiers"] or m["raids"]:
-            print(f"  modifiers: {', '.join(m['modifiers']) or '-'}; raids: {', '.join(m['raids']) or '-'}")
+            print(
+                f"  modifiers: {', '.join(m['modifiers']) or '-'}; raids: {', '.join(m['raids']) or '-'}"
+            )
         if m.get("qra") or m.get("scrambles"):
-            print(f"  ground alert: {len(m.get('qra', []))} pairs held, {m.get('scrambles', 0)} scrambled")
+            print(
+                f"  ground alert: {len(m.get('qra', []))} pairs held, {m.get('scrambles', 0)} scrambled"
+            )
         if m["iads_moves"] or m["iads_orders"]:
             orders = ", ".join(f"{n} {o}" for o, n in m["iads_orders"].items()) or "-"
             print(f"  IADS: {orders}; moves: {'; '.join(m['iads_moves']) or '-'}")

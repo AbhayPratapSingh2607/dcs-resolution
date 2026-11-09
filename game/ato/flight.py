@@ -79,6 +79,9 @@ class Flight(
         #: scrambles them (game.sim.gci), not on a schedule.
         self.alert = False
         self.alert_released = False
+        #: Time on station set by the planner (focused turns: one CAP covers
+        #: the mission window) instead of the default patrol duration.
+        self.patrol_duration_override: Optional[timedelta] = None
         if claim_inv:
             self.squadron.claim_inventory(count)
         if roster is None:
@@ -181,6 +184,7 @@ class Flight(
         state.setdefault("reused_airframes", 0)
         state.setdefault("alert", False)
         state.setdefault("alert_released", False)
+        state.setdefault("patrol_duration_override", None)
         self.__dict__.update(state)
         if isinstance(self.roster, FlightRoster):
             self.roster = FlightMembers.from_roster(self, self.roster)

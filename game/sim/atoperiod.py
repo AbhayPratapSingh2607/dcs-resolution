@@ -15,6 +15,11 @@ of the period to fly in DCS:
 
 Ground combat belongs to the window only: the front-line model is calibrated
 for about one mission's worth of fighting per turn.
+
+A focused turn (settings.focused_turns) plans only the lead-in and the
+window: the window starts when the lead-in ends, there is nothing to pick,
+and the lead-in is where flights that "took off before the mission" fly to
+where they are at mission start.
 """
 
 from __future__ import annotations
@@ -56,9 +61,18 @@ def window(game: Game) -> Optional[tuple[datetime, datetime]]:
     return window_start, window_start + window_length(game)
 
 
+def is_focused(game: Game) -> bool:
+    """Whether this turn's period is a focused turn (fixed window, no picker)."""
+    return period(game) is not None and bool(
+        getattr(game.air_campaign, "focused", False)
+    )
+
+
 def max_window_offset_min(game: Game) -> int:
+    """How far into the period the player may move the DCS window (0: there's
+    nothing to pick)."""
     bounds = period(game)
-    if bounds is None:
+    if bounds is None or is_focused(game):
         return 0
     start, end = bounds
     span = (end - start) - window_length(game)
@@ -66,6 +80,8 @@ def max_window_offset_min(game: Game) -> int:
 
 
 def set_window_offset(game: Game, minutes: int) -> None:
+    if is_focused(game):
+        return
     game.air_campaign.window_offset_min = max(
         0, min(int(minutes), max_window_offset_min(game))
     )
@@ -163,9 +179,7 @@ def has_deferred(game: Game) -> bool:
     return any(state.deferred_packages.values())
 
 
-def resolve_remainder(
-    game: Game, events: GameUpdateEvents
-) -> Optional[Debriefing]:
+def resolve_remainder(game: Game, events: GameUpdateEvents) -> Optional[Debriefing]:
     """Fight the packages held back from the DCS mission with the combat
     model and commit their results."""
     if not has_deferred(game):

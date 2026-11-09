@@ -126,6 +126,10 @@ def _patrol_minutes(game: Game, task: FlightType) -> float:
 #: available, as long as the risk estimate allows it.
 URGENT_RISK_KINDS = {"troops_in_contact", "defense"}
 
+#: Flights that hold a station for a long time: their SAM exposure counts
+#: sites just outside the station too (see threat._add_sam_exposure).
+STATION_TASKS = {FlightType.BARCAP, FlightType.TARCAP}
+
 #: Tasks only a few squadrons can fly; other tasks avoid those squadrons.
 SCARCE_TASKS = {
     FlightType.SEAD,
@@ -183,6 +187,9 @@ class PackageComposer:
         #: Strike packages fly in at low level (Soviet-style doctrines): the
         #: combat model and the DCS flight plans do, so the risk estimate must.
         self.low_level = _low_level_doctrine(coalition)
+        #: Focused turns: CAPs stay on station until this time (the end of
+        #: the mission window) rather than for the default patrol duration.
+        self.patrol_until: Optional[datetime] = None
 
     # ----------------------------------------------------------- analysis
 
@@ -238,7 +245,9 @@ class PackageComposer:
                 FlightRequest(
                     FlightType.SEAD_ESCORT,
                     sead,
-                    note=str(self.packages_cfg.get("sead_label", "SEAD (HARM) support")),
+                    note=str(
+                        self.packages_cfg.get("sead_label", "SEAD (HARM) support")
+                    ),
                 )
             )
         counter_air: list[FlightRequest] = []
@@ -267,9 +276,9 @@ class PackageComposer:
     def _jammer_type(self) -> Optional[AircraftType]:
         for squadron in self.coalition.air_wing.iter_squadrons():
             aircraft = squadron.aircraft
-            if getattr(aircraft, "has_built_in_jamming", False) and squadron.can_auto_assign(
-                FlightType.SEAD_ESCORT
-            ):
+            if getattr(
+                aircraft, "has_built_in_jamming", False
+            ) and squadron.can_auto_assign(FlightType.SEAD_ESCORT):
                 return aircraft
         return None
 
@@ -286,6 +295,28 @@ class PackageComposer:
 
     # ------------------------------------------------------------ building
 
+    def patrol_override(self, task: FlightType, tot: datetime) -> Optional[timedelta]:
+        """Time on station for a line arriving at ``tot`` in a focused turn.
+
+        A CAP stays until the window ends, within the profile's limits. AEW&C
+        and theater tankers stretch their usual time on station by up to half
+        again, so one flight covers the window instead of a relief for its
+        last minutes."""
+        if self.patrol_until is None:
+            return None
+        if task in (FlightType.AEWC, FlightType.REFUELING):
+            usual = timedelta(minutes=_patrol_minutes(self.game, task))
+            needed = self.patrol_until - tot
+            if needed <= usual:
+                return None
+            return min(needed, usual * 1.5)
+        if task is not FlightType.BARCAP:
+            return None
+        dca = self.profile.section("dca")
+        longest = timedelta(minutes=float(dca.get("max_patrol_min", 90)))
+        shortest = timedelta(minutes=float(dca.get("min_patrol_min", 20)))
+        return max(shortest, min(longest, self.patrol_until - tot))
+
     def _sortie_window(
         self,
         squadron: Squadron,
@@ -293,9 +324,13 @@ class PackageComposer:
         tot: datetime,
         task: FlightType,
     ) -> tuple[datetime, datetime]:
-        distance_nm = squadron.location.position.distance_to_point(target.position) / 1852
+        distance_nm = (
+            squadron.location.position.distance_to_point(target.position) / 1852
+        )
         transit = timedelta(hours=distance_nm / _speed_kt(squadron.aircraft))
-        on_station = timedelta(minutes=_patrol_minutes(self.game, task))
+        on_station = self.patrol_override(task, tot) or timedelta(
+            minutes=_patrol_minutes(self.game, task)
+        )
         takeoff = tot - transit - timedelta(minutes=20)
         land = tot + on_station + transit + timedelta(minutes=15)
         return takeoff, land
@@ -367,6 +402,10 @@ class PackageComposer:
             )
             squadron.claim_inventory(allocation.fresh)
             flight.reused_airframes = allocation.reused
+            if not request.alert:
+                flight.patrol_duration_override = self.patrol_override(
+                    request.task, tot
+                )
             for member in flight.iter_members():
                 apply_default_player_laser_code(
                     member, self.game.settings, self.coalition.laser_code_registry
@@ -393,7 +432,9 @@ class PackageComposer:
             return flight, allocation, note
         return None, None, why
 
-    def compose(self, request: PackageRequest, tot: datetime, now: datetime) -> tuple[Optional[ComposedPackage], str]:
+    def compose(
+        self, request: PackageRequest, tot: datetime, now: datetime
+    ) -> tuple[Optional[ComposedPackage], str]:
         target = request.target
         builder = PackageBuilder(
             target,
@@ -491,8 +532,7 @@ class PackageComposer:
                 list(f.flight_plan.escorted_waypoints())
             )
             for f in package.flights
-            if f.flight_type not in SUPPORT_TASKS
-            and f.flight_type not in PATROL_TASKS
+            if f.flight_type not in SUPPORT_TASKS and f.flight_type not in PATROL_TASKS
         )
         require_sead = bool(self.packages_cfg.get("require_sead", True))
         if (
@@ -502,21 +542,25 @@ class PackageComposer:
             and request.risk_kind not in URGENT_RISK_KINDS
         ):
             # The SEAD force is what limits this package: ask for more.
-            self._request_purchase(target, FlightRequest(FlightType.SEAD_ESCORT, 2), heli)
+            self._request_purchase(
+                target, FlightRequest(FlightType.SEAD_ESCORT, 2), heli
+            )
             return scrub("route enters radar SAM coverage and no SEAD is available")
 
         # Risk, judged on the route actually planned.
         risk: Optional[RiskEstimate] = None
         if threat is not None:
             route_threat = self._planned_route_threat(package, request, threat)
-            risk, limit, sead_aircraft = self._risk(package, route_threat, jammer_flights, request)
+            risk, limit, sead_aircraft = self._risk(
+                package, route_threat, jammer_flights, request
+            )
             if risk.expected_loss_rate > limit:
                 # One more try: add HARM shooters to cover what the route
                 # actually crosses.
                 needed = math.ceil(2 + route_threat.sam_weight / 2)
                 needed += needed % 2
                 extra = min(8, needed - sead_aircraft)
-                if extra >= 2:
+                if extra >= 2 and not _holds_station(package):
                     flight, allocation, _ = self._place_flight(
                         builder,
                         FlightRequest(FlightType.SEAD_ESCORT, extra),
@@ -587,7 +631,14 @@ class PackageComposer:
             if flight.flight_type in SUPPORT_TASKS:
                 continue
             points = [w.position for w in flight.flight_plan.waypoints]
-            exclude = request.target if isinstance(request.target, SamGroundObject) else None
+            exclude = (
+                request.target if isinstance(request.target, SamGroundObject) else None
+            )
+            margin_m = 0.0
+            if flight.flight_type in STATION_TASKS:
+                margin_m = (
+                    float(self.packages_cfg.get("station_margin_nm", 15)) * 1852.0
+                )
             route = analyse_path(
                 self.game,
                 self.coalition.player,
@@ -596,6 +647,7 @@ class PackageComposer:
                 self.packages_cfg,
                 exclude=exclude,
                 suppressed=request.suppressed,
+                margin_m=margin_m,
             )
             if worst is None or route.sam_weight > worst.sam_weight:
                 worst = route
@@ -621,12 +673,20 @@ class PackageComposer:
             FlightType.SEAD_SWEEP,
             FlightType.DEAD,
         }
-        sead_aircraft = sum(f.count for f in package.flights if f.flight_type in sead_types)
+        sead_aircraft = sum(
+            f.count for f in package.flights if f.flight_type in sead_types
+        )
         jammers = sum(f.count for f in jammer_flights)
         counter_air = sum(
             f.count
             for f in package.flights
-            if f.flight_type in (FlightType.ESCORT, FlightType.SWEEP, FlightType.TARCAP)
+            if f.flight_type
+            in (
+                FlightType.ESCORT,
+                FlightType.SWEEP,
+                FlightType.TARCAP,
+                FlightType.BARCAP,
+            )
         )
         try:
             own_aircrew = for_faction(self.coalition.faction.name).aircrew
@@ -647,8 +707,11 @@ class PackageComposer:
             standoff,
             front_line=_is_front_line(request.target),
             low_level=self.low_level
-            and not (package.primary_flight is not None and package.primary_flight.is_helo),
+            and not (
+                package.primary_flight is not None and package.primary_flight.is_helo
+            ),
             model=self.risk_model,
+            station=_holds_station(package),
         )
         limit = min(
             self.profile.attrition_limit
@@ -688,6 +751,11 @@ class PackageComposer:
                 heli=heli,
             )
         )
+
+
+def _holds_station(package: Package) -> bool:
+    primary = package.primary_flight
+    return primary is not None and primary.flight_type in STATION_TASKS
 
 
 def _is_front_line(target: object) -> bool:
