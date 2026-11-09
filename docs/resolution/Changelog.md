@@ -93,7 +93,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   * flights that took off during the lead-in are already in the air when the mission starts;
   * every time on target falls inside the mission, with time to egress;
   * one CAP per station covers the whole mission, with no reliefs for its last minutes;
-  * about 10 combat packages per side (a setting, as guidance).
+  * about 10 combat packages per side (a setting, as guidance);
+  * two CAPs per side that flew the previous shift are on their way home when the mission
+    starts;
+  * AI flights already airborne spawn with the fuel they'd have left (enough to finish their
+    plan), not a full load.
 
   Turns still advance 6 hours, so day and night cycle, and there's no window to pick. In a peer
   test blue planned 12 packages instead of 25. The 6 hour period is still available with the

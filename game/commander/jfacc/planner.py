@@ -183,6 +183,8 @@ def counts_toward_target(package: Any) -> bool:
     flights = list(package.flights)
     if not flights or all(getattr(f, "alert", False) for f in flights):
         return False
+    if all(getattr(f, "returning", False) for f in flights):
+        return False
     if all(f.flight_type in UNCOUNTED_TASKS for f in flights):
         return False
     from .dca import HVAA_PREFIX
@@ -303,6 +305,7 @@ class JfaccPlanner:
         #: Set while planning packages that may exceed the guidance (raids).
         self.budget_exempt = False
         self.budget_reached = False
+        self.dca_stations: list[Any] = []
         if self.timeline.window is not None:
             self.composer.patrol_until = self.timeline.end
             self.package_target = int(getattr(settings, "focused_package_target", 10))
@@ -342,6 +345,7 @@ class JfaccPlanner:
                 self._plan_enablers()
             with tracer.trace("JFACC counter-air"):
                 self._plan_dca()
+                self._plan_returning()
             with tracer.trace("JFACC ground support"):
                 self._plan_kill_boxes()
                 self._plan_cas()
@@ -741,6 +745,63 @@ class JfaccPlanner:
             tot = next_tot - timedelta(minutes=5)
         return planned
 
+    def _plan_returning(self) -> None:
+        """Focused turns (F3): a few CAPs that flew the shift before this one
+        and are on their way home when the mission starts. Real sorties: the
+        airframes are busy, the flights can be intercepted on the way home,
+        and losses count. Their earlier patrol is assumed, not fought."""
+        window = self.timeline.window
+        if window is None or not self.dca_stations:
+            return
+        period = self.profile.section("period")
+        wanted = int(period.get("returning_flights", 2))
+        patrol = float(period.get("returning_patrol_min", 40))
+        # Off station a few minutes before the mission starts, so it is on
+        # its way home then. The end of its shift falls in the lead-in and is
+        # fought there; the part before the turn is assumed.
+        leave = window[0] - timedelta(
+            minutes=float(period.get("returning_left_station_min", 5))
+        )
+        tot = leave - timedelta(minutes=patrol)
+        size = int(self.profile.get("dca", "cap_flight_size", 2))
+        planned = 0
+        for station in self.dca_stations:
+            if planned >= wanted:
+                break
+            request = PackageRequest(
+                target=station,
+                flights=[
+                    FlightRequest(
+                        FlightType.BARCAP,
+                        size,
+                        returning=True,
+                        patrol_minutes=patrol,
+                    )
+                ],
+                category_name="dca",
+                reason="Returning from the previous CAP shift",
+            )
+            composed, why = self.composer.compose(
+                request, tot, tot - timedelta(hours=3)
+            )
+            if composed is None:
+                self.side.scrubbed.append((station.name, f"returning CAP: {why}"))
+                continue
+            package = composed.package
+            package.planning_rationale = (
+                f"{self.phase.title} | Returning from the previous CAP shift: on "
+                "its way home when the mission starts"
+            )
+            package.planning_info = {
+                "phase": self.phase.title,
+                "reason": request.reason,
+                "threat": "",
+                "risk": "",
+                "notes": ["Flew before this turn; lands during the mission"],
+            }
+            self.coalition.ato.add_package(package)
+            planned += 1
+
     def _relief_needed(self, line_ends: datetime, until: datetime) -> bool:
         """Whether a line ending at ``line_ends`` needs a relief to cover up to
         ``until``. In a focused turn a gap at the very end of the window isn't
@@ -862,6 +923,7 @@ class JfaccPlanner:
             ):
                 unique.append(station)
         stations = unique
+        self.dca_stations = stations
         if not stations:
             return
         # Round-robin in time so every axis is covered before any line is

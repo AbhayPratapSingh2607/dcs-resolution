@@ -140,3 +140,56 @@ def test_no_relief_for_the_last_minutes_of_the_window(profile) -> None:  # type:
     # Theater period: every gap is covered.
     planner.timeline = Timeline(profile, START, end)
     assert planner._relief_needed(end - timedelta(minutes=10), end)
+
+
+def test_returning_flights_dont_count_toward_the_guidance() -> None:
+    package = _package(FlightType.BARCAP, name="CAP Kutaisi 320")
+    package.flights[0].returning = True
+    assert not counts_toward_target(package)
+
+
+class _FakeState:
+    def __init__(self, flight: Any, settings: Any) -> None:
+        self.flight = flight
+
+    def reinitialize(self, now: datetime) -> None:
+        self.flight.reinitialized_at = now
+
+
+def _player_package(startup_min: int, clients: int) -> Any:
+    package = SimpleNamespace(time_over_target=START + timedelta(minutes=60))
+
+    def startup() -> datetime:
+        # Startup moves with the package TOT, as real flight plans do.
+        return package.time_over_target - timedelta(minutes=60 - startup_min)
+
+    flight = SimpleNamespace(
+        client_count=clients, flight_plan=SimpleNamespace(startup_time=startup)
+    )
+    flight.set_state = lambda state: setattr(flight, "state", state)
+    package.flights = [flight]
+    return package
+
+
+def test_player_packages_start_at_mission_start(monkeypatch: Any) -> None:
+    import game.ato.flightstate as flightstate
+
+    monkeypatch.setattr(flightstate, "Uninitialized", _FakeState)
+    early_players = _player_package(startup_min=10, clients=1)
+    early_ai = _player_package(startup_min=10, clients=0)
+    late_players = _player_package(startup_min=40, clients=1)
+    game = _game(True)
+    game.blue = SimpleNamespace(ato=SimpleNamespace(packages=[early_players, early_ai]))
+    game.red = SimpleNamespace(ato=SimpleNamespace(packages=[late_players]))
+    game.air_campaign.note_period(1, START, START + timedelta(minutes=90), 30)
+
+    moved = atoperiod.align_player_packages(game, START)
+
+    assert moved == [early_players]
+    # Players now start up when the mission starts; the TOT moved with them.
+    assert early_players.flights[0].flight_plan.startup_time() == START + timedelta(
+        minutes=30
+    )
+    assert early_players.flights[0].reinitialized_at == START
+    assert early_ai.time_over_target == START + timedelta(minutes=60)
+    assert late_players.time_over_target == START + timedelta(minutes=60)

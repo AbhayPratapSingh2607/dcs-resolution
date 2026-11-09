@@ -64,7 +64,23 @@ something.
     `resolve_remainder` become dead code in focused mode.
   - Waves (SEAD, then strikers, then follow-up) are minutes apart, not hours. This works
     together with the H-hour sequencing in item 2 below.
-- [ ] **F3. Start AI flights at a mix of stages (living battlefield).** Each AI flight
+- [ ] **F3. Start AI flights at a mix of stages (living battlefield).** Mostly done
+  2026-11-09:
+  - The lead-in (F1) already gives the mix. Peer test, at mission start, per side: ~16
+    flights inbound or transiting, 4–5 waiting to start up, 2–3 taxiing, 1 taking off, 2 on
+    a CAP racetrack, 1 holding, 2 on ground alert, and sometimes one already engaged.
+  - **Returning flights:** each side plans 2 CAPs (`period.returning_flights`) that flew
+    the shift before. They leave station 5 minutes before the mission starts and are on
+    their way home ("Flying to LANDING") when it opens. They're real sorties: airframes
+    claimed, fought on the way home, losses count. The part of the shift before the turn
+    starts is moved along without combat (`Flight.returning`, as On Station does); the
+    end of the shift, in the lead-in, is fought. They don't count toward the package
+    guidance.
+  - Still to do: returning strikers (with weapons expended), weighting returning flights
+    toward the player's base, long-range bombers spawning at their IP after hours of
+    assumed transit (today a package from a far base just gets a later TOT, or none).
+    Player flights keep their start type (F30).
+  Original plan: each AI flight
   gets a start stage that fits where it would really be at mission start, given its TOT,
   its base and the "the war started hours ago" assumption. The mix is the point: not
   everything in the air, not everything on the ramp.
@@ -89,11 +105,19 @@ something.
   - Extend On Station and the waypoint generator so every stage spawns at a consistent
     position, altitude, speed and waypoint index. For RTB, the flight starts on its
     return leg.
-- [ ] **F4. Give flights that start in the air a realistic fuel state.** Base it on the
+- [x] **F4. Give flights that start in the air a realistic fuel state.** Done
+  2026-11-09 (`game/ato/flightstate/airbornefuel.py`): AI flights airborne at mission
+  start used to spawn with full internal fuel (only player flights got the estimate). They
+  now get the estimate, but never less than 1.3 × the fuel for the rest of their plan plus
+  25% of a full load. External tanks still spawn full. Aircraft without fuel consumption
+  data keep a full load, except returning flights, which get 40%. Base it on the
   distance from home base to the spawn point, keeping each aircraft's fuel-for-RTB rule.
   Bombers that "flew for hours" arrive with tanker-topped or reduced fuel. Check the AI
   doesn't go RTB on bingo straight away.
-- [ ] **F5. Let the mission run past the window.** Decided: the mission doesn't end at
+- [x] **F5. Let the mission run past the window.** Checked 2026-11-09: nothing is planned
+  to take off after the window (F1, F2), the DCS mission doesn't end at the window, the
+  fast forward runs the period plus 45 minutes of recovery, and flights still airborne
+  when you end the mission are assumed to recover, as before. Decided: the mission doesn't end at
   the window end. The player keeps flying while AI flights finish their legs, RTB and land
   on their own. To do:
   - The debrief commits whatever happened, including after the window. Flights still
@@ -265,7 +289,13 @@ period, or interacts with the new starts.
   the user on 2026-11-09). Fix one of two ways:
   - label it "Pre-war posture — replanned when the campaign begins";
   - or don't show a plan at turn 0.
-- [ ] **F30. Player flights in a short window.**
+- [ ] **F30. Player flights in a short window.** Partly done 2026-11-09: on **Take off**
+  in a focused turn, a package whose player flights would start up during the lead-in is
+  moved later as a whole (`atoperiod.align_player_packages`), so players start at mission
+  start with their chosen start type and the combat model never flies them. The TOT moves
+  by the same amount, so it can end up late in the window. Still to do: the planner should
+  leave that time when it plans packages with player slots; counting player packages as
+  key packages (F13).
   - A player starting cold on the ground needs 15–20 min before taking off. The player
     package's TOT has to leave that time, or the player gets a hot or runway start.
     Interacts with "Player missions ASAP" (`auto_ato_player_missions_asap`).
@@ -515,7 +545,13 @@ generated mission lands, and tick items once they're flown. Report problems with
   the next mission. **Expect:**
   - the base belongs to its new owner, with the new owner's units and a new front line;
   - no errors when the mission loads.
-- [ ] **D7. Mixed start stages (after F3; not built yet).** Each stage spawns sensibly:
+- [ ] **D7. Mixed start stages (F3, F4).** In a focused turn, look at the F10 map at mission
+  start and in Tacview. Each stage spawns sensibly:
+  - two CAPs per side named "CAP …" with the note "Returning from the previous CAP shift"
+    are in the air heading home and land; they shouldn't turn back to their station;
+  - flights that took off during the lead-in are on their route, not over their base;
+  - AI flights already airborne don't go bingo or RTB straight away (fuel F4), and their
+    fuel looks plausible in the F10 unit info (less than full for most);
   - air starts at the right altitude, speed and next waypoint;
   - ground starts on free parking;
   - RTB flights land;
@@ -531,8 +567,9 @@ generated mission lands, and tick items once they're flown. Report problems with
   - each CAP stays on station until about the end of the mission; there are no reliefs
     arriving in the last minutes;
   - about 10 combat packages per side, plus AWACS, tankers and ground alerts.
-  - Watch for a player flight whose takeoff falls in the lead-in: it should still start
-    with the start type you chose (F3 will make sure; not yet guaranteed).
+  - Put yourself in a package whose takeoff falls in the lead-in (ATO list: its offset is
+    negative). On **Take off** the package moves later: you start at mission start with
+    your chosen start type, not in the air.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

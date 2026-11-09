@@ -474,8 +474,13 @@ class FlightGroupConfigurator:
                 "starting fuel to 100kg."
             )
             fuel = 100
+        from game.ato.flightstate.airbornefuel import airborne_fuel
+
+        ai_fuel = airborne_fuel(self.flight)
         for unit, pilot in zip(self.group.units, self.flight.roster.iter_pilots()):
             if pilot is not None and pilot.player:
                 unit.fuel = fuel
+            elif ai_fuel is not None:
+                unit.fuel = ai_fuel
             else:
                 unit.fuel = self.flight.fuel

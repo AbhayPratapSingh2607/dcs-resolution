@@ -135,6 +135,42 @@ def package_span(package: Package) -> tuple[Optional[datetime], Optional[datetim
     return min(starts), max(ends)
 
 
+def align_player_packages(game: Game, now: datetime) -> list[Package]:
+    """Focused turns: a package with player slots whose players would start
+    up during the lead-in is moved later as a whole, so the players start at
+    mission start with the start type they chose rather than being flown
+    into the air by the combat model. ``now`` is the simulation time; the
+    moved flights' states are reset to it."""
+    from game.ato.flightstate import Uninitialized
+
+    bounds = window(game)
+    if bounds is None or not is_focused(game):
+        return []
+    window_start = bounds[0]
+    moved: list[Package] = []
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            players = [f for f in package.flights if f.client_count]
+            if not players:
+                continue
+            try:
+                first = min(f.flight_plan.startup_time() for f in players)
+            except Exception:
+                continue
+            if first >= window_start:
+                continue
+            package.time_over_target += window_start - first
+            for flight in package.flights:
+                flight.set_state(Uninitialized(flight, game.settings))
+                flight.state.reinitialize(now)
+            moved.append(package)
+            logging.info(
+                f"Moved {package} by {window_start - first} so its players start "
+                "at mission start"
+            )
+    return moved
+
+
 def defer_after_window(game: Game) -> int:
     """Hold back packages that start after the DCS window. Their aircraft stay
     claimed; the packages return to the ATO in resolve_remainder."""

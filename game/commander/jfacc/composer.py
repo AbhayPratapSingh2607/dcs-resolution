@@ -76,6 +76,11 @@ class FlightRequest:
     #: Ground alert: the airframes are held for the whole period and the
     #: flight waits at the runway for the GCI to scramble it.
     alert: bool = False
+    #: A flight returning from a sortie flown before the turn (focused
+    #: turns, F3): it is on its way home when the mission starts.
+    returning: bool = False
+    #: Time on station instead of the default (returning flights).
+    patrol_minutes: Optional[float] = None
 
 
 @dataclass
@@ -323,14 +328,18 @@ class PackageComposer:
         target: MissionTarget,
         tot: datetime,
         task: FlightType,
+        patrol_minutes: Optional[float] = None,
     ) -> tuple[datetime, datetime]:
         distance_nm = (
             squadron.location.position.distance_to_point(target.position) / 1852
         )
         transit = timedelta(hours=distance_nm / _speed_kt(squadron.aircraft))
-        on_station = self.patrol_override(task, tot) or timedelta(
-            minutes=_patrol_minutes(self.game, task)
-        )
+        if patrol_minutes is not None:
+            on_station = timedelta(minutes=patrol_minutes)
+        else:
+            on_station = self.patrol_override(task, tot) or timedelta(
+                minutes=_patrol_minutes(self.game, task)
+            )
         takeoff = tot - transit - timedelta(minutes=20)
         land = tot + on_station + transit + timedelta(minutes=15)
         return takeoff, land
@@ -378,7 +387,9 @@ class PackageComposer:
             if request.alert:
                 takeoff, land = self.ledger.period_start, self.ledger.period_end
             else:
-                takeoff, land = self._sortie_window(squadron, target, tot, request.task)
+                takeoff, land = self._sortie_window(
+                    squadron, target, tot, request.task, request.patrol_minutes
+                )
             allocation = self.ledger.find(squadron, request.count, takeoff, land)
             if allocation is None:
                 why = "no mission-capable aircraft free in the sortie window"
@@ -402,10 +413,15 @@ class PackageComposer:
             )
             squadron.claim_inventory(allocation.fresh)
             flight.reused_airframes = allocation.reused
-            if not request.alert:
+            if request.patrol_minutes is not None:
+                flight.patrol_duration_override = timedelta(
+                    minutes=request.patrol_minutes
+                )
+            elif not request.alert:
                 flight.patrol_duration_override = self.patrol_override(
                     request.task, tot
                 )
+            flight.returning = request.returning
             for member in flight.iter_members():
                 apply_default_player_laser_code(
                     member, self.game.settings, self.coalition.laser_code_registry

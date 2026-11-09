@@ -75,11 +75,12 @@ class GameLoop:
     def advance_to_window(self) -> None:
         """Resolve the ATO period up to the chosen DCS window and hold back
         packages that start after it (game.sim.atoperiod)."""
-        from .atoperiod import defer_after_window
+        from .atoperiod import align_player_packages, defer_after_window
 
         self.pause()
         if not self.started:
             self.start()
+        align_player_packages(self.game, self.sim.time)
         self.sim.advance_to_window(self.events)
         defer_after_window(self.game)
         self.send_update(rate_limit=False)

@@ -36,8 +36,12 @@ class FlightState(ABC):
         start_time = self.flight.flight_plan.startup_time()
         if start_time <= now:
             self._set_active_flight_state(start_time)
-            if starts_on_station(self.flight) and start_time < now:
-                # Should have been on station for a while: catch up.
+            if start_time < now and (
+                starts_on_station(self.flight)
+                or getattr(self.flight, "returning", False)
+            ):
+                # Should have been on station, or flying its earlier sortie,
+                # for a while: catch up.
                 advance_to(self.flight, start_time, now)
         else:
             self.flight.set_state(

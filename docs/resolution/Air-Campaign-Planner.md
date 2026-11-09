@@ -312,6 +312,13 @@ A focused turn plans only what the mission needs:
   interdiction and CAS packages as the guidance, it stops adding strike, SEAD, interdiction and
   CAS packages. Personnel recovery, AEW&C, tankers, HVAA CAPs and ground alerts don't count,
   and raids may go over.
+* **Returning flights.** Each side also has two CAPs that flew the shift before. They leave
+  their station just before the mission starts and are on their way home when it opens. They
+  are real sorties: their aircraft are busy, they can be intercepted, and losses count. They
+  don't count toward the package guidance.
+* **Fuel.** AI flights already in the air when the mission starts have used fuel getting
+  there, but never so much that they can't finish their plan with a reserve. External tanks
+  are full.
 * **There's no window to pick.** **Take off** goes straight to the mission.
 * **Nothing happens between missions.** The rest of the 6 hour step is quiet. Repairs,
   purchases, intelligence decay and SAM moves still happen between turns.

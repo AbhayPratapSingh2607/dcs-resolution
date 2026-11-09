@@ -82,6 +82,10 @@ class Flight(
         #: Time on station set by the planner (focused turns: one CAP covers
         #: the mission window) instead of the default patrol duration.
         self.patrol_duration_override: Optional[timedelta] = None
+        #: Returning from a sortie flown before the turn (focused turns): the
+        #: simulation moves it, without combat, to where it is at the turn's
+        #: start, so it is on its way home when the mission starts.
+        self.returning = False
         if claim_inv:
             self.squadron.claim_inventory(count)
         if roster is None:
@@ -185,6 +189,7 @@ class Flight(
         state.setdefault("alert", False)
         state.setdefault("alert_released", False)
         state.setdefault("patrol_duration_override", None)
+        state.setdefault("returning", False)
         self.__dict__.update(state)
         if isinstance(self.roster, FlightRoster):
             self.roster = FlightMembers.from_roster(self, self.roster)
