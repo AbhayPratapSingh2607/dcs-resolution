@@ -64,6 +64,10 @@ class SimController(QObject):
             # Undo anything the combat model did to the in-memory game that was
             # never committed by a debriefing (e.g. the mission was cancelled).
             self.game_loop.revert_simulated_damage()
+            # Packages held back past the DCS window go back into the ATO.
+            from game.sim.atoperiod import restore_deferred
+
+            restore_deferred(self.game_loop.game)
         self.game_loop = None
         if game is not None:
             self.game_loop = GameLoop(
@@ -88,6 +92,9 @@ class SimController(QObject):
 
     def run_to_first_contact(self) -> None:
         self.game_loop.run_to_first_contact()
+
+    def advance_to_window(self) -> None:
+        self.game_loop.advance_to_window()
 
     def generate_miz(self, output: Path) -> None:
         self.game_loop.pause_and_generate_miz(output)

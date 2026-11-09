@@ -41,6 +41,9 @@ class CombatDoctrine:
     deception: float = 0.3
     roe_restrictive: bool = False
     collateral_sensitivity: float = 0.5
+    #: Air campaign planning profile (resources/doctrine/planning/<name>.yaml).
+    #: Empty means the legacy HTN planner.
+    planning_profile: str = ""
 
     @property
     def low_level_strikes(self) -> bool:

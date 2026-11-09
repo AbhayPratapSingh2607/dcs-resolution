@@ -121,6 +121,14 @@ class QPackageDialog(QDialog):
         self.tot_help_label.setOpenExternalLinks(True)
         self.tot_column.addWidget(self.tot_help_label)
 
+        rationale = getattr(self.package_model.package, "planning_rationale", "")
+        if rationale:
+            self.rationale_label = QLabel(
+                "<b>Tasking rationale:</b> " + rationale.replace(" | ", "<br/>")
+            )
+            self.rationale_label.setWordWrap(True)
+            self.layout.addWidget(self.rationale_label)
+
         self.package_view = QFlightList(self.game_model, self.package_model)
         self.package_view.selectionModel().selectionChanged.connect(
             self.on_selection_changed

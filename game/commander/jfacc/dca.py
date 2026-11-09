@@ -1,0 +1,186 @@
+"""Defensive counter-air layout: threat axes, CAP stations, HVAA and point defense.
+
+CAP stations are placed on the axes along which enemy air can come, rather
+than over every base: from each enemy airbase with fighters toward the
+friendly assets it can reach. Axes closer than the merge angle share a
+station. Stations sit forward of the defended asset, short of known SAM
+coverage, so the CAP's commit range covers the axis without flying into the
+enemy IADS.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Iterator, Optional, TYPE_CHECKING
+
+from dcs.mapping import Point
+
+from game.theater.missiontarget import MissionTarget
+
+if TYPE_CHECKING:
+    from game import Game
+    from game.theater import ControlPoint
+    from game.theater.player import Player
+
+NM = 1852.0
+
+
+class CapStation(MissionTarget):
+    """A CAP station on a threat axis in friendly airspace."""
+
+    def __init__(
+        self,
+        name: str,
+        position: Point,
+        owner: Player,
+        defended: ControlPoint,
+        axis_heading: float,
+    ) -> None:
+        super().__init__(name, position)
+        self.owner = owner
+        self.defended = defended
+        self.axis_heading = axis_heading
+
+    def is_friendly(self, to_player: Player) -> bool:
+        return to_player is self.owner
+
+    @property
+    def coalition(self):  # type: ignore[no-untyped-def]
+        return self.defended.coalition
+
+    @property
+    def captured(self) -> Player:
+        return self.owner
+
+
+@dataclass
+class ThreatAxis:
+    defended: ControlPoint
+    heading: float
+    strength: float
+    source_names: list[str]
+
+
+def _enemy_fighter_bases(game: Game, player: Player) -> Iterator[tuple[ControlPoint, float]]:
+    from .assessment import fighter_strength
+
+    enemy = game.coalition_for(player).opponent
+    strength: dict[ControlPoint, float] = {}
+    for squadron in enemy.air_wing.iter_squadrons():
+        value = fighter_strength(iter([squadron]), 1.0)
+        if value <= 0:
+            continue
+        strength[squadron.location] = strength.get(squadron.location, 0.0) + value
+    yield from strength.items()
+
+
+def defended_assets(game: Game, player: Player) -> list[ControlPoint]:
+    """Friendly bases worth defending: those with aircraft, carriers and
+    front-line bases."""
+    assets: list[ControlPoint] = []
+    for cp in game.theater.controlpoints:
+        if cp.captured is not player:
+            continue
+        if cp.is_fleet or cp.squadrons or cp.has_active_frontline:
+            assets.append(cp)
+    return assets
+
+
+def threat_axes(
+    game: Game, player: Player, reach_nm: float, merge_deg: float, max_axes: int
+) -> list[ThreatAxis]:
+    bases = list(_enemy_fighter_bases(game, player))
+    axes: list[ThreatAxis] = []
+    for asset in defended_assets(game, player):
+        local: list[ThreatAxis] = []
+        for base, strength in bases:
+            distance = asset.position.distance_to_point(base.position)
+            if distance > reach_nm * NM:
+                continue
+            heading = asset.position.heading_between_point(base.position)
+            # Nearer bases are a more pressing threat.
+            weight = strength * (1.0 - 0.6 * distance / (reach_nm * NM))
+            for axis in local:
+                delta = abs((axis.heading - heading + 180) % 360 - 180)
+                if delta <= merge_deg:
+                    total = axis.strength + weight
+                    # Strength-weighted mean heading.
+                    axis.heading = math.degrees(
+                        math.atan2(
+                            axis.strength * math.sin(math.radians(axis.heading))
+                            + weight * math.sin(math.radians(heading)),
+                            axis.strength * math.cos(math.radians(axis.heading))
+                            + weight * math.cos(math.radians(heading)),
+                        )
+                    ) % 360
+                    axis.strength = total
+                    axis.source_names.append(base.name)
+                    break
+            else:
+                local.append(ThreatAxis(asset, heading, weight, [base.name]))
+        axes.extend(local)
+    axes.sort(key=lambda a: -a.strength)
+    # One station can screen several assets on the same axis: keep the
+    # strongest axes, but no more than two per asset.
+    chosen: list[ThreatAxis] = []
+    per_asset: dict[str, int] = {}
+    for axis in axes:
+        if len(chosen) >= max_axes:
+            break
+        key = axis.defended.name
+        if per_asset.get(key, 0) >= 2:
+            continue
+        duplicate = False
+        for other in chosen:
+            if (
+                other.defended.position.distance_to_point(axis.defended.position)
+                < 40 * NM
+                and abs((other.heading - axis.heading + 180) % 360 - 180) <= merge_deg
+            ):
+                duplicate = True
+                break
+        if duplicate:
+            continue
+        chosen.append(axis)
+        per_asset[key] = per_asset.get(key, 0) + 1
+    return chosen
+
+
+def station_for(
+    game: Game, player: Player, axis: ThreatAxis, forward_nm: tuple[float, float]
+) -> CapStation:
+    """Place a CAP station forward of the defended asset along the axis, but
+    clear of known enemy SAM coverage."""
+    threat_zone = game.coalition_for(player).opponent.threat_zone
+    near, far = forward_nm
+    best: Optional[Point] = None
+    distance = far
+    while distance >= near:
+        point = axis.defended.position.point_from_heading(axis.heading, distance * NM)
+        if not threat_zone.threatened_by_air_defense(point):
+            best = point
+            break
+        distance -= 5
+    if best is None:
+        best = axis.defended.position.point_from_heading(axis.heading, near * NM * 0.5)
+    name = f"CAP {axis.defended.name} {int(axis.heading):03d}"
+    return CapStation(name, best, player, axis.defended, axis.heading)
+
+
+def hvaa_station(
+    player: Player, defended: ControlPoint, position: Point, label: str
+) -> CapStation:
+    return CapStation(f"HVAA CAP {label}", position, player, defended, 0.0)
+
+
+def threatened_bases(game: Game, player: Player, reach_nm: float) -> list[ControlPoint]:
+    bases = [b for b, _ in _enemy_fighter_bases(game, player)]
+    result: list[ControlPoint] = []
+    for asset in defended_assets(game, player):
+        if any(
+            asset.position.distance_to_point(b.position) <= reach_nm * NM * 0.6
+            for b in bases
+        ):
+            result.append(asset)
+    return result

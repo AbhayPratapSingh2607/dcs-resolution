@@ -86,11 +86,27 @@ class MissionSimulation:
         self.completed = events.simulation_complete
         return events
 
+    def advance_to_window(self, events: GameUpdateEvents) -> bool:
+        """Fight the part of the ATO period before the DCS window with the
+        combat model (game.sim.atoperiod). Returns True if time advanced."""
+        from .atoperiod import window
+
+        bounds = window(self.game)
+        if bounds is None or bounds[0] <= self.time:
+            return False
+        with logged_duration("Resolving the ATO period before the DCS window"):
+            while self.time < bounds[0]:
+                self.time += TICK
+                self.aircraft_simulation.on_game_tick(
+                    events, self.time, TICK, CombatResolutionMethod.RESOLVE, True
+                )
+        return True
+
     def simulated_turn_over(self) -> bool:
+        from .atoperiod import simulated_turn_limit
+
         elapsed = self.time - self.game.conditions.start_time
-        limit = self.game.settings.desired_player_mission_duration + timedelta(
-            minutes=45
-        )
+        limit = simulated_turn_limit(self.game)
         if elapsed >= limit:
             return True
         if elapsed < timedelta(minutes=5):

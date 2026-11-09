@@ -9,6 +9,10 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 * **[Loadouts]** Payloads are listed by their mission editor label. Stations use mission editor labels, and weapons are sorted into category submenus.
 * **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
 * **[Flight Planning]** New "On Station" start type: flights appear in the air at their racetrack or IP instead of taking off.
+* **[Auto Planner]** Doctrine-driven air campaign planner (Western JFACC). Each turn is a 6 hour air tasking order: campaign phases with a DEFENSE override, a target list with BDA, sortie apportionment with turnaround and MC rate, threat-scaled packages with a risk limit, continuous AEW&C/tanker/CAP lines, CAS sized to the desired effect, Phase IV air assault, and aircraft purchases for shortfalls and attrition replacement. You pick which window of the ATO to fly in DCS, and the combat model fights the rest. Western factions use it by default; the legacy planner can be selected per side.
+* **[Campaign AI]** The JFACC planner keeps a standing CSAR force of 4 helicopters, bought ahead of other aircraft requests, so downed pilots can be rescued.
+* **[Campaign AI]** The JFACC planner now plans blue theater and carrier recovery tankers from its doctrine. Before, they were silently skipped because the "Automatic Theater tanker package planning" setting defaults to off; that setting now only affects the legacy planner.
+* **[UI]** The package list is grouped by mission category, with colour coding, clearer rows (purpose, composition, TOT offset, risk and DCS-window badges) and category filters. A new ATO timeline shows the whole period as a Gantt chart.
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.

@@ -71,6 +71,10 @@ class Flight(
         self.coalition = squadron.coalition
         self.squadron = squadron
         self.flight_type = flight_type
+        #: Airframes in this flight that already flew a sortie this turn and are
+        #: flying again after turnaround (game.commander.jfacc.sorties). They
+        #: were claimed from the squadron by the earlier sortie.
+        self.reused_airframes = 0
         if claim_inv:
             self.squadron.claim_inventory(count)
         if roster is None:
@@ -170,6 +174,7 @@ class Flight(
         state["state"] = Uninitialized(self, state["squadron"].settings)
         if "use_same_loadout_for_all_members" not in state:
             state["use_same_loadout_for_all_members"] = True
+        state.setdefault("reused_airframes", 0)
         self.__dict__.update(state)
         if isinstance(self.roster, FlightRoster):
             self.roster = FlightMembers.from_roster(self, self.roster)
@@ -267,8 +272,9 @@ class Flight(
         self._flight_plan_builder = FlightPlanBuilderTypes.for_flight(self)(self)
 
     def return_pilots_and_aircraft(self) -> None:
+        claimed = self.count - self.reused_airframes
         self.roster.clear()
-        self.squadron.claim_inventory(-self.count)
+        self.squadron.claim_inventory(-max(0, claimed))
 
     def initialize_fuel(self) -> None:
         unit_type = self.unit_type.dcs_unit_type

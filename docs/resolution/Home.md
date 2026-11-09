@@ -16,6 +16,9 @@ plugins), see [Retribution's wiki](https://github.com/dcs-retribution/dcs-retrib
 * [Super Hornet](Super-Hornet.md): fixes for the CJS Super Hornet mod, including v2.4.6.
 * [On Station start](On-Station-Start.md): flights start in the air at their racetrack or IP,
   so AWACS, tankers and CAP can be on station when the mission begins.
+* [Air campaign planner](Air-Campaign-Planner.md): a doctrine-driven (Western JFACC) auto
+  planner. It plans each turn as a 6 hour ATO with campaign phases, a target list with BDA,
+  apportionment, threat-scaled packages and risk limits. You pick which window of it to fly.
 
 ## Other pages
 
@@ -30,6 +33,7 @@ Resolution's options go into existing pages:
 | Page | Section | Resolution options |
 |---|---|---|
 | Campaign Management | Pilots and Squadrons | CSAR on/off per side, survival turns, recovery turns, capture and resolution radii, pilot survival chance, grouping nearby pilots |
+| Campaign Management | HQ Automation | Air campaign planner per side, ATO period length, acceptable attrition override |
 | Campaign Management | Dynamic FARPs | FARPs on/off, costs, upkeep, capacity, limit, distance from the front |
 | Campaign Management | Flight Planner Automation | Single-helicopter CSAR packages |
 | Campaign Doctrine | General | Maximum CSAR flights per side each turn |

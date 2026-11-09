@@ -29,13 +29,23 @@ class AircraftSimulation:
         self.results = SimulationResults()
         self.model = CombatModel(game, self.results)
         self.ground_war: GroundWar | None = None
+        #: False for passes that resolve only air operations (the parts of a
+        #: 6 hour ATO period outside the DCS window, game.sim.atoperiod).
+        self.ground_war_enabled = True
+        #: When set, the ground war only fights inside this time window.
+        self.ground_window: tuple[datetime, datetime] | None = None
 
-    def begin_simulation(self) -> None:
+    def begin_simulation(self, start: datetime | None = None) -> None:
+        from .atoperiod import ground_window
+
         self.reset()
         self.results = SimulationResults()
         self.model = CombatModel(self.game, self.results)
         self.ground_war = None
-        if getattr(self.game.settings, "combat_model_ground_war", True):
+        self.ground_window = ground_window(self.game)
+        if self.ground_war_enabled and getattr(
+            self.game.settings, "combat_model_ground_war", True
+        ):
             self.ground_war = GroundWar(
                 self.model,
                 timedelta(
@@ -44,7 +54,7 @@ class AircraftSimulation:
                     )
                 ),
             )
-        self.set_initial_flight_states()
+        self.set_initial_flight_states(start)
         self.results.flights_flown = list(self.iter_flights())
 
     def on_game_tick(
@@ -91,7 +101,10 @@ class AircraftSimulation:
 
         if combat_resolution_method is CombatResolutionMethod.RESOLVE:
             sead_hunt(self.model, time, events)
-            if self.ground_war is not None:
+            if self.ground_war is not None and (
+                self.ground_window is None
+                or self.ground_window[0] <= time <= self.ground_window[1]
+            ):
                 self.ground_war.on_game_tick(time)
 
         # After updating all combat states, check for halts.
@@ -123,8 +136,8 @@ class AircraftSimulation:
                 return True
         return False
 
-    def set_initial_flight_states(self) -> None:
-        now = self.game.conditions.start_time
+    def set_initial_flight_states(self, start: datetime | None = None) -> None:
+        now = start or self.game.conditions.start_time
         for flight in self.iter_flights():
             flight.state.reinitialize(now)
 

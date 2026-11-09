@@ -72,6 +72,18 @@ class GameLoop:
         while not self.completed:
             self.tick(suppress_events=False)
 
+    def advance_to_window(self) -> None:
+        """Resolve the ATO period up to the chosen DCS window and hold back
+        packages that start after it (game.sim.atoperiod)."""
+        from .atoperiod import defer_after_window
+
+        self.pause()
+        if not self.started:
+            self.start()
+        self.sim.advance_to_window(self.events)
+        defer_after_window(self.game)
+        self.send_update(rate_limit=False)
+
     def pause_and_generate_miz(self, output: Path) -> None:
         self.pause()
         if not self.started:
@@ -83,8 +95,14 @@ class GameLoop:
         return self.sim.debrief_current_state(state_path, force_end)
 
     def complete_with_results(self, debriefing: Debriefing) -> None:
+        from .atoperiod import resolve_remainder
+
         self.pause()
         self.sim.process_results(debriefing, self.events)
+        # Packages held back past the DCS window are fought now.
+        remainder = resolve_remainder(self.game, self.events)
+        if remainder is not None:
+            debriefing.remainder = remainder  # type: ignore[attr-defined]
         self.completed = True
         self.send_update(rate_limit=False)
 

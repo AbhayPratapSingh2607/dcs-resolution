@@ -290,6 +290,9 @@ class QLiberationWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("E&xit", self.close)
 
+        view_menu = self.menu.addMenu("&View")
+        view_menu.addAction("ATO &timeline", self.ato_panel.open_timeline)
+
         tools_menu = self.menu.addMenu("&Developer tools")
         tools_menu.addAction(self.importTemplatesAction)
 

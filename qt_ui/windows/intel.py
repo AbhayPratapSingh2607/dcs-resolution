@@ -175,6 +175,9 @@ class IntelTabs(QTabWidget):
         self.addTab(ArmyIntelTab(game, player), "Ground forces")
         # Always our own picture of the enemy, whichever side is selected.
         self.addTab(IntelPictureTab(game), "Intel picture")
+        from qt_ui.windows.aircampaign import AirCampaignTab
+
+        self.addTab(AirCampaignTab(game), "Air campaign")
 
 
 class IntelWindow(QDialog):

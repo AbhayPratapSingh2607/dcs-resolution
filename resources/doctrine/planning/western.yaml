@@ -1,0 +1,363 @@
+# Western (NATO/US) air campaign planning profile for the JFACC planner
+# (game/commander/jfacc). All numbers here are tunable without code changes.
+#
+# The planner works top down each 6 hour ATO period:
+#   assessment -> campaign phase -> target list (JIPTL) -> apportionment
+#   -> threat-scaled packages -> 6 hour timeline.
+#
+# Sources: JP 3-30 (Joint Air Operations), JP 3-01 (Countering Air and Missile
+# Threats), AFDP 3-03 (Counterland), GWAPS (Gulf War Air Power Survey) for
+# Desert Storm apportionment and package sizes.
+
+name: western
+
+# --------------------------------------------------------------------- period
+period:
+  # Length of one ATO period (one Retribution turn).
+  hours: 6
+  # Aim points for strike waves inside the period, as fractions of its length.
+  # Desert Storm ran continuous waves; three to four per 6 h is typical.
+  wave_fractions: [0.12, 0.38, 0.62, 0.86]
+  # Minimum separation between TOTs of packages sharing a target area, minutes.
+  tot_separation_min: 6
+  # Packages whose ingress corridors cross within this distance are deconflicted
+  # by at least tot_separation_min.
+  corridor_radius_nm: 15
+  # Earliest TOT after the period starts, minutes (aircraft need to launch).
+  earliest_tot_min: 20
+
+# ------------------------------------------------------------ sortie generation
+sorties:
+  # Share of a squadron's aircraft mission capable on a given day.
+  # USAF fighter MC rates are ~70-80%; surge operations push towards 85%.
+  mission_capable_rate: 0.8
+  # Minimum time on the ground between sorties, by role (hours): refuel,
+  # rearm, quick maintenance. Hot-pit turns are faster but rare for strikers.
+  turnaround_hours:
+    fighter: 2.0
+    attack: 2.5
+    bomber: 4.0
+    support: 3.0
+    helicopter: 1.5
+  # Sorties a single airframe may fly in one period (surge cap).
+  max_sorties_per_airframe: 2
+  # Pilots may fly at most this many sorties per period (crew rest; AFI 11-202
+  # limits a 12 h fighter duty day to about two to three sorties).
+  max_sorties_per_pilot: 1
+
+# ----------------------------------------------------------------------- risk
+risk:
+  # Acceptable expected loss per sortie. Desert Storm's coalition rate was
+  # about 0.05% overall and ~0.3% for the first week; planners worked to keep
+  # each package's expected losses well under 2%.
+  attrition_limit: 0.02
+  # Higher-priority missions may accept more risk.
+  priority_multiplier:
+    troops_in_contact: 3.0
+    defense: 2.0
+    hvt: 1.5
+    routine: 1.0
+  # The opening phases are decisive and accept more risk (Desert Storm
+  # planners expected far higher losses in week one than they suffered).
+  phase_multiplier:
+    strategic: 1.5
+    sead_rollback: 1.25
+  # Never accept above this regardless of priority.
+  absolute_limit: 0.08
+  # "Kicking down the door": against an intact IADS even the outermost SAM
+  # sites are costly to attack, and nothing else can go deep until they are
+  # gone. In these phases DEAD against a SAM site whose route only faces the
+  # outer layer (route SAM weight at most max_route_weight, the target itself
+  # excluded) may accept up to this limit. Deeper strikes keep the normal
+  # limits until the rollback has thinned the IADS.
+  rollback_allowance:
+    phases: [strategic, sead_rollback]
+    limit: 0.10
+    max_route_weight: 8
+
+# ---------------------------------------------------------------- procurement
+# Request for forces. Shortfalls that limited the period's plan are requested
+# as they are found (a flight with no aircraft free, SEAD a package needed).
+# Then squadrons below strength ask for replacements, those flying the
+# mission types the current phase needs most first. The side's procurement
+# buys them within its budget after planning.
+procurement:
+  replacements_per_squadron: 4
+  # CSAR-capable aircraft kept on hand (owned or on order) across all CSAR
+  # squadrons, bought ahead of replacements. 0 disables.
+  csar_ready: 4
+
+# --------------------------------------------------------------------- phases
+# Desert Storm style phasing. A phase stays active for at least min_turns and
+# changes when the MOE conditions of the next phase are met. DEFENSE overrides
+# any phase while the enemy has the initiative.
+phases:
+  min_turns: 2
+  order: [posture, strategic, sead_rollback, battlefield_prep, ground_offensive]
+
+  posture:
+    description: "Deter and posture: defensive counter-air, protect HVAA, build the picture."
+    apportionment:   # share of sorties, with [min, max] guard rails
+      dca:          {share: 0.55, min: 0.35, max: 0.8}
+      support:      {share: 0.2, min: 0.1, max: 0.3}
+      sead:         {share: 0.1, min: 0.0, max: 0.2}
+      oca:          {share: 0.0, min: 0.0, max: 0.1}
+      strike:       {share: 0.0, min: 0.0, max: 0.1}
+      interdiction: {share: 0.05, min: 0.0, max: 0.1}
+      cas:          {share: 0.1, min: 0.0, max: 0.4}
+    # Goes to the next phase when hostilities start (always after turn 0 in a
+    # Retribution campaign, so this phase is only used before the war starts).
+    advance_when: {war_started: true}
+
+  strategic:
+    description: "Phase I: strategic air campaign. Gain air superiority: strike C2, IADS nodes, airfields and the enemy air force."
+    apportionment:
+      dca:          {share: 0.25, min: 0.15, max: 0.35}
+      support:      {share: 0.08, min: 0.05, max: 0.15}
+      oca:          {share: 0.22, min: 0.1, max: 0.35}
+      sead:         {share: 0.25, min: 0.15, max: 0.4}
+      strike:       {share: 0.15, min: 0.05, max: 0.3}
+      interdiction: {share: 0.0, min: 0.0, max: 0.1}
+      cas:          {share: 0.05, min: 0.0, max: 0.3}
+    advance_when:
+      c2_degraded: 0.5          # share of IADS command/comms/power nodes down
+      air_superiority: 1.5      # own vs enemy fighter strength in theater
+      enemy_air_attrition: 0.25 # share of enemy fighters destroyed since phase start
+
+  sead_rollback:
+    description: "Phase II: SEAD rollback. Destroy SAMs over the battle area so strike and CAS can work at medium altitude."
+    apportionment:
+      dca:          {share: 0.15, min: 0.1, max: 0.3}
+      support:      {share: 0.08, min: 0.05, max: 0.15}
+      oca:          {share: 0.07, min: 0.0, max: 0.2}
+      sead:         {share: 0.4, min: 0.25, max: 0.55}
+      strike:       {share: 0.12, min: 0.05, max: 0.25}
+      interdiction: {share: 0.13, min: 0.0, max: 0.25}
+      cas:          {share: 0.05, min: 0.0, max: 0.3}
+    advance_when:
+      iads_effectiveness_below: 0.35  # share of known battle-area MERAD/LORAD still alive
+      air_superiority: 1.5
+
+  battlefield_prep:
+    description: "Phase III: battlefield preparation. Attrit fielded forces, isolate the battlefield, cut LOCs."
+    apportionment:
+      dca:          {share: 0.12, min: 0.08, max: 0.25}
+      support:      {share: 0.08, min: 0.05, max: 0.15}
+      oca:          {share: 0.05, min: 0.0, max: 0.15}
+      sead:         {share: 0.15, min: 0.08, max: 0.3}
+      strike:       {share: 0.08, min: 0.0, max: 0.2}
+      interdiction: {share: 0.4, min: 0.25, max: 0.55}
+      cas:          {share: 0.12, min: 0.05, max: 0.4}
+    advance_when:
+      enemy_ground_attrition: 0.35   # share of enemy front-line strength destroyed
+      force_ratio: 1.5               # own vs enemy at the main-effort front
+
+  ground_offensive:
+    description: "Phase IV: support the ground offensive. CAS and kill box interdiction ahead of the main effort."
+    apportionment:
+      dca:          {share: 0.1, min: 0.08, max: 0.25}
+      support:      {share: 0.08, min: 0.05, max: 0.15}
+      oca:          {share: 0.04, min: 0.0, max: 0.15}
+      sead:         {share: 0.13, min: 0.08, max: 0.25}
+      strike:       {share: 0.05, min: 0.0, max: 0.15}
+      interdiction: {share: 0.25, min: 0.15, max: 0.4}
+      cas:          {share: 0.35, min: 0.2, max: 0.55}
+    advance_when: {}
+
+  defense:
+    description: "Defense: blunt the enemy offensive. DCA and HVAA protection, then CAS/BAI against the enemy main effort, then OCA against the airfields generating enemy sorties."
+    apportionment:
+      dca:          {share: 0.32, min: 0.2, max: 0.5}
+      support:      {share: 0.08, min: 0.05, max: 0.15}
+      oca:          {share: 0.1, min: 0.0, max: 0.2}
+      sead:         {share: 0.12, min: 0.05, max: 0.25}
+      strike:       {share: 0.0, min: 0.0, max: 0.1}
+      interdiction: {share: 0.13, min: 0.05, max: 0.3}
+      cas:          {share: 0.25, min: 0.15, max: 0.5}
+    enter_when:
+      force_ratio_below: 0.8        # own vs enemy at any front
+      enemy_offensive_warning: true # agency/ISR warning of an attack
+      base_threatened: true         # enemy ground forces within capture distance
+    leave_when:
+      force_ratio_above: 1.1
+      quiet_turns: 1
+
+# Order in which unused apportionment flows to other categories.
+overflow_order: [dca, sead, cas, interdiction, oca, strike, support]
+
+# ------------------------------------------------------------- target systems
+# Weight of each target system per phase, for JIPTL ranking.
+target_system_weights:
+  posture:          {iads: 0.6, air: 0.2, c2: 0.2, pol: 0.1, loc: 0.1, fielded: 0.4, naval: 0.3}
+  strategic:        {iads: 0.9, air: 1.0, c2: 1.0, pol: 0.5, loc: 0.3, fielded: 0.3, naval: 0.6}
+  sead_rollback:    {iads: 1.0, air: 0.5, c2: 0.6, pol: 0.4, loc: 0.5, fielded: 0.5, naval: 0.5}
+  battlefield_prep: {iads: 0.6, air: 0.3, c2: 0.4, pol: 0.6, loc: 0.9, fielded: 1.0, naval: 0.4}
+  ground_offensive: {iads: 0.5, air: 0.2, c2: 0.3, pol: 0.4, loc: 0.8, fielded: 1.0, naval: 0.3}
+  defense:          {iads: 0.4, air: 0.6, c2: 0.2, pol: 0.3, loc: 0.7, fielded: 1.0, naval: 0.5}
+
+# Desired effect per target class: share of the target destroyed before it is
+# considered serviced. Below the restrike threshold it is struck again.
+desired_effects:
+  sam_lorad:     {destroy: 0.6, restrike_below: 0.6, value: 1.0}
+  sam_merad:     {destroy: 0.6, restrike_below: 0.6, value: 0.85}
+  sam_shorad:    {destroy: 0.5, restrike_below: 0.4, value: 0.35}
+  ewr:           {destroy: 0.5, restrike_below: 0.5, value: 0.7}
+  c2_node:       {destroy: 0.7, restrike_below: 0.6, value: 0.95}
+  power:         {destroy: 0.6, restrike_below: 0.5, value: 0.6}
+  airfield:      {destroy: 0.0, restrike_below: 0.0, value: 0.9}
+  factory:       {destroy: 0.6, restrike_below: 0.5, value: 0.5}
+  ammo:          {destroy: 0.6, restrike_below: 0.5, value: 0.65}
+  fuel:          {destroy: 0.6, restrike_below: 0.5, value: 0.6}
+  bridge:        {destroy: 0.5, restrike_below: 0.5, value: 0.6}
+  building:      {destroy: 0.6, restrike_below: 0.5, value: 0.35}
+  armor:         {destroy: 0.5, restrike_below: 0.4, value: 0.7}
+  convoy:        {destroy: 0.5, restrike_below: 0.3, value: 0.55}
+  ship:          {destroy: 0.5, restrike_below: 0.5, value: 0.7}
+  motorpool:     {destroy: 0.5, restrike_below: 0.4, value: 0.45}
+
+# Contacts older than this many turns on mobile targets are not nominated
+# until re-acquired; confidence below known is never nominated.
+mobile_target_max_age_turns: 2
+
+# ------------------------------------------------------------------ packages
+packages:
+  # Support needed by threat level (low/medium/high/extreme), computed by the
+  # composer from enemy fighters in reach and SAMs/EWR along the route.
+  threat_levels:
+    low:      {sweep: 0, escort: 0, sead: 0, jammer: 0}
+    medium:   {sweep: 0, escort: 2, sead: 2, jammer: 0}
+    high:     {sweep: 2, escort: 2, sead: 2, jammer: 1}
+    extreme:  {sweep: 4, escort: 4, sead: 4, jammer: 1}
+  # Enemy fighters (quality weighted, times their availability) able to
+  # engage over the target.
+  air_threat_thresholds: {medium: 2, high: 6, extreme: 14}
+  # Share of the enemy's fighters airborne or on alert at any one time.
+  enemy_fighter_availability: 0.25
+  # Packages route around SAM coverage to the IP; exposure is counted on the
+  # final ingress leg of this length plus the target area.
+  ingress_exposure_nm: 40
+  # Share of the enemy's mobile SAMs planners believe intelligence has
+  # located. Sites not yet found are allowed for along every route in
+  # proportion to the known ones.
+  mobile_sam_detection_belief: 0.5
+  # Radar SAM "weight" (LORAD 3, MERAD 2, SHORAD radar 1) covering the route.
+  sam_threat_thresholds: {medium: 1, high: 3, extreme: 7}
+  # Package size limits (aircraft).
+  max_package_size: 24
+  max_strikers: 8
+  # Escorts per striker at most (GWAPS: about 1 support per 1 striker).
+  max_support_ratio: 1.5
+
+# Weaponeering: aim points (DMPIs) per target and weapons per DMPI.
+weaponeering:
+  # weapons needed per aim point, by target hardness
+  weapons_per_dmpi: {soft: 1, medium: 2, hard: 2, area: 4}
+  # Aim points per target class (capped by actual unit count).
+  dmpis:
+    sam_lorad: 4
+    sam_merad: 3
+    sam_shorad: 2
+    ewr: 1
+    c2_node: 2
+    power: 2
+    factory: 3
+    ammo: 3
+    fuel: 3
+    bridge: 2
+    building: 2
+    armor: 4
+    convoy: 4
+    ship: 2
+    motorpool: 4
+    runway: 2
+  # Air-to-ground stores an aircraft can typically put on separate DMPIs.
+  weapons_per_aircraft: 2
+  # Guidance preference by weather/light; the first available wins.
+  guidance_preference:
+    clear_day:    [laser, gps, tv, iir, unguided]
+    clear_night:  [gps, laser, iir, unguided]
+    under_cloud:  [gps, unguided]
+  # Laser/TV guided releases need clear line of sight from this altitude.
+  medium_altitude_release_ft: 15000
+
+# --------------------------------------------------------------- counter-air
+dca:
+  # CAP station distance in front of the defended asset, along the threat axis.
+  station_forward_nm: [25, 60]
+  # Merge threat axes closer than this (degrees).
+  axis_merge_deg: 30
+  # Max number of independent threat axes covered.
+  max_axes: 3
+  # Aircraft per CAP station (two-ship is the minimum element).
+  cap_flight_size: 2
+  # Time on station per CAP flight before relief, minutes.
+  on_station_min: 75
+  # Enemy fighters within this range of an asset make it threatened.
+  threat_reach_nm: 200
+  # Ground alert (QRA) aircraft per threatened base.
+  qra_per_base: 2
+  # HVAA CAP over AEW&C/tanker tracks.
+  hvaa_cap: true
+  # Point defense over carriers and key bases when threatened.
+  point_defense: true
+
+# --------------------------------------------------------------------- enablers
+enablers:
+  aewc_continuous: true
+  aewc_on_station_hours: 4
+  # A theater tanker track flies continuously across the period, with
+  # reliefs. With this planner the "Automatic Theater tanker package
+  # planning" setting is ignored; doctrine decides.
+  tanker_continuous: true
+  tanker_on_station_hours: 3
+  # A recovery tanker orbits each carrier with enough fixed-wing sorties.
+  recovery_tanker: true
+  # A package needs a tanker if its target is beyond this share of the
+  # aircraft's unrefueled combat radius.
+  tanker_radius_fraction: 0.8
+
+# --------------------------------------------------------------- ground support
+ground_support:
+  # Continuous CAS presence over fronts with troops in contact.
+  cas_stack: true
+  cas_flight_size: 2
+  cas_on_station_min: 40
+  # Main effort fronts get this many more CAS lines than supporting fronts.
+  main_effort_cas_lines: 2
+  supporting_cas_lines: 1
+  # CAS is sized to the desired effect on the forces in contact: CAS vul
+  # windows are tasked until the expected kills of the CAS flights (from
+  # their actual loadouts, game/commander/jfacc/casestimate.py) reach this
+  # share of the estimated enemy at the front in one period.
+  cas_attrition_per_period: {default: 0.3, ground_offensive: 0.4, defense: 0.5}
+  # Air assault: helicopter-borne troops seize enemy bases ahead of the main
+  # effort. Only once the ground offensive is under way, with air superiority,
+  # and only into landing zones outside known radar SAM coverage.
+  air_assault:
+    phases: [ground_offensive]
+    max_per_period: 2
+    lift_size: 2
+    min_air_superiority: 1.5
+    # Highest threat level accepted at the landing zone (air and SAM).
+    max_lz_threat: medium
+    # Prefer objectives within this distance of the main effort front.
+    main_effort_radius_nm: 60
+  # Kill boxes beyond the FLOT.
+  kill_box_size_nm: 15
+  fscl_depth_nm: 40
+  kill_box_max_depth_nm: 80
+  max_kill_boxes: 4
+  # Deep interdiction of LOCs is planned from the JIPTL (bridges, depots,
+  # convoys, shipping).
+
+# ------------------------------------------------------------ night & weather
+conditions:
+  # At night only aircraft with a targeting pod / NVG / radar ground mapping
+  # fly strike and CAS.
+  night_requires_sensor: true
+  # Helicopters fly at night only if they are NVG-capable.
+  night_helicopters_need_nvg: true
+  # Below this cloud base (ft AGL) laser/TV guided weapons are not planned.
+  min_cloud_base_for_lgb_ft: 12000
+  # Helicopter operations stop below this visibility.
+  helicopter_min_visibility_km: 3

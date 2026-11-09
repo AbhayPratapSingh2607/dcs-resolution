@@ -348,6 +348,17 @@ class QTopPanel(QFrame):
         if self.check_no_missing_pilots():
             return
 
+        from game.sim import atoperiod
+
+        if atoperiod.period(self.game) is not None:
+            if atoperiod.max_window_offset_min(self.game) > 0:
+                from qt_ui.windows.QDcsWindowDialog import QDcsWindowDialog
+
+                if not QDcsWindowDialog(self.game, self).exec():
+                    return
+            with logged_duration("Resolving the ATO period before the DCS window"):
+                self.sim_controller.advance_to_window()
+
         negative_starts = self.negative_start_packages(
             self.sim_controller.current_time_in_sim
         )

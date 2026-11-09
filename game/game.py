@@ -137,6 +137,10 @@ class Game:
 
         #: Intelligence pictures, morale and other campaign warfare state.
         self.war_state = WarState()
+        from game.commander.jfacc.campaignstate import AirCampaignState
+
+        #: Each side's air campaign: phase, target list and BDA (JFACC planner).
+        self.air_campaign = AirCampaignState()
 
         self.db = GameDb()
 
@@ -195,6 +199,10 @@ class Game:
             from game.warfare import WarState
 
             self.war_state = WarState()
+        if not hasattr(self, "air_campaign"):
+            from game.commander.jfacc.campaignstate import AirCampaignState
+
+            self.air_campaign = AirCampaignState()
         if not hasattr(self, "laser_code_registry"):
             self.laser_code_registry = LaserCodeRegistry()
             for front_line in self.theater.conflicts():

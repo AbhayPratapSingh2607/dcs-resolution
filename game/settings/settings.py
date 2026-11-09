@@ -31,6 +31,15 @@ class AutoAtoBehavior(Enum):
 
 
 @unique
+class PlannerEngine(Enum):
+    """Which air campaign planner a side uses."""
+
+    AUTO = "By faction doctrine"
+    DOCTRINE = "Doctrine-driven air campaign (JFACC)"
+    LEGACY = "Legacy priority planner"
+
+
+@unique
 class NightMissions(Enum):
     DayAndNight = "nightmissions_nightandday"
     OnlyDay = "nightmissions_onlyday"
@@ -952,6 +961,54 @@ class Settings:
         CAMPAIGN_MANAGEMENT_PAGE,
         HQ_AUTOMATION_SECTION,
         default=True,
+    )
+    planner_engine_blue: PlannerEngine = choices_option(
+        "Air campaign planner (OWNFOR)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=PlannerEngine.AUTO,
+        choices={v.value: v for v in PlannerEngine},
+        detail=(
+            "The doctrine-driven planner plans each turn as a 6 hour air tasking "
+            "order: campaign phases, a prioritized target list with battle damage "
+            "assessment, sortie apportionment and threat-scaled packages. By "
+            "faction doctrine, Western factions use it and others use the legacy "
+            "planner."
+        ),
+    )
+    planner_engine_red: PlannerEngine = choices_option(
+        "Air campaign planner (OPFOR)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=PlannerEngine.AUTO,
+        choices={v.value: v for v in PlannerEngine},
+    )
+    ato_period_hours: int = bounded_int_option(
+        "Air tasking order period (hours)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=6,
+        min=1,
+        max=6,
+        detail=(
+            "Doctrine-driven planner only. Each turn plans this many hours of "
+            "air operations. The DCS mission covers a window of it (chosen before "
+            "take off); everything outside that window is resolved by the combat "
+            "model."
+        ),
+    )
+    jfacc_attrition_limit_override: int = bounded_int_option(
+        "Acceptable attrition per sortie override (%, 0 = doctrine)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=0,
+        min=0,
+        max=20,
+        detail=(
+            "Doctrine-driven planner only. Packages whose estimated losses per "
+            "sortie exceed this are scrubbed. 0 uses the doctrine's limits "
+            "(2% for Western doctrine, more for troops in contact)."
+        ),
     )
     auto_procurement_balance: int = bounded_int_option(
         "AI ground unit procurement budget ratio (%) for OWNFOR",

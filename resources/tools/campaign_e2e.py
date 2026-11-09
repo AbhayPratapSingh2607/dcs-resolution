@@ -11,6 +11,11 @@ after-action report per turn and checks invariants:
 * no side loses an implausible share of the aircraft it flew,
 * the game still saves (pickles) after every turn.
 
+For sides planned by the doctrine-driven JFACC planner it also reports the
+campaign phase, the sortie mix, package sizes and second sorties, and the
+loss rate per sortie against the doctrine's attrition limit (a warning when
+it runs far above it).
+
 Exits with status 1 when a check fails.
 
 Examples (from the repository root, with the project venv):
@@ -153,6 +158,60 @@ def aircraft_flown(game: Any) -> dict[bool, int]:
     return flown
 
 
+#: Warn when a JFACC side's loss rate runs this many times above its limit.
+JFACC_LOSS_TOLERANCE = 3.0
+
+
+def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
+    """What the JFACC planner tasked this turn, per side using it."""
+    from collections import Counter
+
+    metrics: dict[str, Any] = {}
+    for coalition in (game.blue, game.red):
+        side = game.air_campaign.maybe_side(coalition.player.is_blue)
+        if side is None or not side.history:
+            continue
+        mix: Counter[str] = Counter()
+        sizes: list[int] = []
+        reused = 0
+        risks: list[float] = []
+        for package in coalition.ato.packages:
+            n = sum(f.count for f in package.flights)
+            sizes.append(n)
+            for flight in package.flights:
+                mix[flight.flight_type.value] += flight.count
+                reused += getattr(flight, "reused_airframes", 0)
+            risk = getattr(package, "planning_risk", None)
+            if risk:
+                risks.append(float(risk["estimate"]))
+        metrics["blue" if coalition.player.is_blue else "red"] = {
+            "phase": side.phase.value,
+            "intent": side.intent,
+            "sorties_available": side.total_sorties,
+            "apportioned": {c.value: n for c, n in side.apportioned.items()},
+            "planned": {c.value: n for c, n in side.planned.items()},
+            "sortie_mix": dict(mix.most_common()),
+            "packages": len(sizes),
+            "mean_package_size": round(sum(sizes) / len(sizes), 1) if sizes else 0,
+            "max_package_size": max(sizes, default=0),
+            "second_sorties": reused,
+            "mean_estimated_risk": round(sum(risks) / len(risks), 4) if risks else 0,
+            "scrubbed": len(side.scrubbed),
+        }
+    return metrics
+
+
+def jfacc_limit(game: Any, blue: bool) -> float:
+    from game.commander.jfacc.planner import profile_for
+    from game.theater.player import Player
+
+    profile = profile_for(game, Player.BLUE if blue else Player.RED)
+    if profile is None:
+        return 0.0
+    override = getattr(game.settings, "jfacc_attrition_limit_override", 0)
+    return override / 100 if override else profile.attrition_limit
+
+
 def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     from game.settings.settings import FastForwardStopCondition
     from game.sim.aftaction import AfterActionReport
@@ -165,6 +224,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     flown = aircraft_flown(game)
     owners_before = {cp.name: cp.captured.name for cp in game.theater.controlpoints}
     errors_before = len(errors.records)
+    jfacc = jfacc_plan_metrics(game)
+    jfacc_limits = {name: jfacc_limit(game, name == "blue") for name in jfacc}
 
     game.settings.fast_forward_stop_condition = FastForwardStopCondition.END_OF_TURN
     started = time.time()
@@ -209,6 +270,20 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     except Exception as ex:  # noqa: BLE001
         failures.append(f"game no longer pickles: {ex}")
 
+    for name, metrics in jfacc.items():
+        player = Player.BLUE if name == "blue" else Player.RED
+        lost = debriefing.loss_counts(player).aircraft
+        total = flown[player.is_blue]
+        rate = lost / total if total else 0.0
+        metrics["loss_rate"] = round(rate, 4)
+        metrics["attrition_limit"] = jfacc_limits[name]
+        limit = jfacc_limits[name]
+        if total >= 8 and limit > 0 and rate > JFACC_LOSS_TOLERANCE * limit:
+            warnings.append(
+                f"{name} JFACC loss rate {rate:.1%} per sortie, "
+                f"limit {limit:.1%}"
+            )
+
     captured = [
         cp.name
         for cp in game.theater.controlpoints
@@ -223,6 +298,16 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     for name, losses in front_losses.items():
         b, r = losses["blue"], losses["red"]
         print(f"Front {name}: blue lost {b[0]}/{b[1]}, red lost {r[0]}/{r[1]}")
+    for name, m in jfacc.items():
+        print(
+            f"JFACC {name}: {m['phase']}, {m['packages']} packages "
+            f"(mean {m['mean_package_size']}, max {m['max_package_size']} aircraft), "
+            f"{m['second_sorties']} second sorties, {m['scrubbed']} scrubbed, "
+            f"est. risk {m['mean_estimated_risk']:.1%}, "
+            f"actual {m['loss_rate']:.1%} (limit {m['attrition_limit']:.1%})"
+        )
+        print("  planned:", ", ".join(f"{k} {v}/{m['apportioned'].get(k, 0)}" for k, v in m["planned"].items()))
+        print("  mix:", ", ".join(f"{v} {k}" for k, v in m["sortie_mix"].items()))
     if verbose:
         print("Combat log:")
         for entry in debriefing.simulation_log:
@@ -246,6 +331,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         },
         "crews": {"blue": dict(report.blue.crew), "red": dict(report.red.crew)},
         "fronts": front_losses,
+        "jfacc": jfacc,
         "bases_captured": captured,
         "events": [f"{h}: {t}" for h, t in report.events],
         "warnings": warnings,

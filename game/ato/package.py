@@ -24,6 +24,15 @@ if TYPE_CHECKING:
 class Package(RadioFrequencyContainer):
     """A mission package."""
 
+    #: Why the air campaign planner tasked this package (game.commander.jfacc).
+    #: Class-level default so packages from older saves have it too.
+    planning_rationale: str = ""
+    #: The planner's threat and risk figures for this package, if any.
+    planning_risk: dict[str, float] | None = None
+    #: Why the planner tasked this package, for the UI: phase, reason, threat
+    #: level, notes (planning_rationale is the same as one line).
+    planning_info: dict[str, object] | None = None
+
     def __init__(
         self,
         target: MissionTarget,

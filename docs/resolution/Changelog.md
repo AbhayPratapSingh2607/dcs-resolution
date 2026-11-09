@@ -28,6 +28,37 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   station: the start of the racetrack for CAP, AWACS and tankers, the IP for attack packages. It
   appears at its planned time there, or at mission start with ASAP. Support assets no longer need
   a fast-forward to be on station. [Guide](On-Station-Start.md)
+* **[Auto Planner]** Doctrine-driven air campaign planner (Western JFACC). Each turn is planned as
+  one 6 hour air tasking order:
+  * Desert Storm style campaign phases with a DEFENSE override.
+  * A prioritized target list from detected targets only, with desired effects and uncertain BDA.
+  * Sortie apportionment by phase, with mission-capable rates, turnaround and second sorties.
+  * Packages sized to the threat on the planned route, weaponeering with night and weather
+    gates, and an estimated-attrition limit fitted to the combat model.
+  * Continuous AEW&C, tanker, CAP and HVAA CAP lines, QRA ground alert, CAS vul windows sized to
+    the desired effect from each flight's loadout, kill boxes, and Phase IV air assault.
+
+  Before take off you pick which window of the period to fly in DCS. The combat model fights
+  what comes before and after it. Western factions use the planner by default, and the legacy
+  planner can be chosen per side. The planner buys aircraft through a request for forces: the
+  shortfalls that limited the plan first, then replacements for squadrons below strength. The
+  Intelligence window has a new Air campaign page.
+  [Guide](Air-Campaign-Planner.md)
+* **[Campaign AI]** The planner keeps 4 CSAR helicopters owned or on order and buys them before
+  any other aircraft, so pilots who go down can be rescued.
+* **[Campaign AI]** The planner keeps a theater tanker track and carrier recovery tankers going
+  according to its doctrine. The "Automatic Theater tanker package planning" setting now only
+  affects the legacy planner.
+* **[UI]** The package list is easier to read:
+  * Packages are grouped by mission category, with coloured headers and counts, and sorted by TOT.
+  * Category chips hide or show each group.
+  * Rows give the purpose, the composition, the TOT and its offset into the period, and badges for
+    players, the DCS window, missing pilots and estimated risk.
+  * Flight rows show each flight's role and key times.
+
+  A new **ATO timeline** window (Timeline button, or View menu) shows the whole period as a Gantt
+  chart, with relief chains in one lane and the DCS window shaded. The DCS window picker shows the
+  same timeline. [Guide](Air-Campaign-Planner.md#reading-the-ato)
 
 ## Fixes
 

@@ -75,6 +75,26 @@ class MissionResultsProcessor:
             with logged_duration("update_war_state"):
                 self.update_war_state(debriefing)
 
+    def commit_resolved_period(
+        self, debriefing: Debriefing, events: GameUpdateEvents
+    ) -> None:
+        """Commit the packages the combat model fought after the DCS window
+        (game.sim.atoperiod). Only air operations: the ground war and base
+        captures were settled with the DCS results."""
+        with logged_duration("Committing resolved ATO period"):
+            self.commit_csar_results(debriefing)
+            self.commit_air_losses(debriefing)
+            self.commit_parked_aircraft_losses(debriefing)
+            self.commit_pilot_experience()
+            self.commit_motorpool_losses(debriefing)
+            self.commit_convoy_losses(debriefing)
+            self.commit_cargo_ship_losses(debriefing)
+            self.commit_airlift_losses(debriefing)
+            self.commit_ground_losses(debriefing, events)
+            self.commit_damaged_runways(debriefing)
+            self.record_carcasses(debriefing)
+            self.update_war_state(debriefing)
+
     def update_war_state(self, debriefing: Debriefing) -> None:
         war_state = getattr(self.game, "war_state", None)
         if war_state is not None:

@@ -15,8 +15,10 @@ from PySide6.QtGui import (
     QAction,
     QKeyEvent,
 )
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -34,41 +36,10 @@ from game.ato.package import Package
 from game.server import EventStream
 from game.sim import GameUpdateEvents
 from .QLabeledWidget import QLabeledWidget
-from ..delegates import TwoColumnRowDelegate
+from .atorows import AtoGroupProxy, FlightRowDelegate, PackageRowDelegate
+from .. import atopresentation as ap
+from ..windows.atotimeline import AtoTimelineDialog
 from ..models import AtoModel, GameModel, NullListModel, PackageModel
-
-
-class FlightDelegate(TwoColumnRowDelegate):
-    def __init__(self, package: Package) -> None:
-        super().__init__(rows=3, columns=2, font_size=10)
-        self.package = package
-
-    @staticmethod
-    def flight(index: QModelIndex) -> Flight:
-        return index.data(PackageModel.FlightRole)
-
-    def text_for(self, index: QModelIndex, row: int, column: int) -> str:
-        flight = self.flight(index)
-        if (row, column) == (0, 0):
-            return f"{flight}"
-        elif (row, column) == (0, 1):
-            clients = self.num_clients(index)
-            return f"Player Slots: {clients}" if clients else ""
-        elif (row, column) == (1, 0):
-            origin = flight.departure.name
-            if flight.arrival != flight.departure:
-                return f"From {origin} to {flight.arrival.name}"
-            return f"From {origin}"
-        elif (row, column) == (1, 1):
-            missing_pilots = flight.missing_pilots
-            return f"Missing pilots: {flight.missing_pilots}" if missing_pilots else ""
-        elif (row, column) == (2, 0):
-            return flight.state.description.title()
-        return ""
-
-    def num_clients(self, index: QModelIndex) -> int:
-        flight = self.flight(index)
-        return flight.client_count
 
 
 class QFlightList(QListView):
@@ -82,7 +53,7 @@ class QFlightList(QListView):
         self.package_model = package_model
         self.set_package(package_model)
         if package_model is not None:
-            self.setItemDelegate(FlightDelegate(package_model.package))
+            self.setItemDelegate(FlightRowDelegate(package_model.package))
         self.setIconSize(QSize(91, 24))
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.doubleClicked.connect(self.on_double_click)
@@ -93,7 +64,7 @@ class QFlightList(QListView):
             self.disconnect_model()
         else:
             self.package_model = model
-            self.setItemDelegate(FlightDelegate(model.package))
+            self.setItemDelegate(FlightRowDelegate(model.package))
             self.setModel(model)
             # noinspection PyUnresolvedReferences
             model.deleted.connect(self.disconnect_model)
@@ -185,7 +156,9 @@ class QFlightPanel(QGroupBox):
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
 
-        self.tip = QLabel(
+        self.tip = QLabel("Double-click a flight to edit it.")
+        self.tip.setProperty("style", "small")
+        self.tip.setToolTip(
             "To add flights to a package, edit the package by double clicking "
             "it or pressing the edit button."
         )
@@ -272,53 +245,55 @@ class QFlightPanel(QGroupBox):
         self.flight_list.cancel_or_abort_flight(index)
 
 
-class PackageDelegate(TwoColumnRowDelegate):
-    def __init__(self, game_model: GameModel) -> None:
-        super().__init__(rows=2, columns=2)
-        self.game_model = game_model
-
-    @staticmethod
-    def package(index: QModelIndex) -> Package:
-        return index.data(AtoModel.PackageRole)
-
-    def text_for(self, index: QModelIndex, row: int, column: int) -> str:
-        package = self.package(index)
-        if (row, column) == (0, 0):
-            string = f"{package.package_description} {package.target.name}"
-            if package.custom_name:
-                string = string + f" ({package.custom_name})"
-            return string
-        elif (row, column) == (0, 1):
-            clients = self.num_clients(index)
-            return f"Player Slots: {clients}" if clients else ""
-        elif (row, column) == (1, 0):
-            return f"TOT at {package.time_over_target:%H:%M:%S}"
-        elif (row, column) == (1, 1):
-            unassigned_pilots = self.missing_pilots(index)
-            return f"Missing pilots: {unassigned_pilots}" if unassigned_pilots else ""
-        return ""
-
-    def num_clients(self, index: QModelIndex) -> int:
-        package = self.package(index)
-        return sum(f.client_count for f in package.flights)
-
-    def missing_pilots(self, index: QModelIndex) -> int:
-        package = self.package(index)
-        return sum(f.missing_pilots for f in package.flights)
-
-
 class QPackageList(QListView):
-    """List view for displaying the packages of an ATO."""
+    """List view for displaying the packages of an ATO.
+
+    Shows the ATO through an AtoGroupProxy: grouped by mission category, in
+    TOT order, with collapsed categories hidden. Indices of the view are proxy
+    indices; AtoModel calls take source indices (see source()).
+    """
 
     def __init__(self, game_model: GameModel, model: AtoModel) -> None:
         super().__init__()
         self.ato_model = model
-        self.setModel(model)
-        self.setItemDelegate(PackageDelegate(game_model))
+        self.proxy = AtoGroupProxy()
+        self.proxy.setSourceModel(model)
+        self.proxy.sort(0)
+        self.setModel(self.proxy)
+        self.setItemDelegate(PackageRowDelegate(game_model))
         self.setIconSize(QSize(0, 0))
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        self.setMouseTracking(True)
         self.model().rowsInserted.connect(self.on_new_packages)
         self.doubleClicked.connect(self.on_double_click)
+
+    def set_ato_model(self, model: AtoModel) -> None:
+        self.ato_model = model
+        self.proxy.setSourceModel(model)
+        self.proxy.sort(0)
+
+    def source(self, index: QModelIndex) -> QModelIndex:
+        if index.model() is self.proxy:
+            return self.proxy.mapToSource(index)
+        return index
+
+    def view_index(self, package: Package) -> QModelIndex:
+        """The view index of a package, unhiding its group if needed."""
+        packages = list(self.ato_model.ato.packages)
+        if package not in packages:
+            return QModelIndex()
+        key = ap.package_group(package).key
+        if key in self.proxy.hidden:
+            self.proxy.set_hidden(key, False)
+        return self.proxy.mapFromSource(self.ato_model.index(packages.index(package), 0))
+
+    def select_package(self, package: Package) -> None:
+        index = self.view_index(package)
+        if index.isValid():
+            self.selectionModel().setCurrentIndex(
+                index, QItemSelectionModel.SelectionFlag.ClearAndSelect
+            )
+            self.scrollTo(index)
 
     @property
     def selected_item(self) -> Optional[Package]:
@@ -326,15 +301,17 @@ class QPackageList(QListView):
         index = self.currentIndex()
         if not index.isValid():
             return None
-        return self.ato_model.package_at_index(index)
+        return self.ato_model.package_at_index(self.source(index))
 
     def edit_package(self, index: QModelIndex) -> None:
         from qt_ui.dialogs import Dialog
 
-        Dialog.open_edit_package_dialog(self.ato_model.get_package_model(index))
+        Dialog.open_edit_package_dialog(
+            self.ato_model.get_package_model(self.source(index))
+        )
 
     def clone_package(self, index: QModelIndex) -> None:
-        package_model = self.ato_model.get_package_model(index)
+        package_model = self.ato_model.get_package_model(self.source(index))
         try:
             clone = Package.clone_package(package_model.package)
         except ValueError as ve:
@@ -351,7 +328,7 @@ class QPackageList(QListView):
         EventStream.put_nowait(events)
 
     def delete_package(self, index: QModelIndex) -> None:
-        self.ato_model.cancel_or_abort_package_at_index(index)
+        self.ato_model.cancel_or_abort_package_at_index(self.source(index))
 
     def on_new_packages(self, _parent: QModelIndex, first: int, _last: int) -> None:
         # Select the newly created pacakges. This should only ever happen due to
@@ -368,6 +345,8 @@ class QPackageList(QListView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         index = self.indexAt(event.pos())
+        if not index.isValid():
+            return
 
         menu = QMenu("Menu")
 
@@ -416,15 +395,25 @@ class QPackagePanel(QGroupBox):
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
 
-        self.tip = QLabel(
+        self.tip = QLabel("Right-click a target on the map to plan a package.")
+        self.tip.setProperty("style", "small")
+        self.tip.setToolTip(
             "To create a new package, right click the mission target on the "
-            "map. To target airbase objectives, use\n"
-            "the attack button in the airbase view."
+            "map. To target airbase objectives, use the attack button in the "
+            "airbase view.\n\nPackages are grouped by mission category and "
+            "sorted by TOT. Click a category chip to hide or show its packages. "
+            "Hover a package for its purpose, risk and flight times."
         )
         self.vbox.addWidget(self.tip)
 
+        self.chip_grid = QGridLayout()
+        self.chip_grid.setSpacing(3)
+        self.chips: dict[str, QPushButton] = {}
+        self.vbox.addLayout(self.chip_grid)
+
         self.package_list = QPackageList(game_model, self.ato_model)
         self.vbox.addWidget(self.package_list)
+        self.connect_counts(self.ato_model)
 
         self.button_row = QHBoxLayout()
         self.vbox.addLayout(self.button_row)
@@ -443,8 +432,71 @@ class QPackagePanel(QGroupBox):
         self.delete_button.clicked.connect(self.on_delete)
         self.button_row.addWidget(self.delete_button)
 
+        self.timeline_button = QPushButton("Timeline")
+        self.timeline_button.setToolTip("Show the ATO period as a timeline")
+        self.timeline_button.clicked.connect(self.timeline_requested)
+        self.button_row.addWidget(self.timeline_button)
+
         self.current_changed.connect(self.on_current_changed)
         self.on_current_changed()
+        self.update_chips()
+
+    timeline_requested = Signal()
+
+    CHIPS_PER_ROW = 5
+
+    def connect_counts(self, model: AtoModel) -> None:
+        if getattr(model, "_chip_counts_connected", False):
+            return
+        model._chip_counts_connected = True  # type: ignore[attr-defined]
+        for signal in (
+            model.rowsInserted,
+            model.rowsRemoved,
+            model.modelReset,
+            model.layoutChanged,
+            model.packages_changed,
+        ):
+            signal.connect(self.update_chips)
+
+    def update_chips(self, *_args: object) -> None:
+        """One checkable chip per category present in the ATO, with counts."""
+        counts: dict[str, int] = {}
+        for package in self.ato_model.ato.packages:
+            key = ap.package_group(package).key
+            counts[key] = counts.get(key, 0) + 1
+        hidden = self.package_list.proxy.hidden
+        for chip in self.chips.values():
+            self.chip_grid.removeWidget(chip)
+            chip.deleteLater()
+        self.chips = {}
+        position = 0
+        for group in ap.GROUPS:
+            if group.key not in counts and group.key not in hidden:
+                continue
+            chip = QPushButton(f"{group.short} {counts.get(group.key, 0)}")
+            chip.setCheckable(True)
+            chip.setChecked(group.key not in hidden)
+            chip.setToolTip(f"{group.label}: click to hide or show")
+            chip.setStyleSheet(self.chip_style(group.color))
+            chip.toggled.connect(
+                lambda shown, key=group.key: self.on_chip_toggled(key, shown)
+            )
+            self.chip_grid.addWidget(
+                chip, position // self.CHIPS_PER_ROW, position % self.CHIPS_PER_ROW
+            )
+            self.chips[group.key] = chip
+            position += 1
+
+    @staticmethod
+    def chip_style(color: str) -> str:
+        return (
+            "QPushButton { padding: 1px 6px; border-radius: 8px; font-size: 8pt;"
+            f" border: 1px solid {color}; background: transparent; color: #9aa7b2; }}"
+            f" QPushButton:checked {{ background: {color}; color: white; }}"
+        )
+
+    def on_chip_toggled(self, key: str, shown: bool) -> None:
+        self.package_list.proxy.set_hidden(key, not shown)
 
     @property
     def current_changed(self):
@@ -465,7 +517,7 @@ class QPackagePanel(QGroupBox):
             EventStream.put_nowait(GameUpdateEvents().deselect_flight())
             return
 
-        package = self.ato_model.get_package_model(index)
+        package = self.ato_model.get_package_model(self.package_list.source(index))
         if package.rowCount() == 0:
             EventStream.put_nowait(GameUpdateEvents().deselect_flight())
         else:
@@ -535,6 +587,28 @@ class QAirTaskingOrderPanel(QSplitter):
         self.flight_panel = QFlightPanel(game_model)
         self.addWidget(self.flight_panel)
 
+        self.timeline_dialog: Optional[AtoTimelineDialog] = None
+        self.package_panel.timeline_requested.connect(self.open_timeline)
+
+    def open_timeline(self) -> None:
+        """Opens (or raises) the non-modal ATO timeline window."""
+        if self.timeline_dialog is None:
+            self.timeline_dialog = AtoTimelineDialog(self.game_model, self.window())
+            self.timeline_dialog.package_selected.connect(self.select_package)
+        self.timeline_dialog.set_opfor(self.red_ato_checkbox.isChecked())
+        self.timeline_dialog.show()
+        self.timeline_dialog.raise_()
+        self.timeline_dialog.activateWindow()
+
+    def select_package(self, package: Package) -> None:
+        """Selects a package in the sidebar (and so on the map)."""
+        show_opfor = not package.flights[0].blue.is_blue if package.flights else (
+            self.red_ato_checkbox.isChecked()
+        )
+        if self.red_ato_checkbox.isChecked() != show_opfor:
+            self.red_ato_checkbox.setChecked(show_opfor)
+        self.package_panel.package_list.select_package(package)
+
     def select_flight_on_map(self, flight: Flight) -> None:
         """Selects the package and flight owning the given flight.
 
@@ -545,14 +619,9 @@ class QAirTaskingOrderPanel(QSplitter):
         if self.red_ato_checkbox.isChecked() != show_opfor:
             self.red_ato_checkbox.setChecked(show_opfor)
 
-        packages = list(self.ato_model.ato.packages)
-        if flight.package not in packages:
+        if flight.package not in self.ato_model.ato.packages:
             return
-        package_row = packages.index(flight.package)
-        self.package_panel.package_list.selectionModel().setCurrentIndex(
-            self.ato_model.index(package_row, 0),
-            QItemSelectionModel.SelectionFlag.ClearAndSelect,
-        )
+        self.package_panel.package_list.select_package(flight.package)
 
         # Selecting the package synchronously triggers on_package_change, which
         # sets the flight panel's package model. Now select the flight row.
@@ -569,7 +638,11 @@ class QAirTaskingOrderPanel(QSplitter):
         index = self.package_panel.package_list.currentIndex()
         if index.isValid():
             self.package_panel.enable_buttons(True)
-            self.flight_panel.set_package(self.ato_model.get_package_model(index))
+            self.flight_panel.set_package(
+                self.ato_model.get_package_model(
+                    self.package_panel.package_list.source(index)
+                )
+            )
         else:
             self.package_panel.enable_buttons(False)
             self.flight_panel.set_package(None)
@@ -582,11 +655,13 @@ class QAirTaskingOrderPanel(QSplitter):
         ato_model.layoutChanged.connect(self.package_panel.on_current_changed)
         self.ato_model = ato_model
         self.package_panel.ato_model = ato_model
-        self.package_panel.package_list.ato_model = ato_model
-        self.package_panel.package_list.setModel(ato_model)
+        self.package_panel.package_list.set_ato_model(ato_model)
+        self.package_panel.connect_counts(ato_model)
+        self.package_panel.update_chips()
         self.package_panel.enable_buttons(False)
-        self.package_panel.current_changed.connect(self.on_package_change)
         self.flight_panel.flight_list.set_package(None)
         events = GameUpdateEvents().deselect_flight()
         EventStream.put_nowait(events)
         self.game_model.is_ownfor = not opfor
+        if self.timeline_dialog is not None:
+            self.timeline_dialog.set_opfor(opfor)

@@ -238,6 +238,12 @@ class Coalition:
         color = "Blue" if self.player.is_blue else "Red"
         with MultiEventTracer() as tracer:
             with tracer.trace(f"{color} mission planning"):
+                from game.commander.jfacc.planner import plan as jfacc_plan
+
+                # Doctrine-driven air campaign planner for sides whose doctrine
+                # has a planning profile; it schedules its own 6 hour ATO.
+                if jfacc_plan(self.game, self.player, now, tracer):
+                    return
                 with tracer.trace(f"{color} mission identification"):
                     TheaterCommander(self.game, self.player).plan_missions(now, tracer)
                 with tracer.trace(f"{color} mission scheduling"):
