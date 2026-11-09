@@ -32,6 +32,11 @@ class Package(RadioFrequencyContainer):
     #: Why the planner tasked this package, for the UI: phase, reason, threat
     #: level, notes (planning_rationale is the same as one line).
     planning_info: dict[str, object] | None = None
+    #: Massed raids (game/commander/jfacc/raids.py) are flown as several
+    #: packages in echelons with staggered TOTs; they share a raid id, and
+    #: each has its echelon role (suppression, main, follow_up).
+    raid_id: str = ""
+    raid_role: str = ""
 
     def __init__(
         self,

@@ -41,6 +41,13 @@ class RouteThreat:
     #: Enemy aircrew and SAM crew quality (1.0 = baseline).
     enemy_aircrew: float = 1.0
     enemy_sam_crew: float = 1.0
+    #: Short-range air defense sites (AAA, IR and radar SHORAD) whose
+    #: envelope the ingress leg or target area crosses. Medium-altitude
+    #: packages fly above them; low-level packages fly through them.
+    shorad_weight: float = 0.0
+    #: The part of sam_weight that is radar SHORAD (counted at half weight
+    #: for medium altitude; low-level packages count it in shorad_weight).
+    radar_shorad_weight: float = 0.0
 
     @property
     def level(self) -> str:
@@ -62,6 +69,35 @@ def _picture(game: Game, player: Player) -> Optional[object]:
     return war_state.picture(game, player)
 
 
+#: Low-level packages pass within this distance of SHORAD sites near their
+#: track before the gunners can't engage.
+SHORAD_REACH_M = 7000.0
+
+
+def _add_shorad_exposure(
+    game: Game,
+    player: Player,
+    threat: RouteThreat,
+    route: LineString,
+    tgo: TheaterGroundObject,
+    picture: Optional[object],
+) -> None:
+    """A known, believed-alive short-range air defense site near the track."""
+    if picture is not None:
+        if not picture.knows(tgo) or not picture.believed_alive(tgo):  # type: ignore[attr-defined]
+            return
+        position = picture.estimated_position(tgo)  # type: ignore[attr-defined]
+    else:
+        if tgo.is_dead:
+            return
+        position = tgo.position
+    if not any(getattr(u, "is_anti_air", False) for u in tgo.units):
+        return
+    reach = max(SHORAD_REACH_M, min(tgo.max_threat_range().meters, 12000.0))
+    if route.distance(ShapelyPoint(position.x, position.y)) <= reach:
+        threat.shorad_weight += 1.0
+
+
 def _add_sam_exposure(
     game: Game,
     player: Player,
@@ -80,6 +116,8 @@ def _add_sam_exposure(
     from .assessment import enemy_tgos
     from .intelview import believed_radar_reach_m
 
+    from game.data.groups import GroupTask
+
     target_point = ShapelyPoint(target.position.x, target.position.y)
     cap_m = float(game.settings.max_threat_range) * 1852.0
     known_mobile = 0
@@ -92,6 +130,8 @@ def _add_sam_exposure(
             continue
         reach_m = believed_radar_reach_m(game, player, tgo)
         weight = sam_weight(tgo, live=reach_m > 0)
+        if tgo.task not in (GroupTask.LORAD, GroupTask.MERAD):
+            _add_shorad_exposure(game, player, threat, route, tgo, picture)
         if weight <= 0:
             continue
         if picture is not None:
@@ -109,6 +149,8 @@ def _add_sam_exposure(
             # The edge of a long-range envelope is less dangerous than its core.
             depth = 1.0 - 0.5 * distance / reach
             threat.sam_weight += weight * depth
+            if tgo.task not in (GroupTask.LORAD, GroupTask.MERAD):
+                threat.radar_shorad_weight += weight * depth
             threat.sams.append(tgo)
             if target_point.distance(site) <= reach:
                 threat.target_defended = True

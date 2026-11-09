@@ -140,6 +140,15 @@ def _scarcity(squadron: Squadron) -> int:
     return score
 
 
+def _low_level_doctrine(coalition: Coalition) -> bool:
+    try:
+        from game.warfare.doctrine import for_faction_obj
+
+        return for_faction_obj(coalition.faction).low_level_strikes
+    except Exception:
+        return False
+
+
 class PackageComposer:
     def __init__(
         self,
@@ -163,6 +172,12 @@ class PackageComposer:
         self.phase_name = ""
         #: The phase allows the outer-layer rollback risk allowance.
         self.rollback_allowed = False
+        from .risk import RiskModel
+
+        self.risk_model = RiskModel.from_profile(profile.section("risk").get("model"))
+        #: Strike packages fly in at low level (Soviet-style doctrines): the
+        #: combat model and the DCS flight plans do, so the risk estimate must.
+        self.low_level = _low_level_doctrine(coalition)
 
     # ----------------------------------------------------------- analysis
 
@@ -215,7 +230,11 @@ class PackageComposer:
             sead = max(sam.sead, min(math.ceil(2 + threat.sam_weight / 2), 8))
             sead += sead % 2
             requests.append(
-                FlightRequest(FlightType.SEAD_ESCORT, sead, note="SEAD (HARM) support")
+                FlightRequest(
+                    FlightType.SEAD_ESCORT,
+                    sead,
+                    note=str(self.packages_cfg.get("sead_label", "SEAD (HARM) support")),
+                )
             )
         counter_air: list[FlightRequest] = []
         if air is not None and air.sweep > 0:
@@ -459,7 +478,13 @@ class PackageComposer:
             if f.flight_type not in SUPPORT_TASKS
             and f.flight_type not in PATROL_TASKS
         )
-        if route_sam and not has_sead and request.risk_kind not in URGENT_RISK_KINDS:
+        require_sead = bool(self.packages_cfg.get("require_sead", True))
+        if (
+            require_sead
+            and route_sam
+            and not has_sead
+            and request.risk_kind not in URGENT_RISK_KINDS
+        ):
             # The SEAD force is what limits this package: ask for more.
             self._request_purchase(target, FlightRequest(FlightType.SEAD_ESCORT, 2), heli)
             return scrub("route enters radar SAM coverage and no SEAD is available")
@@ -605,6 +630,9 @@ class PackageComposer:
             own_aircrew,
             standoff,
             front_line=_is_front_line(request.target),
+            low_level=self.low_level
+            and not (package.primary_flight is not None and package.primary_flight.is_helo),
+            model=self.risk_model,
         )
         limit = min(
             self.profile.attrition_limit

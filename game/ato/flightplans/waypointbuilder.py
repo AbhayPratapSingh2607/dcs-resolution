@@ -61,6 +61,27 @@ class WaypointBuilder:
     def is_helo(self) -> bool:
         return self.flight.is_helo
 
+    #: Penetration altitude of strike flights of low-level doctrines (Soviet
+    #: style: under the radar horizon, terrain masking).
+    LOW_LEVEL_PENETRATION = feet(500)
+
+    @property
+    def low_level_penetration(self) -> bool:
+        """Strike flights of doctrines that fly in at low level (see
+        game/warfare/doctrine.py strike_altitude); the fast-forward combat
+        model flies them low too."""
+        if self.is_helo or self.flight.is_hercules:
+            return False
+        try:
+            from game.sim.combat.model.airframe import flight_role
+            from game.warfare.doctrine import for_faction_obj
+
+            if flight_role(self.flight) != "striker":
+                return False
+            return for_faction_obj(self.flight.coalition.faction).low_level_strikes
+        except Exception:
+            return False
+
     @property
     def get_patrol_altitude(self) -> Distance:
         return self.get_altitude(self.flight.unit_type.preferred_patrol_altitude)
@@ -266,6 +287,9 @@ class WaypointBuilder:
                 if self.is_helo
                 else feet(1000)
             )
+        elif self.low_level_penetration:
+            alt = self.LOW_LEVEL_PENETRATION
+            alt_type = "RADIO"
         elif alt.feet <= AGL_TRANSITION_ALT:
             alt_type = "RADIO"
 
@@ -301,14 +325,18 @@ class WaypointBuilder:
 
     def egress(self, position: Point, target: MissionTarget) -> FlightWaypoint:
         alt_type: AltitudeReference = "BARO"
-        if self.is_helo or self.get_combat_altitude.feet <= AGL_TRANSITION_ALT:
+        alt = self.get_combat_altitude
+        if self.low_level_penetration:
+            alt = self.LOW_LEVEL_PENETRATION
+            alt_type = "RADIO"
+        elif self.is_helo or alt.feet <= AGL_TRANSITION_ALT:
             alt_type = "RADIO"
 
         return FlightWaypoint(
             "EGRESS",
             FlightWaypointType.EGRESS,
             position,
-            self.get_combat_altitude,
+            alt,
             alt_type,
             description=f"EGRESS from {target.name}",
             pretty_name=f"EGRESS from {target.name}",

@@ -63,12 +63,12 @@ class ThreatAxis:
 
 
 def _enemy_fighter_bases(game: Game, player: Player) -> Iterator[tuple[ControlPoint, float]]:
-    from .assessment import fighter_strength
+    from .assessment import fighter_value
+    from .intelview import enemy_squadrons
 
-    enemy = game.coalition_for(player).opponent
     strength: dict[ControlPoint, float] = {}
-    for squadron in enemy.air_wing.iter_squadrons():
-        value = fighter_strength(iter([squadron]), 1.0)
+    for squadron, count in enemy_squadrons(game, player):
+        value = fighter_value(squadron, count, 1.0)
         if value <= 0:
             continue
         strength[squadron.location] = strength.get(squadron.location, 0.0) + value
@@ -148,20 +148,34 @@ def threat_axes(
 
 
 def station_for(
-    game: Game, player: Player, axis: ThreatAxis, forward_nm: tuple[float, float]
+    game: Game,
+    player: Player,
+    axis: ThreatAxis,
+    forward_nm: tuple[float, float],
+    under_own_sams: bool = False,
 ) -> CapStation:
     """Place a CAP station forward of the defended asset along the axis, but
-    clear of known enemy SAM coverage."""
-    threat_zone = game.coalition_for(player).opponent.threat_zone
+    clear of known enemy SAM coverage. With ``under_own_sams`` (force
+    preservation) the station must also sit inside the side's own SAM
+    coverage when any point on the axis is."""
+    coalition = game.coalition_for(player)
+    threat_zone = coalition.opponent.threat_zone
+    own_zone = coalition.threat_zone
     near, far = forward_nm
     best: Optional[Point] = None
+    fallback: Optional[Point] = None
     distance = far
     while distance >= near:
         point = axis.defended.position.point_from_heading(axis.heading, distance * NM)
         if not threat_zone.threatened_by_air_defense(point):
-            best = point
-            break
+            if not under_own_sams or own_zone.threatened_by_air_defense(point):
+                best = point
+                break
+            if fallback is None:
+                fallback = point
         distance -= 5
+    if best is None:
+        best = fallback
     if best is None:
         best = axis.defended.position.point_from_heading(axis.heading, near * NM * 0.5)
     name = f"CAP {axis.defended.name} {int(axis.heading):03d}"

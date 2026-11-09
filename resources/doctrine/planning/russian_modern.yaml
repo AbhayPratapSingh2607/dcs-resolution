@@ -1,0 +1,281 @@
+# Russian (VKS) air campaign planning profile for the JFACC planner
+# (game/commander/jfacc). Extends the Western profile and replaces what the
+# doctrine does differently; see western.yaml for what every key means.
+#
+# How the VKS plans, compared with a NATO JFACC:
+# - The air war opens with an "initial air operation": a few days of massed,
+#   echeloned raids against airfields, air defense and command posts, meant to
+#   seize air superiority quickly. It is time-bound: after it, aviation goes
+#   over to supporting the front offensive whether or not it achieved
+#   everything.
+# - Afterwards most sorties support the ground forces (CAS and interdiction
+#   ahead of the front) rather than a strategic campaign.
+# - Air defense of the homeland (PVO) relies on ground-controlled interceptors
+#   kept on alert under an IADS umbrella, close to home, not forward CAP.
+# - Planners accept higher losses than NATO for decisive missions, and keep a
+#   force in being when the air war is going badly.
+#
+# Sources: Soviet/Russian "air operation" doctrine (FM 100-2-1 Soviet Army
+# Operations and Tactics, ch. 14; Grau & Bartles, The Russian Way of War,
+# 2016), VKS conduct in Syria 2015 and Ukraine 2022.
+
+extends: western
+name: russian_modern
+
+sorties:
+  # VKS serviceability is lower than USAF; surge pushes towards 75%.
+  mission_capable_rate: 0.72
+  turnaround_hours:
+    fighter: 2.5
+    attack: 3.0
+    bomber: 5.0
+    support: 3.5
+    helicopter: 2.0
+
+risk:
+  # Routine missions are planned for up to 4% expected losses; decisive ones
+  # (air defense, command posts, airfields in the opening operation) up to
+  # three times that.
+  attrition_limit: 0.04
+  priority_multiplier:
+    troops_in_contact: 3.0
+    defense: 2.5
+    hvt: 3.0
+    routine: 1.0
+  absolute_limit: 0.15
+  rollback_allowance:
+    limit: 0.12
+    max_route_weight: 8
+
+procurement:
+  replacements_per_squadron: 4
+  csar_ready: 2
+
+phases:
+  min_turns: 2
+  start: readiness
+  order: [readiness, initial_air_operation, front_offensive]
+
+  list:
+    readiness:
+      title: "Readiness"
+      family: posture
+      min_turns: 0
+      description: "Bring the air armies to combat readiness: PVO alert, dispersal, build the picture."
+      apportionment:
+        dca:          {share: 0.6, min: 0.4, max: 0.8}
+        support:      {share: 0.15, min: 0.05, max: 0.25}
+        sead:         {share: 0.05, min: 0.0, max: 0.1}
+        oca:          {share: 0.0, min: 0.0, max: 0.1}
+        strike:       {share: 0.0, min: 0.0, max: 0.1}
+        interdiction: {share: 0.05, min: 0.0, max: 0.1}
+        cas:          {share: 0.15, min: 0.0, max: 0.3}
+      target_weights: {iads: 0.6, air: 0.4, c2: 0.3, pol: 0.1, loc: 0.2, fielded: 0.5, naval: 0.4}
+      flags: {ground_stance: hold, strategic_reach: true, cas_attrition: 0.3}
+      # The campaign plan follows the balance of forces: attack when the air
+      # and ground balance allow it, otherwise defend the homeland first.
+      transitions:
+        - to: initial_air_operation
+          when:
+            all:
+              - {moe: war_started, eq: true}
+              - {moe: air_superiority, ge: 0.8}
+              - {moe: min_force_ratio, ge: 0.9}
+        - to: pvo_defense
+          when: {moe: war_started, eq: true}
+
+    initial_air_operation:
+      title: "Initial air operation"
+      family: offensive
+      description: "Initial air operation: massed, echeloned raids on airfields, air defense and command posts to seize air superiority for the front."
+      apportionment:
+        dca:          {share: 0.22, min: 0.15, max: 0.35}
+        support:      {share: 0.06, min: 0.03, max: 0.12}
+        oca:          {share: 0.24, min: 0.12, max: 0.35}
+        sead:         {share: 0.2, min: 0.1, max: 0.3}
+        strike:       {share: 0.13, min: 0.05, max: 0.25}
+        interdiction: {share: 0.05, min: 0.0, max: 0.15}
+        cas:          {share: 0.1, min: 0.0, max: 0.3}
+      target_weights: {iads: 1.0, air: 1.0, c2: 0.9, pol: 0.3, loc: 0.3, fielded: 0.4, naval: 0.6}
+      flags:
+        ground_stance: hold
+        strategic_reach: true
+        risk_multiplier: 1.25
+        rollback_allowance: true
+        cas_attrition: 0.3
+        raid_style: massed
+        # Suppression and the main strike arrive together in each raid; the
+        # waves keep the pressure on through the period.
+        wave_preference: {sead: 0, oca: 0, strike: 0, interdiction: 2}
+      transitions:
+        - to: pvo_defense
+          min_turns: 1
+          when:
+            any:
+              - {moe: own_air_losses, ge: 0.35}
+              - {moe: air_superiority, le: 0.5, sustain: 2}
+        # The operation is time-bound: after a few days aviation goes over
+        # to the front, earlier if air superiority is already won.
+        - to: front_offensive
+          when:
+            any:
+              - all:
+                  - {moe: air_superiority, ge: 1.2}
+                  - {moe: enemy_air_attrition, ge: 0.2}
+              - {moe: turns_in_phase, ge: 3}
+
+    front_offensive:
+      title: "Air support of the front offensive"
+      family: offensive
+      description: "Air support of the front offensive: CAS and interdiction ahead of the main axis, air cover over the advancing troops, airfield attacks to keep the enemy air force down."
+      apportionment:
+        dca:          {share: 0.18, min: 0.12, max: 0.3}
+        support:      {share: 0.05, min: 0.03, max: 0.1}
+        oca:          {share: 0.07, min: 0.0, max: 0.15}
+        sead:         {share: 0.12, min: 0.05, max: 0.2}
+        strike:       {share: 0.03, min: 0.0, max: 0.1}
+        interdiction: {share: 0.22, min: 0.12, max: 0.35}
+        cas:          {share: 0.33, min: 0.2, max: 0.5}
+      target_weights: {iads: 0.6, air: 0.4, c2: 0.4, pol: 0.4, loc: 0.8, fielded: 1.0, naval: 0.4}
+      flags:
+        ground_stance: attack
+        air_assault: true
+        cas_attrition: 0.4
+        raid_style: massed
+      transitions:
+        - to: pvo_defense
+          when:
+            any:
+              - {moe: own_air_losses, ge: 0.45}
+              - {moe: air_superiority, le: 0.5, sustain: 2}
+
+    pvo_defense:
+      title: "Air defense of the country (PVO)"
+      family: defensive
+      description: "Strategic air defense: ground-controlled interceptors on alert under the IADS, air cover over the troops, CAS and interdiction against the enemy offensive. Offensive raids only against the airfields generating enemy sorties."
+      apportionment:
+        dca:          {share: 0.42, min: 0.3, max: 0.6}
+        support:      {share: 0.07, min: 0.03, max: 0.12}
+        oca:          {share: 0.06, min: 0.0, max: 0.15}
+        sead:         {share: 0.05, min: 0.0, max: 0.12}
+        strike:       {share: 0.0, min: 0.0, max: 0.05}
+        interdiction: {share: 0.15, min: 0.05, max: 0.25}
+        cas:          {share: 0.25, min: 0.1, max: 0.4}
+      target_weights: {iads: 0.4, air: 0.8, c2: 0.3, pol: 0.2, loc: 0.6, fielded: 1.0, naval: 0.6}
+      flags:
+        ground_stance: hold
+        defense_priority: true
+        cas_attrition: 0.45
+        raid_style: none
+      # Counteroffensive once the air balance has turned.
+      transitions:
+        - to: initial_air_operation
+          when:
+            all:
+              - {moe: air_superiority, ge: 1.0, sustain: 2}
+              - {moe: min_force_ratio, ge: 1.0}
+
+    front_defense:
+      title: "Defense of the front"
+      family: defensive
+      description: "The enemy has the initiative on the ground: CAS and interdiction against his main effort, cover over our troops, airfields generating his sorties next."
+      apportionment:
+        dca:          {share: 0.28, min: 0.18, max: 0.45}
+        support:      {share: 0.06, min: 0.03, max: 0.12}
+        oca:          {share: 0.08, min: 0.0, max: 0.15}
+        sead:         {share: 0.08, min: 0.03, max: 0.2}
+        strike:       {share: 0.0, min: 0.0, max: 0.05}
+        interdiction: {share: 0.18, min: 0.08, max: 0.3}
+        cas:          {share: 0.32, min: 0.2, max: 0.5}
+      target_weights: {iads: 0.4, air: 0.6, c2: 0.2, pol: 0.3, loc: 0.8, fielded: 1.0, naval: 0.5}
+      flags:
+        ground_stance: hold
+        defense_priority: true
+        cas_attrition: 0.5
+        raid_style: none
+      transitions:
+        - to: $resume
+          min_turns: 0
+          when: {moe: min_force_ratio, ge: 1.0}
+
+  interrupts:
+    - to: front_defense
+      from_families: [posture, offensive]
+      when:
+        any:
+          - {moe: min_force_ratio, lt: 0.7}
+          - {moe: base_threatened, eq: true}
+          - {moe: offensive_warning, eq: true}
+
+# A force in being: when the air war is being lost, fighters pull back under
+# the SAM umbrella and fight only with GCI and IADS support, and offensive
+# raids stop.
+modifiers:
+  force_preservation:
+    description: "Preserving the air force: fighters under the SAM umbrella, offensive raids stopped."
+    hold_turns: 2
+    when:
+      any:
+        - {moe: own_air_losses, ge: 0.3}
+        - {moe: air_superiority, le: 0.45, sustain: 2}
+    effects:
+      dca_forward_scale: 0.4
+      cap_under_own_sam: true
+      risk_scale: 0.6
+      raid_style: none
+      scale_categories: {oca: 0.3, strike: 0.3, sead: 0.6, interdiction: 0.8}
+
+overflow_order: [dca, cas, interdiction, sead, oca, strike, support]
+
+packages:
+  # VKS strike groups bring their own fighter cover; ARM shooters go along
+  # against radar SAMs, but the doctrine doesn't forbid striking without
+  # them (low level and mass are the alternative).
+  require_sead: false
+  sead_label: "ARM support (Kh-31P/Kh-58)"
+  threat_levels:
+    low:      {sweep: 0, escort: 0, sead: 0, jammer: 0}
+    medium:   {sweep: 0, escort: 2, sead: 2, jammer: 0}
+    high:     {sweep: 2, escort: 2, sead: 2, jammer: 0}
+    extreme:  {sweep: 4, escort: 2, sead: 4, jammer: 0}
+  # NATO keeps a large share of its fighters on CAP and alert.
+  enemy_fighter_availability: 0.4
+  mobile_sam_detection_belief: 0.4
+  max_package_size: 24
+  max_strikers: 8
+  max_support_ratio: 1.0
+
+# Massed echeloned raids (game/commander/jfacc/raids.py).
+raids:
+  max_per_period: 2
+  decisive_classes: [airfield, c2_node, sam_lorad, ewr]
+  min_strikers: 6
+  ingress: medium
+  echelons:
+    - {role: suppression, offset_min: -6}
+    - {role: clearing, offset_min: -3}
+    - {role: main, offset_min: 0}
+    - {role: follow_up, offset_min: 8, optional: true}
+
+weaponeering:
+  weapons_per_aircraft: 3
+  guidance_preference:
+    clear_day:    [laser, tv, iir, gps, unguided]
+    clear_night:  [gps, laser, iir, unguided]
+    under_cloud:  [gps, unguided]
+
+dca:
+  # Interceptors stay close to home under GCI and the IADS.
+  station_forward_nm: [15, 40]
+  max_axes: 3
+  on_station_min: 60
+  qra_per_base: 4
+  hvaa_cap: true
+
+ground_support:
+  main_effort_cas_lines: 3
+  supporting_cas_lines: 1
+
+enablers:
+  tanker_radius_fraction: 0.85
+  recovery_tanker: false

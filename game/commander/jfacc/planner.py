@@ -32,6 +32,8 @@ from .groundsupport import cas_lines, kill_boxes
 from .phases import PhaseManager
 from .profile import (
     Category,
+    Modifier,
+    Phase,
     PhaseSpec,
     PlanningProfile,
     category_for_task,
@@ -164,6 +166,20 @@ def period_hours(game: Game, profile: PlanningProfile) -> float:
 
 
 class JfaccPlanner:
+    # Set while planning a period (plan_missions).
+    now: datetime
+    assessment: CampaignAssessment
+    phase: Phase
+    spec: PhaseSpec
+    modifiers: tuple[Modifier, ...]
+    ledger: SortieLedger
+    timeline: Timeline
+    apportionment: Apportionment
+    composer: PackageComposer
+    nominations: list[TargetNomination]
+    planned_keys: set[str]
+    suppressed: dict[object, datetime]
+
     def __init__(self, game: Game, player: Player, profile: PlanningProfile) -> None:
         self.game = game
         self.player = player
@@ -181,6 +197,7 @@ class JfaccPlanner:
         blue = self.player.is_blue
         self.now = now
         self.side.scrubbed = []
+        self.side.raids = []
 
         with tracer.trace("JFACC assessment"):
             self.assessment = assess(game, self.player)
@@ -215,6 +232,7 @@ class JfaccPlanner:
         self.side.qra = self._hold_qra() if planning_allowed else []
         total = self._sortie_capacity()
         self.apportionment = Apportionment.for_phase(self.profile, self.spec, total)
+        self._apply_category_scaling()
         self.planned_keys: set[str] = set()
         #: SAM site id -> TOT of the DEAD package tasked against it.
         self.suppressed: dict[object, datetime] = {}
@@ -227,7 +245,9 @@ class JfaccPlanner:
             self.conditions,
             aewc_available=self.coalition.air_wing.can_auto_plan(FlightType.AEWC),
         )
-        self.composer.risk_multiplier = float(self.spec.flag("risk_multiplier", 1.0))
+        self.composer.risk_multiplier = float(
+            self.spec.flag("risk_multiplier", 1.0)
+        ) * float(self.effect("risk_scale", 1.0))  # type: ignore[arg-type]
         self.composer.rollback_allowed = bool(self.spec.flag("rollback_allowance", False))
         self.composer.phase_name = self.phase.value
 
@@ -243,6 +263,8 @@ class JfaccPlanner:
                 self._plan_cas()
             with tracer.trace("JFACC air assault"):
                 self._plan_air_assault()
+            with tracer.trace("JFACC raids"):
+                self._plan_raids()
             with tracer.trace("JFACC offensive packages"):
                 self._plan_jiptl()
             self.apportionment.begin_overflow()
@@ -257,6 +279,51 @@ class JfaccPlanner:
             self._request_forces()
 
         self._record()
+
+    # ========================================================== modifiers
+
+    def effect(self, name: str, default: object = None) -> object:
+        """A modifier effect, combined over the active modifiers: scales
+        multiply, flags are true if any modifier sets them, anything else
+        comes from the last modifier that sets it."""
+        value = default
+        found = False
+        for modifier in self.modifiers:
+            if name not in modifier.effects:
+                continue
+            new = modifier.effects[name]
+            if found and isinstance(new, (int, float)) and not isinstance(new, bool) and name.endswith("_scale"):
+                value = float(value) * float(new)  # type: ignore[arg-type]
+            elif found and isinstance(new, bool):
+                value = bool(value) or new
+            else:
+                value = new
+            found = True
+        return value
+
+    @property
+    def raid_style(self) -> str:
+        """massed | opportunistic | none, from the phase unless a modifier
+        overrides it."""
+        return str(self.effect("raid_style", self.spec.flag("raid_style", "none")))
+
+    def _apply_category_scaling(self) -> None:
+        """Modifiers that cut categories (force preservation) lower both the
+        quota and the ceiling, so overflow doesn't hand the sorties back."""
+        scales: dict[str, float] = {}
+        for modifier in self.modifiers:
+            for key, value in (modifier.effects.get("scale_categories") or {}).items():
+                scales[key] = scales.get(key, 1.0) * float(value)
+        for category in Category:
+            scale = scales.get(category.value)
+            if scale is None:
+                continue
+            self.apportionment.quota[category] = round(
+                self.apportionment.quota[category] * scale
+            )
+            self.apportionment.ceiling[category] = round(
+                self.apportionment.ceiling[category] * scale
+            )
 
     # ============================================================ stances
 
@@ -545,7 +612,9 @@ class JfaccPlanner:
         dca = self.profile.section("dca")
         reach = float(dca.get("threat_reach_nm", 200))
         size = int(dca.get("cap_flight_size", 2))
-        forward = tuple(dca.get("station_forward_nm", [25, 60]))
+        scale = float(self.effect("dca_forward_scale", 1.0))  # type: ignore[arg-type]
+        forward = tuple(float(f) * scale for f in dca.get("station_forward_nm", [25, 60]))
+        under_own_sams = bool(self.effect("cap_under_own_sam", False))
         axes = threat_axes(
             self.game,
             self.player,
@@ -554,7 +623,13 @@ class JfaccPlanner:
             int(dca.get("max_axes", 3)),
         )
         stations = [
-            station_for(self.game, self.player, axis, (float(forward[0]), float(forward[1])))
+            station_for(
+                self.game,
+                self.player,
+                axis,
+                (float(forward[0]), float(forward[1])),
+                under_own_sams=under_own_sams,
+            )
             for axis in axes
         ]
         if dca.get("point_defense", True):
@@ -833,6 +908,18 @@ class JfaccPlanner:
             if self._commit(request, tot, None) is not None:
                 planned += 1
 
+    # ============================================================ raids
+
+    def _plan_raids(self) -> None:
+        from .raids import RaidPlanner
+
+        raids = RaidPlanner(self).plan()
+        self.side.raids = [
+            f"{raid.raid_id}: {raid.nomination.name} "
+            f"({', '.join(role for _, _, role in raid.committed)}; {raid.sorties} sorties)"
+            for raid in raids
+        ]
+
     # ============================================================ JIPTL
 
     def _mark_planned(self, nomination: TargetNomination) -> None:
@@ -937,7 +1024,11 @@ class JfaccPlanner:
                 f"(force ratio {min(effort.force_ratio, 99):.1f})."
             )
         weather = self.conditions.describe()
-        return f"{spec.description}{effort_text} Conditions: {weather}."
+        modifiers = "".join(
+            f" {m.description or m.name.replace('_', ' ').capitalize()}"
+            for m in self.modifiers
+        )
+        return f"{spec.description}{modifiers}{effort_text} Conditions: {weather}."
 
 
 def plan(game: Game, player: Player, now: datetime, tracer: MultiEventTracer) -> bool:

@@ -28,8 +28,8 @@
 #                      without SEAD or jammer support.
 #   ground_support_priority: favour CAS/BAI over strategic targets.
 #   planning_profile:  air campaign planning profile in resources/doctrine/planning
-#                      used by the JFACC planner; doctrines without one use the
-#                      legacy HTN planner.
+#                      used by the JFACC planner; doctrines without one (ww2)
+#                      use the legacy HTN planner.
 # Ground
 #   combined_arms:     how much the force benefits from a balanced mix.
 #   artillery_prep:    multiplier on artillery in the first round of an attack.
@@ -79,6 +79,7 @@ doctrines:
     depth: 0.05
     morale_baseline: 0.8
   russian_modern:
+    planning_profile: russian_modern
     sat_optical_passes: 2
     sat_sar_passes: 1
     sat_quality: 0.7
@@ -108,6 +109,7 @@ doctrines:
     depth: 0.1
     morale_baseline: 0.7
   soviet:
+    planning_profile: soviet
     sat_optical_passes: 2
     sat_sar_passes: 0
     sat_quality: 0.55
@@ -137,6 +139,7 @@ doctrines:
     depth: 0.1
     morale_baseline: 0.7
   client:
+    planning_profile: client
     sat_optical_passes: 0
     sat_sar_passes: 0
     sat_quality: 0.0
@@ -166,6 +169,7 @@ doctrines:
     depth: 0.0
     morale_baseline: 0.6
   irregular:
+    planning_profile: irregular
     sat_optical_passes: 0
     sat_sar_passes: 0
     sat_quality: 0.0

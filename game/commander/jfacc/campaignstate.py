@@ -96,6 +96,8 @@ class SideCampaign:
     modifier_counters: dict[str, int] = field(default_factory=dict)
     #: Enemy aircraft the side's own sensors saw in the last period.
     enemy_sorties_seen: int = 0
+    #: Massed raids planned this period, for the UI.
+    raids: list[str] = field(default_factory=list)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})

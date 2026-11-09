@@ -99,6 +99,21 @@ class Timeline:
             )
             self.wave_load[index] = self.wave_load.get(index, 0) + 1
 
+    def unreserve(self, tot: datetime, position: Point) -> None:
+        """Undo a reservation (a raid echelon released when the raid fails)."""
+        for slot in self.slots:
+            if slot.tot == tot and slot.position.distance_to_point(position) < 1.0:
+                self.slots.remove(slot)
+                break
+        else:
+            return
+        waves = self.wave_times()
+        if waves:
+            index = min(
+                range(len(waves)), key=lambda i: abs((waves[i] - tot).total_seconds())
+            )
+            self.wave_load[index] = max(0, self.wave_load.get(index, 0) - 1)
+
     def relief_tots(self, on_station: timedelta, first: Optional[datetime] = None, overlap: timedelta = timedelta(minutes=5)) -> list[datetime]:
         """Station arrival times that keep a line continuous over the period."""
         tot = first or self.start + timedelta(minutes=10)

@@ -16,7 +16,8 @@ DEAD before it sends packages deep.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from typing import Any, Optional
 
 from .threat import RouteThreat
 
@@ -38,6 +39,37 @@ TRANSIT_ONLY = 0.35
 FRONT_LINE = 0.35
 #: Loss per sortie per unit of enemy fighter strength, unescorted.
 AIR_LOSS_PER_FIGHTER = 0.004
+#: Low-level ingress (Soviet-style doctrines): share of the radar SAM
+#: exposure left. Under the radar horizon and masked by terrain, long-range
+#: radar SAMs see the package late and briefly (the combat model applies the
+#: radar horizon, terrain masking and late acquisition).
+LOW_RADAR_FACTOR = 0.35
+#: Low-level ingress: exposure per short-range air defense site (guns,
+#: MANPADS, IR and radar SHORAD) near the track or the target.
+SHORAD_EXPOSURE = 0.012
+
+
+@dataclass(frozen=True)
+class RiskModel:
+    """The risk constants, overridable per planning profile (risk.model)."""
+
+    sam_exposure: float = SAM_EXPOSURE
+    max_sead_suppression: float = MAX_SEAD_SUPPRESSION
+    transit_only: float = TRANSIT_ONLY
+    front_line: float = FRONT_LINE
+    air_loss_per_fighter: float = AIR_LOSS_PER_FIGHTER
+    low_radar_factor: float = LOW_RADAR_FACTOR
+    shorad_exposure: float = SHORAD_EXPOSURE
+
+    @staticmethod
+    def from_profile(data: Optional[dict[str, Any]]) -> RiskModel:
+        if not data:
+            return RiskModel()
+        known = {f.name for f in fields(RiskModel)}
+        return RiskModel(**{k: float(v) for k, v in data.items() if k in known})
+
+
+DEFAULT_MODEL = RiskModel()
 
 
 @dataclass(frozen=True)
@@ -62,38 +94,54 @@ def estimate(
     own_aircrew: float = 1.0,
     standoff: bool = False,
     front_line: bool = False,
+    low_level: bool = False,
+    model: RiskModel = DEFAULT_MODEL,
 ) -> RiskEstimate:
     # --- SAMs: suppression from SEAD shooters (HARM) and stand-off jamming.
     # A HARM shooter covers more than one emitter (two missiles, plus
     # pre-emptive shots), so the shooters needed grow with half the weight.
     w = threat.sam_weight
+    if low_level:
+        # Radar SHORAD is counted with the guns below; the long-range radar
+        # SAMs see the package late, under their radar horizon.
+        w = max(0.0, w - threat.radar_shorad_weight) * model.low_radar_factor
     suppression = 1.0
     if w > 0:
         needed = 2 + w / 2
         coverage = min(1.0, sead_aircraft / needed)
-        suppression *= 1.0 - MAX_SEAD_SUPPRESSION * coverage
+        suppression *= 1.0 - model.max_sead_suppression * coverage
         if jammers > 0:
             suppression *= 0.8
     if standoff:
         # Stand-off weapons keep strikers out of the target-area defenses.
         suppression *= 0.6
     if not threat.target_defended:
-        suppression *= TRANSIT_ONLY
+        suppression *= model.transit_only
     if front_line:
-        suppression *= FRONT_LINE
+        suppression *= model.front_line
     exposure = (
-        SAM_EXPOSURE
+        model.sam_exposure
         * w
         * (1 + w)
         * threat.enemy_sam_crew
         * suppression
         / max(own_aircrew, 0.3)
     )
+    if low_level and threat.shorad_weight > 0:
+        # Guns and short-range missiles along the track and over the target:
+        # SEAD doesn't touch them, stand-off weapons stay outside them.
+        exposure += (
+            model.shorad_exposure
+            * threat.shorad_weight
+            * threat.enemy_sam_crew
+            * (0.3 if standoff else 1.0)
+            / max(own_aircrew, 0.3)
+        )
     sam = 1 - math.exp(-exposure)
 
     # --- Fighters: sweep and escort screen the strikers; AWACS gives warning.
     air = (
-        AIR_LOSS_PER_FIGHTER
+        model.air_loss_per_fighter
         * threat.air_strength
         * threat.enemy_aircrew
         / max(own_aircrew, 0.3)

@@ -1,0 +1,143 @@
+# Irregular forces (insurgents, militias, PMCs) air campaign planning profile.
+# Extends the client profile and replaces the campaign.
+#
+# Irregular air arms are a handful of helicopters and light attack aircraft.
+# They never contest the air. They fly in support of the fighters on the
+# ground, harass when the enemy is stretched, and hide when he isn't.
+# - No enablers, no CAP stations worth the name, no ground alert.
+# - Small packages (a pair), short notice, low level.
+# - Losses are accepted per sortie, but the force is tiny, so it is
+#   preserved quickly once it starts to shrink.
+
+extends: client
+name: irregular
+
+sorties:
+  mission_capable_rate: 0.5
+
+risk:
+  attrition_limit: 0.08
+  priority_multiplier:
+    troops_in_contact: 2.0
+    defense: 2.0
+    hvt: 1.5
+    routine: 1.0
+  absolute_limit: 0.16
+
+procurement:
+  replacements_per_squadron: 2
+  csar_ready: 0
+
+phases:
+  min_turns: 1
+  start: readiness
+  order: [readiness, survive, harass]
+
+  list:
+    readiness:
+      title: "Readiness"
+      family: posture
+      min_turns: 0
+      description: "Hide the aircraft and wait for the fight."
+      apportionment:
+        dca:          {share: 0.2, min: 0.0, max: 0.4}
+        support:      {share: 0.0, min: 0.0, max: 0.05}
+        sead:         {share: 0.0, min: 0.0, max: 0.0}
+        oca:          {share: 0.0, min: 0.0, max: 0.0}
+        strike:       {share: 0.0, min: 0.0, max: 0.05}
+        interdiction: {share: 0.2, min: 0.0, max: 0.3}
+        cas:          {share: 0.6, min: 0.3, max: 0.8}
+      target_weights: {iads: 0.1, air: 0.1, c2: 0.1, pol: 0.2, loc: 0.4, fielded: 1.0, naval: 0.2}
+      flags: {ground_stance: hold, cas_attrition: 0.2}
+      transitions:
+        - to: harass
+          when:
+            all:
+              - {moe: war_started, eq: true}
+              - {moe: min_force_ratio, ge: 1.0}
+        - to: survive
+          when: {moe: war_started, eq: true}
+
+    survive:
+      title: "Survive"
+      family: defensive
+      description: "Keep the fighters on the ground alive: CAS where they are attacked, nothing else."
+      apportionment:
+        dca:          {share: 0.15, min: 0.0, max: 0.3}
+        support:      {share: 0.0, min: 0.0, max: 0.05}
+        oca:          {share: 0.0, min: 0.0, max: 0.0}
+        sead:         {share: 0.0, min: 0.0, max: 0.0}
+        strike:       {share: 0.0, min: 0.0, max: 0.05}
+        interdiction: {share: 0.2, min: 0.0, max: 0.3}
+        cas:          {share: 0.65, min: 0.4, max: 0.85}
+      target_weights: {iads: 0.1, air: 0.1, c2: 0.1, pol: 0.2, loc: 0.5, fielded: 1.0, naval: 0.2}
+      flags:
+        ground_stance: defend
+        defense_priority: true
+        cas_attrition: 0.25
+        raid_style: none
+      transitions:
+        - to: harass
+          when: {moe: min_force_ratio, ge: 1.0, sustain: 2}
+
+    harass:
+      title: "Harass"
+      family: offensive
+      description: "Strike where the enemy is weak: pairs against his forces, convoys and depots near the front."
+      apportionment:
+        dca:          {share: 0.1, min: 0.0, max: 0.2}
+        support:      {share: 0.0, min: 0.0, max: 0.05}
+        oca:          {share: 0.0, min: 0.0, max: 0.05}
+        sead:         {share: 0.0, min: 0.0, max: 0.0}
+        strike:       {share: 0.1, min: 0.0, max: 0.2}
+        interdiction: {share: 0.3, min: 0.1, max: 0.4}
+        cas:          {share: 0.5, min: 0.3, max: 0.7}
+      target_weights: {iads: 0.1, air: 0.2, c2: 0.2, pol: 0.4, loc: 0.8, fielded: 1.0, naval: 0.2}
+      flags:
+        ground_stance: attack
+        cas_attrition: 0.25
+        raid_style: opportunistic
+      transitions:
+        - to: survive
+          when: {moe: min_force_ratio, lt: 0.8}
+
+  interrupts: []
+
+modifiers:
+  force_preservation:
+    description: "The few aircraft left stay hidden; only CAS for troops in contact."
+    hold_turns: 2
+    when: {moe: own_air_losses, ge: 0.4}
+    effects:
+      risk_scale: 0.5
+      raid_style: none
+      scale_categories: {strike: 0.0, interdiction: 0.3, dca: 0.5}
+
+packages:
+  sead_label: "anti-radiation support"
+  max_package_size: 4
+  max_strikers: 2
+  max_support_ratio: 1.0
+
+weaponeering:
+  guidance_preference:
+    clear_day:    [unguided, tv, laser]
+    clear_night:  [unguided]
+    under_cloud:  [unguided]
+
+dca:
+  max_axes: 1
+  qra_per_base: 0
+  hvaa_cap: false
+  point_defense: false
+
+enablers:
+  aewc_continuous: false
+  tanker_continuous: false
+  recovery_tanker: false
+
+ground_support:
+  main_effort_cas_lines: 1
+  supporting_cas_lines: 1
+  air_assault:
+    max_per_period: 0

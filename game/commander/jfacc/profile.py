@@ -621,16 +621,62 @@ def parse_profile(name: str, data: dict[str, Any]) -> PlanningProfile:
     )
 
 
-@cache
-def load_profile(name: str) -> Optional[PlanningProfile]:
-    if not name:
-        return None
+#: Top-level sections a profile that ``extends`` another replaces wholesale
+#: instead of merging key by key: a doctrine's phases and modifiers are its
+#: own, never a mix of two doctrines. A child that only adjusts its parent's
+#: phases says so with ``merge: true`` in the section.
+REPLACED_SECTIONS = {"phases", "modifiers", "overflow_order"}
+
+
+def merge_profiles(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """``override`` on top of ``base``: mappings merge key by key, anything
+    else (lists included) replaces; REPLACED_SECTIONS replace unless the
+    override sets ``merge: true`` in them."""
+
+    def merge(a: Any, b: Any, top: bool) -> Any:
+        if not (isinstance(a, dict) and isinstance(b, dict)):
+            return b
+        merged = dict(a)
+        for key, value in b.items():
+            if top and key in REPLACED_SECTIONS:
+                if isinstance(value, dict) and value.get("merge") and isinstance(a.get(key), dict):
+                    value = {k: v for k, v in value.items() if k != "merge"}
+                    merged[key] = merge(a[key], value, False)
+                else:
+                    merged[key] = value
+            else:
+                merged[key] = merge(a.get(key), value, False) if key in a else value
+        return merged
+
+    return merge(base, override, True)
+
+
+def load_profile_data(name: str, _chain: tuple[str, ...] = ()) -> Optional[dict[str, Any]]:
+    """The profile's YAML, with ``extends: <parent>`` resolved."""
+    if name in _chain:
+        raise ValueError(f"Planning profile inheritance loop: {' -> '.join(_chain + (name,))}")
     path = PROFILE_DIR / f"{name}.yaml"
     if not path.exists():
         logging.warning(f"Planning profile {name} not found at {path}")
         return None
     with path.open(encoding="utf-8") as data_file:
         data = yaml.safe_load(data_file) or {}
+    parent = data.pop("extends", None)
+    if parent:
+        base = load_profile_data(str(parent), _chain + (name,))
+        if base is None:
+            raise ValueError(f"Planning profile {name} extends unknown profile {parent}")
+        data = merge_profiles(base, data)
+    return data
+
+
+@cache
+def load_profile(name: str) -> Optional[PlanningProfile]:
+    if not name:
+        return None
+    data = load_profile_data(name)
+    if data is None:
+        return None
     return parse_profile(name, data)
 
 

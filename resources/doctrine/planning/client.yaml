@@ -1,0 +1,205 @@
+# Client-state air campaign planning profile (Soviet-trained air forces such as
+# Iraq, Iran, Syria, Libya and North Korea). Extends the Russian profile for
+# the Soviet-style package and weaponeering numbers, and replaces the
+# campaign.
+#
+# How these air forces fought:
+# - Air defense of the homeland first. Interceptors are tied to ground
+#   control and fly close to their bases under the SAM umbrella; the IADS does
+#   most of the work (Iraq 1991, Syria 1982).
+# - Offensive air is used sparingly: small raids against targets of
+#   opportunity and in support of the army when the balance allows (Iran and
+#   Iraq 1980-88, Egypt and Syria 1973 under their SAM umbrella).
+# - Low sortie rates and serviceability.
+# - When losing, the air force is preserved rather than fought out: aircraft
+#   in hardened shelters, or flown out of the theater (Iraq to Iran, 1991).
+#
+# Sources: GWAPS vol. II (Iraqi air force operations); Cooper & Bishop,
+# Iran-Iraq War in the Air; Nordeen, Air Warfare in the Missile Age.
+
+extends: russian_modern
+name: client
+
+sorties:
+  mission_capable_rate: 0.55
+  turnaround_hours:
+    fighter: 3.0
+    attack: 3.5
+    bomber: 6.0
+    support: 4.0
+    helicopter: 2.5
+
+risk:
+  attrition_limit: 0.06
+  priority_multiplier:
+    troops_in_contact: 2.5
+    defense: 2.5
+    hvt: 2.5
+    routine: 1.0
+  absolute_limit: 0.2
+  rollback_allowance:
+    limit: 0.15
+
+phases:
+  min_turns: 2
+  start: readiness
+  order: [readiness, homeland_air_defense, limited_offensive]
+
+  list:
+    readiness:
+      title: "Readiness"
+      family: posture
+      min_turns: 0
+      description: "Alert the air defense, disperse the air force, watch the border."
+      apportionment:
+        dca:          {share: 0.7, min: 0.5, max: 0.85}
+        support:      {share: 0.05, min: 0.0, max: 0.15}
+        sead:         {share: 0.0, min: 0.0, max: 0.05}
+        oca:          {share: 0.0, min: 0.0, max: 0.05}
+        strike:       {share: 0.0, min: 0.0, max: 0.05}
+        interdiction: {share: 0.05, min: 0.0, max: 0.1}
+        cas:          {share: 0.2, min: 0.0, max: 0.3}
+      target_weights: {iads: 0.3, air: 0.3, c2: 0.2, pol: 0.1, loc: 0.3, fielded: 0.8, naval: 0.4}
+      flags: {ground_stance: hold, cas_attrition: 0.3}
+      transitions:
+        - to: limited_offensive
+          when:
+            all:
+              - {moe: war_started, eq: true}
+              - {moe: air_superiority, ge: 1.3}
+              - {moe: min_force_ratio, ge: 1.2}
+        - to: homeland_air_defense
+          when: {moe: war_started, eq: true}
+
+    homeland_air_defense:
+      title: "Air defense of the homeland"
+      family: defensive
+      description: "Defend the homeland: interceptors on ground alert under GCI and the SAM umbrella, CAS for the army where the enemy attacks, raids only against targets of opportunity."
+      apportionment:
+        dca:          {share: 0.55, min: 0.4, max: 0.7}
+        support:      {share: 0.04, min: 0.0, max: 0.1}
+        oca:          {share: 0.02, min: 0.0, max: 0.08}
+        sead:         {share: 0.02, min: 0.0, max: 0.05}
+        strike:       {share: 0.02, min: 0.0, max: 0.05}
+        interdiction: {share: 0.1, min: 0.0, max: 0.2}
+        cas:          {share: 0.25, min: 0.1, max: 0.4}
+      target_weights: {iads: 0.3, air: 0.6, c2: 0.2, pol: 0.2, loc: 0.5, fielded: 1.0, naval: 0.5}
+      flags:
+        ground_stance: hold
+        defense_priority: true
+        cas_attrition: 0.35
+        raid_style: opportunistic
+      transitions:
+        - to: limited_offensive
+          when:
+            all:
+              - {moe: air_superiority, ge: 1.2, sustain: 2}
+              - {moe: min_force_ratio, ge: 1.2}
+
+    limited_offensive:
+      title: "Limited offensive"
+      family: offensive
+      description: "Limited offensive: support the army's attack with CAS and interdiction under the SAM umbrella, small raids on enemy airfields and forces."
+      apportionment:
+        dca:          {share: 0.35, min: 0.25, max: 0.5}
+        support:      {share: 0.03, min: 0.0, max: 0.08}
+        oca:          {share: 0.08, min: 0.0, max: 0.15}
+        sead:         {share: 0.04, min: 0.0, max: 0.1}
+        strike:       {share: 0.05, min: 0.0, max: 0.12}
+        interdiction: {share: 0.15, min: 0.05, max: 0.25}
+        cas:          {share: 0.3, min: 0.15, max: 0.45}
+      target_weights: {iads: 0.4, air: 0.6, c2: 0.3, pol: 0.3, loc: 0.6, fielded: 1.0, naval: 0.5}
+      flags:
+        ground_stance: attack
+        cas_attrition: 0.35
+        raid_style: opportunistic
+      transitions:
+        - to: homeland_air_defense
+          min_turns: 1
+          when:
+            any:
+              - {moe: air_superiority, le: 0.9}
+              - {moe: own_air_losses, ge: 0.25}
+
+    front_defense:
+      title: "Defense of the front"
+      family: defensive
+      description: "The enemy is attacking on the ground: CAS and interdiction against his main effort under the SAM umbrella."
+      apportionment:
+        dca:          {share: 0.4, min: 0.3, max: 0.55}
+        support:      {share: 0.03, min: 0.0, max: 0.08}
+        oca:          {share: 0.02, min: 0.0, max: 0.08}
+        sead:         {share: 0.02, min: 0.0, max: 0.05}
+        strike:       {share: 0.0, min: 0.0, max: 0.03}
+        interdiction: {share: 0.13, min: 0.05, max: 0.25}
+        cas:          {share: 0.4, min: 0.25, max: 0.55}
+      target_weights: {iads: 0.3, air: 0.5, c2: 0.2, pol: 0.2, loc: 0.6, fielded: 1.0, naval: 0.4}
+      flags:
+        ground_stance: hold
+        defense_priority: true
+        cas_attrition: 0.45
+        raid_style: none
+      transitions:
+        - to: $resume
+          min_turns: 0
+          when: {moe: min_force_ratio, ge: 1.0}
+
+  interrupts:
+    - to: front_defense
+      from_families: [posture, offensive, defensive]
+      when:
+        any:
+          - {moe: min_force_ratio, lt: 0.7}
+          - {moe: base_threatened, eq: true}
+
+modifiers:
+  # Iraq 1991: the air force stayed in its shelters and then fled to Iran
+  # rather than fight a losing battle.
+  force_preservation:
+    description: "Preserving the air force: aircraft in shelters, only interceptors under the SAM umbrella fly."
+    hold_turns: 3
+    when:
+      any:
+        - {moe: own_air_losses, ge: 0.2}
+        - {moe: air_superiority, le: 0.4}
+    effects:
+      dca_forward_scale: 0.3
+      cap_under_own_sam: true
+      risk_scale: 0.5
+      raid_style: none
+      scale_categories: {oca: 0.0, strike: 0.0, sead: 0.3, interdiction: 0.5, cas: 0.7}
+
+packages:
+  sead_label: "ARM support (Kh-25MP/Kh-58)"
+  threat_levels:
+    low:      {sweep: 0, escort: 0, sead: 0, jammer: 0}
+    medium:   {sweep: 0, escort: 2, sead: 0, jammer: 0}
+    high:     {sweep: 0, escort: 2, sead: 2, jammer: 0}
+    extreme:  {sweep: 2, escort: 2, sead: 2, jammer: 0}
+  max_package_size: 8
+  max_strikers: 4
+
+raids:
+  max_per_period: 0
+
+weaponeering:
+  weapons_per_aircraft: 4
+  guidance_preference:
+    clear_day:    [tv, laser, unguided]
+    clear_night:  [unguided]
+    under_cloud:  [unguided]
+
+dca:
+  station_forward_nm: [10, 30]
+  max_axes: 2
+  qra_per_base: 4
+  hvaa_cap: false
+
+ground_support:
+  main_effort_cas_lines: 2
+  supporting_cas_lines: 1
+  air_assault:
+    max_per_period: 1
+
+enablers:
+  tanker_continuous: false
