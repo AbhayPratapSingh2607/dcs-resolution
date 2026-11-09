@@ -1,0 +1,15 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: USMC Amphibious Ready Group (2015)
+description: >-
+  Modern MEU aviation: F-35B Lightning IIs (AV-8B if unavailable), AV-8B Harriers,
+  AH-1W SuperCobras and CH-53E / UH-1 transport helicopters.
+era: 2015
+side: blue
+groups:
+  - base: lha
+    squadrons:
+      - {aircraft: ["F-35B Lightning II", "AV-8B Harrier II Night Attack"], country: USA, primary: Strike, secondary: any, size: 6}
+      - {aircraft: ["AV-8B Harrier II Night Attack"], country: USA, primary: CAS, secondary: air-to-ground, size: 4}
+      - {aircraft: ["AH-1W SuperCobra", "AH-1J SeaCobra"], country: USA, primary: CAS, secondary: [BAI, Armed Recon, Escort], size: 4}
+      - {aircraft: ["CH-53E", "CH-47F Block I", "CH-47D"], country: USA, primary: Air Assault, secondary: [Transport], size: 4}
+      - {aircraft: ["UH-1H Iroquois", "UH-60L"], country: USA, primary: Transport, secondary: [Air Assault], size: 3}

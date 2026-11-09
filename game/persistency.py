@@ -377,6 +377,10 @@ def airwing_dir() -> Path:
     return _create_dir_if_needed(base_path() / "Retribution" / "AirWing")
 
 
+def airwing_presets_dir() -> Path:
+    return _create_dir_if_needed(base_path() / "Retribution" / "AirWingPresets")
+
+
 def kneeboards_dir() -> Path:
     return _create_dir_if_needed(base_path() / "Retribution" / "Kneeboards")
 

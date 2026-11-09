@@ -1,6 +1,7 @@
 # Retribution v1.6.0
 
 ## Features/Improvements
+* **[Air Wing]** Air wing presets: apply a ready-made air wing (US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a mixed-nation NATO coalition, Soviet and Russian air forces) in the new game Air Wing Configuration window. Squadrons are placed on suitable bases on any theater, and their aircraft are bought from the starting budget. Squadrons can come from different countries, and you can save your own air wing as a preset.
 * **[Modding]** Added support for the CurrentHill Iran Military Assets pack: the Shahed-136 launcher, two IRGCN fast-attack craft, and a new `[CH] Iran 2020` faction, behind a New Game mods checkbox. (#886)
 * **[Kneeboard]** Use a light-grey daytime kneeboard background instead of near-white, to avoid glare under HDR / Auto-HDR while staying readable in daylight.
 * **[UX]** Hovering a friendly flight's route line on the map highlights it in yellow, and clicking it selects that flight's package (and the flight) in the ATO sidebar.

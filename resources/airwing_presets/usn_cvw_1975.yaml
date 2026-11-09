@@ -1,0 +1,17 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: US Navy Carrier Air Wing (1975)
+description: >-
+  Post-Vietnam Nimitz-class air wing: two F-14A fighter squadrons, two A-7E light
+  attack squadrons, an A-6E medium attack squadron, EA-6B jammers and E-2C Hawkeyes.
+era: 1975
+side: blue
+groups:
+  - base: carrier
+    squadrons:
+      - {aircraft: ["F-14A Tomcat (Block 135-GR Early)", "F-14A Tomcat (AI)"], country: USA, primary: BARCAP, secondary: air-to-air, size: 12}
+      - {aircraft: ["F-14A Tomcat (Block 135-GR Early)", "F-14A Tomcat (AI)"], country: USA, primary: Escort, secondary: air-to-air, size: 12}
+      - {aircraft: ["A-7E Corsair II"], country: USA, primary: Strike, secondary: air-to-ground, size: 12}
+      - {aircraft: ["A-7E Corsair II"], country: USA, primary: CAS, secondary: air-to-ground, size: 12}
+      - {aircraft: ["A-6E Intruder", "A-6A Intruder"], country: USA, primary: Strike, secondary: air-to-ground, size: 10}
+      - {aircraft: ["EA-6B Prowler"], country: USA, primary: SEAD, secondary: [SEAD Escort, DEAD], size: 4}
+      - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
