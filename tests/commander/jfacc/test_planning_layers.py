@@ -340,7 +340,8 @@ def test_transit_and_front_line_reduce_exposure() -> None:
 
 def test_rollback_allowance_is_configured(profile) -> None:  # type: ignore[no-untyped-def]
     allowance = profile.section("risk")["rollback_allowance"]
-    assert "strategic" in allowance["phases"]
+    assert profile.phases[Phase.STRATEGIC].flag("rollback_allowance")
+    assert not profile.phases[Phase.BATTLEFIELD_PREP].flag("rollback_allowance")
     assert allowance["limit"] > profile.attrition_limit
 
 

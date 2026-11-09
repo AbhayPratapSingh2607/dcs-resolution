@@ -92,6 +92,10 @@ class TargetNominator:
 
     # ---------------------------------------------------------------- helpers
 
+    def _flag(self, name: str) -> bool:
+        spec = self.profile.phases.get(self.phase)
+        return bool(spec.flag(name, False)) if spec is not None else False
+
     def _picture_contact(self, tgo: object) -> Optional[object]:
         war_state = getattr(self.game, "war_state", None)
         if war_state is None or not war_state.intel_enabled(self.game):
@@ -110,7 +114,7 @@ class TargetNominator:
             return 1.0
         distance = min(target.distance_to(ref) for ref in refs)  # type: ignore[arg-type]
         # Strategic targets matter regardless of depth; others decay with it.
-        scale = 250 if self.phase in (Phase.STRATEGIC, Phase.POSTURE) else 120
+        scale = 250 if self._flag("strategic_reach") else 120
         return 0.4 + 0.6 * math.exp(-distance / (scale * NM))
 
     def _candidates(self) -> Iterator[MissionTarget]:
@@ -200,7 +204,7 @@ class TargetNominator:
         return confidence, stale
 
     def _risk_kind(self, target: MissionTarget, system: TargetSystem) -> str:
-        if self.phase is Phase.DEFENSE and system in (
+        if self._flag("defense_priority") and system in (
             TargetSystem.FIELDED,
             TargetSystem.LOC,
         ):

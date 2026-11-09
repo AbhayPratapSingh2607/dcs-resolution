@@ -56,6 +56,8 @@ class CampaignAssessment:
     fronts: list[FrontAssessment] = field(default_factory=list)
     #: True once the shooting has started.
     war_started: bool = True
+    #: Control points (bases, FOBs, carriers) the side holds.
+    own_bases: int = 0
 
     @property
     def main_effort(self) -> Optional[FrontAssessment]:
@@ -100,6 +102,7 @@ class CampaignAssessment:
             "enemy_ground_strength": self.enemy_ground_strength,
             "min_force_ratio": min(self.min_force_ratio, 99.0),
             "main_effort_force_ratio": min(self.main_effort_force_ratio, 99.0),
+            "own_bases": float(self.own_bases),
         }
 
 
@@ -290,4 +293,5 @@ def assess(game: Game, player: Player) -> CampaignAssessment:
         enemy_ground_strength=enemy_ground,
         fronts=fronts,
         war_started=game.turn >= 1,
+        own_bases=len(friendly_cps),
     )

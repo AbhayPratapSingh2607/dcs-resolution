@@ -57,21 +57,15 @@ risk:
     defense: 2.0
     hvt: 1.5
     routine: 1.0
-  # The opening phases are decisive and accept more risk (Desert Storm
-  # planners expected far higher losses in week one than they suffered).
-  phase_multiplier:
-    strategic: 1.5
-    sead_rollback: 1.25
   # Never accept above this regardless of priority.
   absolute_limit: 0.08
   # "Kicking down the door": against an intact IADS even the outermost SAM
   # sites are costly to attack, and nothing else can go deep until they are
-  # gone. In these phases DEAD against a SAM site whose route only faces the
+  # gone. In phases with the rollback_allowance flag, DEAD against a SAM site whose route only faces the
   # outer layer (route SAM weight at most max_route_weight, the target itself
   # excluded) may accept up to this limit. Deeper strikes keep the normal
   # limits until the rollback has thinned the IADS.
   rollback_allowance:
-    phases: [strategic, sead_rollback]
     limit: 0.10
     max_route_weight: 8
 
@@ -88,112 +82,173 @@ procurement:
   csar_ready: 4
 
 # --------------------------------------------------------------------- phases
-# Desert Storm style phasing. A phase stays active for at least min_turns and
-# changes when the MOE conditions of the next phase are met. DEFENSE overrides
-# any phase while the enemy has the initiative.
+# Desert Storm style phasing. Phases are data: each has a family (posture,
+# offensive, defensive), its apportionment, target-system weights, flags that
+# steer the planner, and ordered transitions tested against measures of
+# effectiveness (game/commander/jfacc/moes.py). A phase runs at least
+# min_turns before its transitions are checked. The defense interrupt takes
+# over from any posture or offensive phase while the enemy has the initiative;
+# "$resume" returns to the phase it left.
+#
+# Conditions: {moe: <name>, ge|gt|le|lt|eq|ne: <value>, sustain: <turns>},
+# combined with {all: [...]} or {any: [...]}.
+#
+# Flags:
+#   ground_stance      attack | hold (exploit overwhelming superiority only) | defend
+#   strategic_reach    deep targets keep their priority (no decay with depth)
+#   defense_priority   attacks on fielded forces and LOCs get the defense risk limit
+#   risk_multiplier    on the acceptable attrition limits; the opening phases
+#                      are decisive and accept more risk (Desert Storm planners
+#                      expected far higher losses in week one than they suffered)
+#   rollback_allowance DEAD on the outer SAM layer may use risk.rollback_allowance
+#   air_assault        helicopter assaults may be planned (ground_support.air_assault)
+#   cas_attrition      CAS is sized until the expected kills of the CAS flights
+#                      (from their actual loadouts, casestimate.py) reach this
+#                      share of the estimated enemy at the front in one period
 phases:
   min_turns: 2
+  start: posture
   order: [posture, strategic, sead_rollback, battlefield_prep, ground_offensive]
 
-  posture:
-    description: "Deter and posture: defensive counter-air, protect HVAA, build the picture."
-    apportionment:   # share of sorties, with [min, max] guard rails
-      dca:          {share: 0.55, min: 0.35, max: 0.8}
-      support:      {share: 0.2, min: 0.1, max: 0.3}
-      sead:         {share: 0.1, min: 0.0, max: 0.2}
-      oca:          {share: 0.0, min: 0.0, max: 0.1}
-      strike:       {share: 0.0, min: 0.0, max: 0.1}
-      interdiction: {share: 0.05, min: 0.0, max: 0.1}
-      cas:          {share: 0.1, min: 0.0, max: 0.4}
-    # Goes to the next phase when hostilities start (always after turn 0 in a
-    # Retribution campaign, so this phase is only used before the war starts).
-    advance_when: {war_started: true}
+  list:
+    posture:
+      title: "Phase 0: Posture"
+      family: posture
+      # Only used before the war starts (turn 0 of a Retribution campaign).
+      min_turns: 0
+      description: "Deter and posture: defensive counter-air, protect HVAA, build the picture."
+      apportionment:   # share of sorties, with [min, max] guard rails
+        dca:          {share: 0.55, min: 0.35, max: 0.8}
+        support:      {share: 0.2, min: 0.1, max: 0.3}
+        sead:         {share: 0.1, min: 0.0, max: 0.2}
+        oca:          {share: 0.0, min: 0.0, max: 0.1}
+        strike:       {share: 0.0, min: 0.0, max: 0.1}
+        interdiction: {share: 0.05, min: 0.0, max: 0.1}
+        cas:          {share: 0.1, min: 0.0, max: 0.4}
+      target_weights: {iads: 0.6, air: 0.2, c2: 0.2, pol: 0.1, loc: 0.1, fielded: 0.4, naval: 0.3}
+      flags: {ground_stance: hold, strategic_reach: true, cas_attrition: 0.3}
+      transitions:
+        - to: strategic
+          when: {moe: war_started, eq: true}
 
-  strategic:
-    description: "Phase I: strategic air campaign. Gain air superiority: strike C2, IADS nodes, airfields and the enemy air force."
-    apportionment:
-      dca:          {share: 0.25, min: 0.15, max: 0.35}
-      support:      {share: 0.08, min: 0.05, max: 0.15}
-      oca:          {share: 0.22, min: 0.1, max: 0.35}
-      sead:         {share: 0.25, min: 0.15, max: 0.4}
-      strike:       {share: 0.15, min: 0.05, max: 0.3}
-      interdiction: {share: 0.0, min: 0.0, max: 0.1}
-      cas:          {share: 0.05, min: 0.0, max: 0.3}
-    advance_when:
-      c2_degraded: 0.5          # share of IADS command/comms/power nodes down
-      air_superiority: 1.5      # own vs enemy fighter strength in theater
-      enemy_air_attrition: 0.25 # share of enemy fighters destroyed since phase start
+    strategic:
+      title: "Phase I: Strategic air campaign"
+      family: offensive
+      description: "Phase I: strategic air campaign. Gain air superiority: strike C2, IADS nodes, airfields and the enemy air force."
+      apportionment:
+        dca:          {share: 0.25, min: 0.15, max: 0.35}
+        support:      {share: 0.08, min: 0.05, max: 0.15}
+        oca:          {share: 0.22, min: 0.1, max: 0.35}
+        sead:         {share: 0.25, min: 0.15, max: 0.4}
+        strike:       {share: 0.15, min: 0.05, max: 0.3}
+        interdiction: {share: 0.0, min: 0.0, max: 0.1}
+        cas:          {share: 0.05, min: 0.0, max: 0.3}
+      target_weights: {iads: 0.9, air: 1.0, c2: 1.0, pol: 0.5, loc: 0.3, fielded: 0.3, naval: 0.6}
+      flags:
+        ground_stance: hold
+        strategic_reach: true
+        risk_multiplier: 1.5
+        rollback_allowance: true
+        cas_attrition: 0.3
+      transitions:
+        - to: sead_rollback
+          when:
+            all:
+              - {moe: c2_degraded, ge: 0.5}          # IADS command/comms/power nodes down
+              - {moe: air_superiority, ge: 1.5}      # own vs enemy fighter strength
+              - {moe: enemy_air_attrition, ge: 0.25} # enemy fighters destroyed since phase start
 
-  sead_rollback:
-    description: "Phase II: SEAD rollback. Destroy SAMs over the battle area so strike and CAS can work at medium altitude."
-    apportionment:
-      dca:          {share: 0.15, min: 0.1, max: 0.3}
-      support:      {share: 0.08, min: 0.05, max: 0.15}
-      oca:          {share: 0.07, min: 0.0, max: 0.2}
-      sead:         {share: 0.4, min: 0.25, max: 0.55}
-      strike:       {share: 0.12, min: 0.05, max: 0.25}
-      interdiction: {share: 0.13, min: 0.0, max: 0.25}
-      cas:          {share: 0.05, min: 0.0, max: 0.3}
-    advance_when:
-      iads_effectiveness_below: 0.35  # share of known battle-area MERAD/LORAD still alive
-      air_superiority: 1.5
+    sead_rollback:
+      title: "Phase II: SEAD rollback"
+      family: offensive
+      description: "Phase II: SEAD rollback. Destroy SAMs over the battle area so strike and CAS can work at medium altitude."
+      apportionment:
+        dca:          {share: 0.15, min: 0.1, max: 0.3}
+        support:      {share: 0.08, min: 0.05, max: 0.15}
+        oca:          {share: 0.07, min: 0.0, max: 0.2}
+        sead:         {share: 0.4, min: 0.25, max: 0.55}
+        strike:       {share: 0.12, min: 0.05, max: 0.25}
+        interdiction: {share: 0.13, min: 0.0, max: 0.25}
+        cas:          {share: 0.05, min: 0.0, max: 0.3}
+      target_weights: {iads: 1.0, air: 0.5, c2: 0.6, pol: 0.4, loc: 0.5, fielded: 0.5, naval: 0.5}
+      flags:
+        ground_stance: hold
+        risk_multiplier: 1.25
+        rollback_allowance: true
+        cas_attrition: 0.3
+      transitions:
+        - to: battlefield_prep
+          when:
+            all:
+              - {moe: iads_remaining, le: 0.35}  # known battle-area MERAD/LORAD still alive
+              - {moe: air_superiority, ge: 1.5}
 
-  battlefield_prep:
-    description: "Phase III: battlefield preparation. Attrit fielded forces, isolate the battlefield, cut LOCs."
-    apportionment:
-      dca:          {share: 0.12, min: 0.08, max: 0.25}
-      support:      {share: 0.08, min: 0.05, max: 0.15}
-      oca:          {share: 0.05, min: 0.0, max: 0.15}
-      sead:         {share: 0.15, min: 0.08, max: 0.3}
-      strike:       {share: 0.08, min: 0.0, max: 0.2}
-      interdiction: {share: 0.4, min: 0.25, max: 0.55}
-      cas:          {share: 0.12, min: 0.05, max: 0.4}
-    advance_when:
-      enemy_ground_attrition: 0.35   # share of enemy front-line strength destroyed
-      force_ratio: 1.5               # own vs enemy at the main-effort front
+    battlefield_prep:
+      title: "Phase III: Battlefield preparation"
+      family: offensive
+      description: "Phase III: battlefield preparation. Attrit fielded forces, isolate the battlefield, cut LOCs."
+      apportionment:
+        dca:          {share: 0.12, min: 0.08, max: 0.25}
+        support:      {share: 0.08, min: 0.05, max: 0.15}
+        oca:          {share: 0.05, min: 0.0, max: 0.15}
+        sead:         {share: 0.15, min: 0.08, max: 0.3}
+        strike:       {share: 0.08, min: 0.0, max: 0.2}
+        interdiction: {share: 0.4, min: 0.25, max: 0.55}
+        cas:          {share: 0.12, min: 0.05, max: 0.4}
+      target_weights: {iads: 0.6, air: 0.3, c2: 0.4, pol: 0.6, loc: 0.9, fielded: 1.0, naval: 0.4}
+      flags: {ground_stance: attack, cas_attrition: 0.3}
+      transitions:
+        - to: ground_offensive
+          when:
+            all:
+              - {moe: enemy_ground_attrition, ge: 0.35}   # enemy front-line strength destroyed
+              - {moe: main_effort_force_ratio, ge: 1.5}
 
-  ground_offensive:
-    description: "Phase IV: support the ground offensive. CAS and kill box interdiction ahead of the main effort."
-    apportionment:
-      dca:          {share: 0.1, min: 0.08, max: 0.25}
-      support:      {share: 0.08, min: 0.05, max: 0.15}
-      oca:          {share: 0.04, min: 0.0, max: 0.15}
-      sead:         {share: 0.13, min: 0.08, max: 0.25}
-      strike:       {share: 0.05, min: 0.0, max: 0.15}
-      interdiction: {share: 0.25, min: 0.15, max: 0.4}
-      cas:          {share: 0.35, min: 0.2, max: 0.55}
-    advance_when: {}
+    ground_offensive:
+      title: "Phase IV: Ground offensive"
+      family: offensive
+      description: "Phase IV: support the ground offensive. CAS and kill box interdiction ahead of the main effort."
+      apportionment:
+        dca:          {share: 0.1, min: 0.08, max: 0.25}
+        support:      {share: 0.08, min: 0.05, max: 0.15}
+        oca:          {share: 0.04, min: 0.0, max: 0.15}
+        sead:         {share: 0.13, min: 0.08, max: 0.25}
+        strike:       {share: 0.05, min: 0.0, max: 0.15}
+        interdiction: {share: 0.25, min: 0.15, max: 0.4}
+        cas:          {share: 0.35, min: 0.2, max: 0.55}
+      target_weights: {iads: 0.5, air: 0.2, c2: 0.3, pol: 0.4, loc: 0.8, fielded: 1.0, naval: 0.3}
+      flags: {ground_stance: attack, air_assault: true, cas_attrition: 0.4}
 
-  defense:
-    description: "Defense: blunt the enemy offensive. DCA and HVAA protection, then CAS/BAI against the enemy main effort, then OCA against the airfields generating enemy sorties."
-    apportionment:
-      dca:          {share: 0.32, min: 0.2, max: 0.5}
-      support:      {share: 0.08, min: 0.05, max: 0.15}
-      oca:          {share: 0.1, min: 0.0, max: 0.2}
-      sead:         {share: 0.12, min: 0.05, max: 0.25}
-      strike:       {share: 0.0, min: 0.0, max: 0.1}
-      interdiction: {share: 0.13, min: 0.05, max: 0.3}
-      cas:          {share: 0.25, min: 0.15, max: 0.5}
-    enter_when:
-      force_ratio_below: 0.8        # own vs enemy at any front
-      enemy_offensive_warning: true # agency/ISR warning of an attack
-      base_threatened: true         # enemy ground forces within capture distance
-    leave_when:
-      force_ratio_above: 1.1
-      quiet_turns: 1
+    defense:
+      title: "Defense"
+      family: defensive
+      description: "Defense: blunt the enemy offensive. DCA and HVAA protection, then CAS/BAI against the enemy main effort, then OCA against the airfields generating enemy sorties."
+      apportionment:
+        dca:          {share: 0.32, min: 0.2, max: 0.5}
+        support:      {share: 0.08, min: 0.05, max: 0.15}
+        oca:          {share: 0.1, min: 0.0, max: 0.2}
+        sead:         {share: 0.12, min: 0.05, max: 0.25}
+        strike:       {share: 0.0, min: 0.0, max: 0.1}
+        interdiction: {share: 0.13, min: 0.05, max: 0.3}
+        cas:          {share: 0.25, min: 0.15, max: 0.5}
+      target_weights: {iads: 0.4, air: 0.6, c2: 0.2, pol: 0.3, loc: 0.7, fielded: 1.0, naval: 0.5}
+      flags: {ground_stance: hold, defense_priority: true, cas_attrition: 0.5}
+      transitions:
+        - to: $resume
+          min_turns: 0
+          when: {moe: min_force_ratio, ge: 1.1}
+
+  interrupts:
+    - to: defense
+      from_families: [posture, offensive]
+      when:
+        any:
+          - {moe: min_force_ratio, lt: 0.8}        # outnumbered at any front
+          - {moe: offensive_warning, eq: true}     # agency/ISR warning of an attack
+          - {moe: base_threatened, eq: true}       # enemy ground forces within capture distance
 
 # Order in which unused apportionment flows to other categories.
 overflow_order: [dca, sead, cas, interdiction, oca, strike, support]
-
-# ------------------------------------------------------------- target systems
-# Weight of each target system per phase, for JIPTL ranking.
-target_system_weights:
-  posture:          {iads: 0.6, air: 0.2, c2: 0.2, pol: 0.1, loc: 0.1, fielded: 0.4, naval: 0.3}
-  strategic:        {iads: 0.9, air: 1.0, c2: 1.0, pol: 0.5, loc: 0.3, fielded: 0.3, naval: 0.6}
-  sead_rollback:    {iads: 1.0, air: 0.5, c2: 0.6, pol: 0.4, loc: 0.5, fielded: 0.5, naval: 0.5}
-  battlefield_prep: {iads: 0.6, air: 0.3, c2: 0.4, pol: 0.6, loc: 0.9, fielded: 1.0, naval: 0.4}
-  ground_offensive: {iads: 0.5, air: 0.2, c2: 0.3, pol: 0.4, loc: 0.8, fielded: 1.0, naval: 0.3}
-  defense:          {iads: 0.4, air: 0.6, c2: 0.2, pol: 0.3, loc: 0.7, fielded: 1.0, naval: 0.5}
 
 # Desired effect per target class: share of the target destroyed before it is
 # considered serviced. Below the restrike threshold it is struck again.
@@ -325,16 +380,10 @@ ground_support:
   # Main effort fronts get this many more CAS lines than supporting fronts.
   main_effort_cas_lines: 2
   supporting_cas_lines: 1
-  # CAS is sized to the desired effect on the forces in contact: CAS vul
-  # windows are tasked until the expected kills of the CAS flights (from
-  # their actual loadouts, game/commander/jfacc/casestimate.py) reach this
-  # share of the estimated enemy at the front in one period.
-  cas_attrition_per_period: {default: 0.3, ground_offensive: 0.4, defense: 0.5}
   # Air assault: helicopter-borne troops seize enemy bases ahead of the main
-  # effort. Only once the ground offensive is under way, with air superiority,
+  # effort. Only in phases with the air_assault flag, with air superiority,
   # and only into landing zones outside known radar SAM coverage.
   air_assault:
-    phases: [ground_offensive]
     max_per_period: 2
     lift_size: 2
     min_air_superiority: 1.5

@@ -161,6 +161,8 @@ class PackageComposer:
         self.risk_multiplier = 1.0
         #: Campaign phase name, for phase-specific risk rules.
         self.phase_name = ""
+        #: The phase allows the outer-layer rollback risk allowance.
+        self.rollback_allowed = False
 
     # ----------------------------------------------------------- analysis
 
@@ -621,7 +623,7 @@ class PackageComposer:
         from game.theater.theatergroundobject import SamGroundObject
 
         allowance = self.profile.section("risk").get("rollback_allowance") or {}
-        if self.phase_name not in allowance.get("phases", []):
+        if not self.rollback_allowed:
             return 0.0
         if not isinstance(request.target, SamGroundObject):
             return 0.0

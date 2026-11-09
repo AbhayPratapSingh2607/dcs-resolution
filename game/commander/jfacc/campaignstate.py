@@ -52,6 +52,10 @@ class PhaseChange:
     phase: Phase
     reason: str
 
+    @property
+    def title(self) -> str:
+        return self.phase.title
+
 
 @dataclass
 class SideCampaign:
@@ -76,9 +80,32 @@ class SideCampaign:
     scrubbed: list[tuple[str, str]] = field(default_factory=list)
     #: Fighters held on ground alert this period, for the UI.
     qra: list[str] = field(default_factory=list)
+    #: Planning profile the phase belongs to.
+    profile_name: str = ""
+    #: Phase an interrupt left, resumed when the interrupt is over.
+    resume_phase: str = ""
+    #: Consecutive turns each sustained condition has held, by condition key.
+    #: Reset on every phase change.
+    condition_counters: dict[str, int] = field(default_factory=dict)
+    #: Baselines captured once, when the side first planned (campaign-long
+    #: MOEs such as own losses and bases lost).
+    campaign_baseline: dict[str, float] = field(default_factory=dict)
+    #: Modifiers active this period, with the turn they last triggered.
+    modifiers: dict[str, int] = field(default_factory=dict)
+    #: Sustain counters of modifier conditions (kept across phase changes).
+    modifier_counters: dict[str, int] = field(default_factory=dict)
+    #: Enemy aircraft the side's own sensors saw in the last period.
+    enemy_sorties_seen: int = 0
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})
+        # Saves from before phases were data kept the phase to resume after
+        # DEFENSE as an index into the Western phase order.
+        legacy_resume = self.baseline.pop("resume_phase", None)
+        if legacy_resume is not None and not self.resume_phase:
+            order = ["posture", "strategic", "sead_rollback", "battlefield_prep", "ground_offensive"]
+            index = min(max(int(legacy_resume), 0), len(order) - 1)
+            self.resume_phase = order[index]
 
     def record(self, key: str, name: str, turn: int) -> TargetRecord:
         record = self.targets.get(key)
@@ -87,12 +114,17 @@ class SideCampaign:
             self.targets[key] = record
         return record
 
+    @property
+    def phase_title(self) -> str:
+        return self.phase.title
+
     def change_phase(self, phase: Phase, turn: int, reason: str) -> None:
         self.phase = phase
         self.phase_since_turn = turn
         self.history.append(PhaseChange(turn, phase, reason))
         self.baseline = {}
         self.quiet_turns = 0
+        self.condition_counters = {}
 
 
 @dataclass

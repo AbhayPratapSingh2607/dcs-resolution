@@ -32,7 +32,6 @@ from .groundsupport import cas_lines, kill_boxes
 from .phases import PhaseManager
 from .profile import (
     Category,
-    Phase,
     PhaseSpec,
     PlanningProfile,
     category_for_task,
@@ -190,6 +189,7 @@ class JfaccPlanner:
         )
         self.phase = decision.phase
         self.spec = self.profile.phases[self.phase]
+        self.modifiers = decision.modifiers
         self.side.moes = self.assessment.as_dict()
 
         end = now + timedelta(hours=period_hours(game, self.profile))
@@ -227,9 +227,8 @@ class JfaccPlanner:
             self.conditions,
             aewc_available=self.coalition.air_wing.can_auto_plan(FlightType.AEWC),
         )
-        self.composer.risk_multiplier = float(
-            self.profile.section("risk").get("phase_multiplier", {}).get(self.phase.value, 1.0)
-        )
+        self.composer.risk_multiplier = float(self.spec.flag("risk_multiplier", 1.0))
+        self.composer.rollback_allowed = bool(self.spec.flag("rollback_allowance", False))
         self.composer.phase_name = self.phase.value
 
         if planning_allowed:
@@ -272,15 +271,16 @@ class JfaccPlanner:
         )
         from game.commander.tasks.primitive.retreatstance import RetreatStance
 
-        attack_ok = self.phase in (Phase.GROUND_OFFENSIVE, Phase.BATTLEFIELD_PREP)
+        stance = str(self.spec.flag("ground_stance", "hold"))
         for front in list(self.state.active_front_lines):
             options: list[type] = []
-            if attack_ok:
+            if stance == "attack":
                 options += [BreakthroughAttack, EliminationAttack, AggressiveAttack]
-            else:
+            elif stance == "hold":
                 # Before the ground offensive the land component holds, and
                 # only exploits overwhelming local superiority.
                 options += [EliminationAttack]
+            # "defend": no attacks at all.
             options += [DefensiveStance, RetreatStance]
             for task_type in options:
                 task = task_type(front, self.player)
@@ -718,13 +718,7 @@ class JfaccPlanner:
         windows.sort(key=lambda w: w[0])
         # Desired effect against the fielded forces in contact: enough CAS to
         # attrit them by the doctrine share this period, and no more.
-        attrition = gs.get("cas_attrition_per_period", {})
-        if isinstance(attrition, dict):
-            share = float(
-                attrition.get(self.side.phase.value, attrition.get("default", 0.35))
-            )
-        else:
-            share = float(attrition)
+        share = float(self.spec.flag("cas_attrition", 0.35))
         # Desired kills per front, against the expected kills of the CAS
         # flights already tasked (from their actual loadouts).
         wanted = {
@@ -784,7 +778,7 @@ class JfaccPlanner:
         from .threat import LEVELS
 
         cfg = self.profile.section("ground_support").get("air_assault") or {}
-        if self.phase.value not in cfg.get("phases", []):
+        if not self.spec.flag("air_assault", False):
             return
         if not self.coalition.air_wing.can_auto_plan(FlightType.AIR_ASSAULT):
             return
@@ -857,6 +851,13 @@ class JfaccPlanner:
         Category.INTERDICTION: 2,
     }
 
+    def _wave_preference(self, category: Category) -> Optional[int]:
+        table = self.spec.flag("wave_preference")
+        if isinstance(table, dict):
+            value = table.get(category.value)
+            return None if value is None else int(value)
+        return self.WAVE_PREFERENCE.get(category)
+
     def _plan_jiptl(self) -> None:
         from game.theater.theatergroundobject import SamGroundObject
 
@@ -869,7 +870,7 @@ class JfaccPlanner:
             if not self.coalition.air_wing.can_auto_plan(nomination.mission):
                 continue
             tot = self.timeline.strike_tot(
-                nomination.target.position, self.WAVE_PREFERENCE.get(category)
+                nomination.target.position, self._wave_preference(category)
             )
             if tot is None:
                 continue
