@@ -220,14 +220,22 @@ Ways to make the window feel like the middle of a war without many more units.
 Found by going through what the branch already does. Each one assumes today's 6 h
 period, or interacts with the new starts.
 
-- [ ] **F25. The window picker and pre-window fighting.** Today **Take off** asks which
+- [x] **F25. The window picker and pre-window fighting.** Done 2026-11-09: in a focused
+  turn there's no picker, and nothing is planned after the window, so `defer_after_window`
+  and `resolve_remainder` find nothing to do. `advance_to_window` stays: it flies the
+  lead-in. The ATO list and timeline count offsets from mission start ("-0:10" is in the
+  lead-in), the **DCS** badge and the "outside the DCS window" dimming are gone, and the
+  timeline runs on to the last landing. Today **Take off** asks which
   window of the period to fly (a 15-minute slider in `QTopPanel.py`). The combat model fights
   everything before it (`advance_to_window`) and after it (`resolve_remainder`).
   - In focused mode the window is the turn, so the slider and both of those steps go.
   - Keep them for the 6 h "theater" option.
   - The ATO timeline shows the window and the run-out after it (F5) instead of 6 h. The
     **DCS** badge on package rows is no longer needed.
-- [ ] **F26. Second sorties and turnaround.**
+- [x] **F26. Second sorties and turnaround.** Checked 2026-11-09: with a 90-minute period
+  the ledger gives one sortie per airframe (turnaround 2 h is longer than the period), and
+  the focused e2e runs planned 0 second sorties. A 150-minute window can still reuse a
+  helicopter (1.5 h turnaround). Counting returning flights' airframes moves to F3.
   - Turnaround is 2 h for fighters and 4 h for bombers, longer than most windows, so
     second sorties (`sorties.py`, `max_sorties_per_airframe`) mostly disappear. Keep them
     only when the window is long enough (e.g. 150 min).
@@ -549,7 +557,7 @@ generated mission lands, and tick items once they're flown. Report problems with
 ## Suggested order
 
 0. ~~**Quick fixes first:** item 5, F29, item 7.~~ Done 2026-11-09.
-1. **Turn model:** ~~F1, F6, F7~~ done; F2 partly. Still: F25 and F26 (focused period, timeline in the
+1. **Turn model:** ~~F1, F6, F7, F25, F26~~ done; F2 partly. Was: F25 and F26 (focused period, timeline in the
    window, ~10 packages, one CAP per axis, window picker and second sorties). This is
    where most of the reduction comes from.
 2. **Mixed starts and life after the window:** F3, F4, F5, F30 and F32. This is the core

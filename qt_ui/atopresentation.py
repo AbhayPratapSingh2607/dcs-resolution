@@ -106,7 +106,7 @@ def sort_key(package: Package) -> tuple[int, datetime]:
 
 
 def short_aircraft_name(flight: Flight) -> str:
-    """"F-15E Strike Eagle (Suite 4+)" -> "F-15E"."""
+    """ "F-15E Strike Eagle (Suite 4+)" -> "F-15E"."""
     name = str(getattr(flight.unit_type, "display_name", flight.unit_type))
     return name.split(" ")[0] if name else "?"
 
@@ -123,12 +123,17 @@ def flight_role(flight: Flight) -> str:
 
 
 def is_support(flight: Flight) -> bool:
-    return flight.flight_type in SUPPORT_ROLES and flight.package.primary_flight is not flight
+    return (
+        flight.flight_type in SUPPORT_ROLES
+        and flight.package.primary_flight is not flight
+    )
 
 
 def composition(package: Package) -> str:
     """Main flights first, then support: "4× F-15E Strike · 2× F-16CM SEAD"."""
-    flights = sorted(package.flights, key=lambda f: (is_support(f), f.flight_type.value))
+    flights = sorted(
+        package.flights, key=lambda f: (is_support(f), f.flight_type.value)
+    )
     return " · ".join(
         f"{f.count}× {short_aircraft_name(f)} {flight_role(f)}" for f in flights
     )
@@ -205,8 +210,18 @@ def period_bounds(game: Game) -> tuple[datetime, datetime]:
     from game.sim import atoperiod
 
     bounds = atoperiod.period(game)
-    if bounds is not None:
+    if bounds is not None and not atoperiod.is_focused(game):
         return bounds
+    if bounds is not None:
+        # Focused turn: the lead-in, the mission, and the run-out after it
+        # while flights finish their legs and land.
+        start, end = bounds
+        for coalition in (game.blue, game.red):
+            for package in coalition.ato.packages:
+                _, last = package_span(package)
+                if last is not None and last > end:
+                    end = last
+        return start, end
     start = game.conditions.start_time
     end = start + game.settings.desired_player_mission_duration
     for coalition in (game.blue, game.red):
@@ -218,8 +233,12 @@ def period_bounds(game: Game) -> tuple[datetime, datetime]:
 
 
 def offset_text(game: Game, when: datetime) -> str:
-    """"+1:25": time into the ATO period."""
-    start, _ = period_bounds(game)
+    """ "+1:25": time into the ATO period, or from mission start in a focused
+    turn ("-0:10" is during the lead-in)."""
+    from game.sim import atoperiod
+
+    window = atoperiod.window(game) if atoperiod.is_focused(game) else None
+    start = window[0] if window is not None else period_bounds(game)[0]
     minutes = int((when - start) / timedelta(minutes=1))
     sign = "-" if minutes < 0 else "+"
     minutes = abs(minutes)
@@ -233,9 +252,12 @@ def dcs_window(game: Game) -> Optional[tuple[datetime, datetime]]:
 
 
 def in_dcs_window(game: Game, package: Package) -> Optional[bool]:
-    """Whether the package flies in the DCS window; None without a period."""
+    """Whether the package flies in the DCS window; None without a period
+    or in a focused turn (where the whole plan is the mission)."""
+    from game.sim import atoperiod
+
     bounds = dcs_window(game)
-    if bounds is None:
+    if bounds is None or atoperiod.is_focused(game):
         return None
     first, last = package_span(package)
     if first is None or last is None:
@@ -281,7 +303,11 @@ def risk_badge(package: Package) -> Optional[RiskBadge]:
     if not risk or "estimate" not in risk:
         return None
     estimate = float(risk["estimate"])
-    level = "low" if estimate < RISK_MEDIUM else "medium" if estimate < RISK_HIGH else "high"
+    level = (
+        "low"
+        if estimate < RISK_MEDIUM
+        else "medium" if estimate < RISK_HIGH else "high"
+    )
     limit = risk.get("limit")
     return RiskBadge(estimate, level, float(limit) if limit is not None else None)
 
@@ -316,7 +342,11 @@ def package_tooltip(game: Game, package: Package) -> str:
         lines.append(e(package.planning_rationale))
     window = in_dcs_window(game, package)
     if window is not None:
-        lines.append("Flies in the DCS window" if window else "Resolved by the combat model (outside the DCS window)")
+        lines.append(
+            "Flies in the DCS window"
+            if window
+            else "Resolved by the combat model (outside the DCS window)"
+        )
     lines.append("")
     for flight in package.flights:
         lines.append(

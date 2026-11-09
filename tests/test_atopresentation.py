@@ -45,7 +45,9 @@ class _Plan:
         return self._land
 
 
-def _flight(task: FlightType, count: int, name: str, plan: Any, jammer: bool = False) -> Any:
+def _flight(
+    task: FlightType, count: int, name: str, plan: Any, jammer: bool = False
+) -> Any:
     return SimpleNamespace(
         flight_type=task,
         count=count,
@@ -57,7 +59,9 @@ def _flight(task: FlightType, count: int, name: str, plan: Any, jammer: bool = F
 
 
 class _Package:
-    def __init__(self, task: FlightType, target: str, *flights: Any, tot: int = 60) -> None:
+    def __init__(
+        self, task: FlightType, target: str, *flights: Any, tot: int = 60
+    ) -> None:
         self.flights = list(flights)
         for f in self.flights:
             f.package = self
@@ -83,7 +87,8 @@ def _game(*blue: _Package) -> Any:
     state = AirCampaignState()
     state.note_period(1, START, START + timedelta(hours=6))
     coalition = lambda packages: SimpleNamespace(  # noqa: E731
-        ato=SimpleNamespace(packages=list(packages)), player=SimpleNamespace(is_blue=True)
+        ato=SimpleNamespace(packages=list(packages)),
+        player=SimpleNamespace(is_blue=True),
     )
     return SimpleNamespace(
         turn=1,
@@ -115,7 +120,9 @@ def _game(*blue: _Package) -> Any:
     ],
 )
 def test_package_groups(task: FlightType, group: str) -> None:
-    package = _Package(task, "X", _flight(task, 2, "F-16CM Fighting Falcon", _Plan(0, 10, 60, 90)))
+    package = _Package(
+        task, "X", _flight(task, 2, "F-16CM Fighting Falcon", _Plan(0, 10, 60, 90))
+    )
     assert ap.package_group(package).key == group  # type: ignore[arg-type]
 
 
@@ -144,13 +151,24 @@ def test_key_times_survive_plans_without_landing_time() -> None:
 
 
 def test_patrol_window_is_reported() -> None:
-    flight = _flight(FlightType.BARCAP, 2, "F-16CM", _Plan(0, 10, 30, 120, patrol=(30, 100)))
+    flight = _flight(
+        FlightType.BARCAP, 2, "F-16CM", _Plan(0, 10, 30, 120, patrol=(30, 100))
+    )
     assert "On station 06:30–07:40" in ap.flight_times_text(flight)
 
 
 def test_offsets_and_dcs_window() -> None:
-    early = _Package(FlightType.STRIKE, "A", _flight(FlightType.STRIKE, 2, "F-15E", _Plan(0, 10, 40, 70)))
-    late = _Package(FlightType.STRIKE, "B", _flight(FlightType.STRIKE, 2, "F-15E", _Plan(200, 210, 250, 290)), tot=250)
+    early = _Package(
+        FlightType.STRIKE,
+        "A",
+        _flight(FlightType.STRIKE, 2, "F-15E", _Plan(0, 10, 40, 70)),
+    )
+    late = _Package(
+        FlightType.STRIKE,
+        "B",
+        _flight(FlightType.STRIKE, 2, "F-15E", _Plan(200, 210, 250, 290)),
+        tot=250,
+    )
     game = _game(early, late)
     assert ap.offset_text(game, START + timedelta(minutes=85)) == "+1:25"
     game.air_campaign.window_offset_min = 180
@@ -159,7 +177,11 @@ def test_offsets_and_dcs_window() -> None:
 
 
 def test_risk_badges() -> None:
-    package = _Package(FlightType.STRIKE, "A", _flight(FlightType.STRIKE, 2, "F-15E", _Plan(0, 10, 40, 70)))
+    package = _Package(
+        FlightType.STRIKE,
+        "A",
+        _flight(FlightType.STRIKE, 2, "F-15E", _Plan(0, 10, 40, 70)),
+    )
     assert ap.risk_badge(package) is None  # type: ignore[arg-type]
     for estimate, level in ((0.01, "low"), (0.03, "medium"), (0.09, "high")):
         package.planning_risk = {"estimate": estimate, "limit": 0.03}
@@ -168,8 +190,17 @@ def test_risk_badges() -> None:
 
 
 def test_tooltip_uses_structured_info() -> None:
-    package = _Package(FlightType.DEAD, "SA-11 Krymsk", _flight(FlightType.DEAD, 4, "F-16CM", _Plan(0, 10, 40, 70)))
-    package.planning_info = {"phase": "Phase II", "reason": "Roll back the IADS", "threat": "high", "notes": []}
+    package = _Package(
+        FlightType.DEAD,
+        "SA-11 Krymsk",
+        _flight(FlightType.DEAD, 4, "F-16CM", _Plan(0, 10, 40, 70)),
+    )
+    package.planning_info = {
+        "phase": "Phase II",
+        "reason": "Roll back the IADS",
+        "threat": "high",
+        "notes": [],
+    }
     package.planning_risk = {"estimate": 0.04}
     text = ap.package_tooltip(_game(package), package)  # type: ignore[arg-type]
     assert "Roll back the IADS" in text and "Phase II" in text and "4.0%" in text
@@ -177,14 +208,51 @@ def test_tooltip_uses_structured_info() -> None:
 
 def test_relief_chains_share_a_lane() -> None:
     plan = lambda a: _Plan(a, a + 10, a + 30, a + 100)  # noqa: E731
-    cap1 = _Package(FlightType.BARCAP, "Axis 045", _flight(FlightType.BARCAP, 2, "F-16CM", plan(0)), tot=30)
-    cap2 = _Package(FlightType.BARCAP, "Axis 045", _flight(FlightType.BARCAP, 2, "F-16CM", plan(60)), tot=90)
-    other_cap = _Package(FlightType.BARCAP, "Axis 300", _flight(FlightType.BARCAP, 2, "F-16CM", plan(0)), tot=30)
-    strike1 = _Package(FlightType.STRIKE, "Bridge", _flight(FlightType.STRIKE, 4, "F-15E", plan(20)))
-    strike2 = _Package(FlightType.STRIKE, "Bridge", _flight(FlightType.STRIKE, 4, "F-15E", plan(120)))
+    cap1 = _Package(
+        FlightType.BARCAP,
+        "Axis 045",
+        _flight(FlightType.BARCAP, 2, "F-16CM", plan(0)),
+        tot=30,
+    )
+    cap2 = _Package(
+        FlightType.BARCAP,
+        "Axis 045",
+        _flight(FlightType.BARCAP, 2, "F-16CM", plan(60)),
+        tot=90,
+    )
+    other_cap = _Package(
+        FlightType.BARCAP,
+        "Axis 300",
+        _flight(FlightType.BARCAP, 2, "F-16CM", plan(0)),
+        tot=30,
+    )
+    strike1 = _Package(
+        FlightType.STRIKE, "Bridge", _flight(FlightType.STRIKE, 4, "F-15E", plan(20))
+    )
+    strike2 = _Package(
+        FlightType.STRIKE, "Bridge", _flight(FlightType.STRIKE, 4, "F-15E", plan(120))
+    )
     result = ap.lanes([strike1, cap2, other_cap, cap1, strike2])  # type: ignore[list-item]
     assert [lane.group.key for lane in result] == ["dca", "dca", "strike", "strike"]
     first = result[0]
     assert first.packages == [cap1, cap2]
     # Strikes are not lines: one lane each, even against the same target.
     assert len([lane for lane in result if lane.group.key == "strike"]) == 2
+
+
+def test_focused_turn_counts_from_mission_start_and_shows_the_run_out() -> None:
+    package = _Package(
+        FlightType.STRIKE,
+        "A",
+        _flight(FlightType.STRIKE, 2, "F-15E", _Plan(0, 10, 50, 130)),
+    )
+    game = _game(package)
+    game.air_campaign = AirCampaignState()
+    game.air_campaign.note_period(1, START, START + timedelta(minutes=90), 30)
+    # Offsets from mission start; the lead-in is negative.
+    assert ap.offset_text(game, START + timedelta(minutes=50)) == "+0:20"
+    assert ap.offset_text(game, START + timedelta(minutes=10)) == "-0:20"
+    # The whole plan is the mission: no DCS badge, nothing dimmed.
+    assert ap.in_dcs_window(game, package) is None  # type: ignore[arg-type]
+    # The timeline runs on past the window until the last landing.
+    assert ap.period_bounds(game) == (START, START + timedelta(minutes=130))
