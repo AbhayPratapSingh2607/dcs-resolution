@@ -153,21 +153,24 @@ def believed_destroyed_fraction(
     return believed / len(units), contact.confidence
 
 
-def fighter_strength(squadrons: Iterator[Squadron], quality: float) -> float:
+def fighter_value(squadron: Squadron, count: int, quality: float) -> float:
+    """Air-to-air strength of ``count`` of the squadron's aircraft."""
     from game.sim.combat.model.profiles import CombatProfiles
 
-    total = 0.0
-    profiles = CombatProfiles.instance()
-    for squadron in squadrons:
-        if squadron.owned_aircraft <= 0:
-            continue
-        profile = profiles.aircraft(squadron.aircraft)
-        if not profile.fighter:
-            continue
-        # Fourth generation = 1.0; each generation step is worth ~40%.
-        generation = max(0.4, 1.0 + 0.4 * (profile.generation - 4.0))
-        total += squadron.owned_aircraft * generation * quality
-    return total
+    if count <= 0:
+        return 0.0
+    profile = CombatProfiles.instance().aircraft(squadron.aircraft)
+    if not profile.fighter:
+        return 0.0
+    # Fourth generation = 1.0; each generation step is worth ~40%.
+    generation = max(0.4, 1.0 + 0.4 * (profile.generation - 4.0))
+    return count * generation * quality
+
+
+def fighter_strength(squadrons: Iterator[Squadron], quality: float) -> float:
+    """Air-to-air strength of squadrons by their true aircraft counts. Only
+    for the side's own forces: the enemy goes through intelview."""
+    return sum(fighter_value(s, s.owned_aircraft, quality) for s in squadrons)
 
 
 def _aircrew_quality(game: Game, player: Player) -> float:
@@ -184,6 +187,8 @@ def assess(game: Game, player: Player) -> CampaignAssessment:
     from game.theater.iadsnetwork.iadsrole import IadsRole
     from game.theater.theatergroundobject import SamGroundObject
     from game.warfare.intel import estimate_count
+
+    from .intelview import believed_live_radar_sam, enemy_squadrons
 
     coalition = game.coalition_for(player)
     enemy = coalition.opponent
@@ -214,14 +219,11 @@ def assess(game: Game, player: Player) -> CampaignAssessment:
     own = fighter_strength(
         coalition.air_wing.iter_squadrons(), _aircrew_quality(game, player)
     )
-    enemy_true = fighter_strength(
-        enemy.air_wing.iter_squadrons(), _aircrew_quality(game, player.opponent)
+    enemy_quality = _aircrew_quality(game, player.opponent)
+    enemy_est = sum(
+        fighter_value(squadron, count, enemy_quality)
+        for squadron, count in enemy_squadrons(game, player)
     )
-    if picture is not None and war_state is not None and enemy_true > 0:
-        rng = war_state.rng(game, f"jfacc:fighters:{player}")
-        enemy_est = float(estimate_count(round(enemy_true), picture.isr, rng))
-    else:
-        enemy_est = enemy_true
     air_superiority = math.inf if enemy_est <= 0 else own / enemy_est
 
     # --- Battle-area SAMs: known MERAD/LORAD within reach of friendly bases.
@@ -236,7 +238,7 @@ def assess(game: Game, player: Player) -> CampaignAssessment:
             continue
         if not known(game, player, tgo) or not believed_alive(game, player, tgo):
             continue
-        if not tgo.has_live_radar_sam:
+        if not believed_live_radar_sam(game, player, tgo):
             # Believed alive but its radars are down: suppressed.
             continue
         if any(

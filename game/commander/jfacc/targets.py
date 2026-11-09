@@ -15,6 +15,7 @@ from typing import Iterator, Optional, TYPE_CHECKING
 from game.ato.flighttype import FlightType
 from .assessment import CampaignAssessment, believed_destroyed_fraction
 from .campaignstate import NominationSnapshot, SideCampaign
+from .intelview import believed_live_radar_sam, estimated_parked
 from .profile import Category, Phase, PlanningProfile, TargetSystem
 from .targetclass import MOBILE_CLASSES, classify, target_key
 
@@ -171,7 +172,7 @@ class TargetNominator:
 
         if isinstance(target, TheaterGroundObject):
             if target_class in ("sam_lorad", "sam_merad", "sam_shorad") and (
-                not target.has_live_radar_sam
+                not believed_live_radar_sam(self.game, self.player, target)
             ):
                 # Radars down: suppressed even if launchers survive.
                 destroyed, confidence = believed_destroyed_fraction(
@@ -215,17 +216,17 @@ class TargetNominator:
 
     def _value(self, target: MissionTarget, target_class: str) -> float:
         from game.theater import ControlPoint
-        from game.theater.controlpoint import ParkingType
 
         value = self.profile.effect_for(target_class).value
         if isinstance(target, ControlPoint):
 
-            parking = ParkingType(True, True, True)
-            present = target.allocated_aircraft(parking).total_present
+            present = estimated_parked(self.game, self.player, target)
             value *= min(1.5, 0.4 + present / 16)
         return value
 
     def nominate(self) -> list[TargetNomination]:
+        from game.theater.theatergroundobject import TheaterGroundObject
+
         nominations: list[TargetNomination] = []
         turn = self.game.turn
         for target in self._candidates():
@@ -233,8 +234,9 @@ class TargetNominator:
             mission, category = TASKING.get(
                 target_class, (FlightType.STRIKE, Category.STRIKE)
             )
-            if target_class == "sam_shorad" and not getattr(
-                target, "has_live_radar_sam", False
+            if target_class == "sam_shorad" and not (
+                isinstance(target, TheaterGroundObject)
+                and believed_live_radar_sam(self.game, self.player, target)
             ):
                 # AAA and IR SHORAD are avoided by flying medium altitude, not
                 # hunted (Desert Storm practice).

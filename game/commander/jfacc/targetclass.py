@@ -109,15 +109,21 @@ def target_key(target: MissionTarget) -> str:
     return f"{type(target).__name__}:{target.name}"
 
 
-def sam_weight(tgo: TheaterGroundObject, medium_altitude: bool = True) -> float:
+def sam_weight(
+    tgo: TheaterGroundObject,
+    medium_altitude: bool = True,
+    live: Optional[bool] = None,
+) -> float:
     """Threat weight of an air defense site for package sizing and risk.
 
     Packages that fly medium altitude (Western doctrine) sit above most of
-    the short-range radar SAM envelope, so SHORAD counts half.
+    the short-range radar SAM envelope, so SHORAD counts half. ``live`` is
+    whether the planning side believes the radar works (intelview); by
+    default the site's true state.
     """
     from game.data.groups import GroupTask
 
-    if not tgo.has_live_radar_sam:
+    if not (tgo.has_live_radar_sam if live is None else live):
         return 0
     if tgo.task is GroupTask.LORAD:
         return 3

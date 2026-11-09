@@ -78,6 +78,7 @@ def _add_sam_exposure(
     from game.theater.theatergroundobject import IadsGroundObject, NavalGroundObject
     from game.warfare.intel import is_mobile
     from .assessment import enemy_tgos
+    from .intelview import believed_radar_reach_m
 
     target_point = ShapelyPoint(target.position.x, target.position.y)
     cap_m = float(game.settings.max_threat_range) * 1852.0
@@ -89,7 +90,8 @@ def _add_sam_exposure(
             continue
         if suppressed and tgo.id in suppressed:
             continue
-        weight = sam_weight(tgo)
+        reach_m = believed_radar_reach_m(game, player, tgo)
+        weight = sam_weight(tgo, live=reach_m > 0)
         if weight <= 0:
             continue
         if picture is not None:
@@ -98,13 +100,7 @@ def _add_sam_exposure(
             position = picture.estimated_position(tgo)  # type: ignore[attr-defined]
         else:
             position = tgo.position
-        reach = min(
-            max(
-                (g.max_threat_range(radar_only=True).meters for g in tgo.groups),
-                default=0.0,
-            ),
-            cap_m,
-        )
+        reach = min(reach_m, cap_m)
         if reach <= 0:
             continue
         site = ShapelyPoint(position.x, position.y)
@@ -161,9 +157,12 @@ def analyse_path(
         suppressed,
     )
     from .assessment import believed_alive
+    from .intelview import believed_live_radar_sam
 
     if exclude is not None and believed_alive(game, player, exclude):
-        threat.sam_weight += sam_weight(exclude)
+        threat.sam_weight += sam_weight(
+            exclude, live=believed_live_radar_sam(game, player, exclude)
+        )
         threat.target_defended = True
     threat.sam_level = _level(
         threat.sam_weight,
@@ -190,7 +189,8 @@ def analyse_route(
     destroy before this one arrives (IADS rollback).
     """
     from game.sim.combat.model.forcequality import for_faction
-    from .assessment import believed_alive, fighter_strength
+    from .assessment import believed_alive, fighter_value
+    from .intelview import believed_live_radar_sam
 
     threat = RouteThreat()
     enemy = game.coalition_for(player).opponent
@@ -215,7 +215,9 @@ def analyse_route(
     )
     if exclude is not None and believed_alive(game, player, exclude):
         # Attacking a SAM means flying into it.
-        threat.sam_weight += sam_weight(exclude)
+        threat.sam_weight += sam_weight(
+            exclude, live=believed_live_radar_sam(game, player, exclude)
+        )
         threat.target_defended = True
 
     # Enemy fighters able to engage over the target. Only part of an air
@@ -223,10 +225,10 @@ def analyse_route(
     # faster.
     from game.sim.combat.model.fuel import fuel_profile
 
+    from .intelview import enemy_squadrons
+
     availability = float(packages_cfg.get("enemy_fighter_availability", 0.25))  # type: ignore[arg-type]
-    for squadron in enemy.air_wing.iter_squadrons():
-        if squadron.owned_aircraft <= 0:
-            continue
+    for squadron, estimated in enemy_squadrons(game, player):
         base = squadron.location
         radius_m = fuel_profile(squadron.aircraft).radius_km * 1000
         distance = base.position.distance_to_point(target.position)
@@ -235,8 +237,8 @@ def analyse_route(
         factor = availability * (1.0 - 0.5 * distance / radius_m)
         if not base.runway_is_operational() and not base.is_fleet:
             factor *= 0.3
-        threat.air_strength += factor * fighter_strength(
-            iter([squadron]), threat.enemy_aircrew
+        threat.air_strength += factor * fighter_value(
+            squadron, estimated, threat.enemy_aircrew
         )
 
     threat.air_level = _level(
