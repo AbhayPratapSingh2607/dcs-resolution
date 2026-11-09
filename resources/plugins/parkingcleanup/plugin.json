@@ -1,0 +1,31 @@
+{
+    "nameInUI": "Parking cleanup",
+    "descriptionInUI": "Removes AI aircraft some minutes after they land and shut down, so ramps and carrier decks stay free for later flights and players, and frame rate holds up. Player aircraft are never removed, and the removal isn't counted as a loss.",
+    "defaultValue": true,
+    "specificOptions": [
+        {
+            "nameInUI": "Minutes after engine shutdown",
+            "mnemonic": "delayMinutes",
+            "minimumValue": 1,
+            "maximumValue": 60,
+            "defaultValue": 10
+        },
+        {
+            "nameInUI": "Also remove helicopters",
+            "mnemonic": "helicopters",
+            "defaultValue": false
+        },
+        {
+            "nameInUI": "Debug logging",
+            "mnemonic": "debug",
+            "defaultValue": false
+        }
+    ],
+    "scriptsWorkOrders": [
+        {
+            "file": "parkingcleanup.lua",
+            "mnemonic": "parkingcleanup"
+        }
+    ],
+    "configurationWorkOrders": []
+}

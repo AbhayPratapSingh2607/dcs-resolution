@@ -174,7 +174,26 @@ write_state_error_handling = function()
 end
 
 activeWeapons = {}
+-- Units a plugin removed on purpose (the parking cleanup plugin despawns AI
+-- aircraft parked after landing). Their removal isn't a loss.
+dcsRetributionDespawned = dcsRetributionDespawned or {}
+local function isDespawned(object)
+    if not object or not object.getName then
+        return false
+    end
+    local ok, name = pcall(object.getName, object)
+    return ok and name ~= nil and dcsRetributionDespawned[name] == true
+end
+
 local function onEvent(event)
+    if event.id == world.event.S_EVENT_KILL then
+        if isDespawned(event.target) then
+            return
+        end
+    elseif (event.id == world.event.S_EVENT_CRASH or event.id == world.event.S_EVENT_UNIT_LOST
+            or event.id == world.event.S_EVENT_DEAD) and isDespawned(event.initiator) then
+        return
+    end
     if event.id == world.event.S_EVENT_CRASH and event.initiator then
         crash_events[#crash_events + 1] = event.initiator.getName(event.initiator)
         dirty_state = true

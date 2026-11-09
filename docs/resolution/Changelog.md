@@ -103,6 +103,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   test blue planned 12 packages instead of 25. The 6 hour period is still available with the
   setting off. [Guide](Air-Campaign-Planner.md#focused-turns)
 
+* **[Plugins]** New **Parking cleanup** plugin, on by default. It removes AI aircraft 10 minutes
+  after they land and shut down, so ramps and carrier decks stay free and frame rate holds up.
+  Player aircraft are never removed, helicopters only if the option is set, and the removal
+  isn't counted as a loss.
+
 ## Fixes
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs

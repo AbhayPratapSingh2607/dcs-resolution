@@ -311,7 +311,14 @@ period, or interacts with the new starts.
 
   Check that transfers in progress appear in the window at the right place. Count
   front-line units (front width, `perf_culling`) against the budget (F15).
-- [ ] **F32. Spawning, despawning and parking.**
+- [ ] **F32. Spawning, despawning and parking.** Partly done 2026-11-09:
+  - Late activation already existed: hot, runway and carrier starts activate at their
+    time, and cold starts sit uncontrolled on the ramp until startup (ambience by the
+    player).
+  - New **Parking cleanup** plugin (on by default): an AI aircraft is removed 10 minutes
+    after it shuts down if it's still parked; helicopters only with its option, players
+    never. The base plugin ignores the removal, so it isn't a loss.
+  - Still to check: parking at a busy base and carrier deck space (needs DCS, D10).
   - Late-activate flights whose stage starts later in the window, so the unit count at any
     moment stays low.
   - Remove AI aircraft some minutes after they land and park (including RTB flights,
@@ -570,6 +577,14 @@ generated mission lands, and tick items once they're flown. Report problems with
   - Put yourself in a package whose takeoff falls in the lead-in (ATO list: its offset is
     negative). On **Take off** the package moves later: you start at mission start with
     your chosen start type, not in the air.
+- [ ] **D10. Parking cleanup plugin.** Settings → Plugins: **Parking cleanup** is on (turn
+  on its debug option). Watch an AI flight land at an airfield and on a carrier.
+  **Expect:**
+  - about 10 minutes after it shuts down it disappears, and `dcs.log` shows
+    "ParkingCleanup - … removed from parking";
+  - your own aircraft and helicopters stay;
+  - after the mission, the debriefing does **not** list those aircraft as lost, and the
+    squadron still has them.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.
@@ -598,7 +613,7 @@ generated mission lands, and tick items once they're flown. Report problems with
    window, ~10 packages, one CAP per axis, window picker and second sorties). This is
    where most of the reduction comes from.
 2. **Mixed starts and life after the window:** F3, F4, F5, F30 and F32. This is the core
-   of the "alive" goal.
+   of the "alive" goal. Done 2026-11-09 except the remainders noted under F3, F30 and F32.
 3. **Packages:** items 1 and 2, then F10 (corridor SEAD, H-hour, merged packages), then
    items 6, 8 and 9 (iran, swept CAPs, client losses).
 4. **Readability:** F13, F14 and F16.
