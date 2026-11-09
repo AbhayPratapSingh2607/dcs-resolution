@@ -266,6 +266,13 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     for name, m in jfacc.items():
         m["scrambles"] = scrambles[name == "blue"]
     loop.complete_with_results(debriefing)
+    # Where each front stands once the turn's results are committed
+    # (before the next turn's strength recovery): blue's share of the two bases'
+    # strength (1 = pushed to red's base, 0 = pushed to blue's base).
+    front_position = {}
+    for front in game.theater.conflicts():
+        blue_s, red_s = front.blue_cp.base.strength, front.red_cp.base.strength
+        front_position[front.name] = round(blue_s / (blue_s + red_s), 3) if blue_s + red_s else 0.5
     report = AfterActionReport.from_debriefing(debriefing)
     game.pass_turn()
 
@@ -327,6 +334,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     print(report.to_text())
     if captured:
         print("Bases changing hands:", ", ".join(captured))
+    for name, position in front_position.items():
+        print(f"Front {name} position: {position:.2f} (0 = at blue's base, 1 = at red's)")
     for name, losses in front_losses.items():
         b, r = losses["blue"], losses["red"]
         print(f"Front {name}: blue lost {b[0]}/{b[1]}, red lost {r[0]}/{r[1]}")
@@ -377,6 +386,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         "fronts": front_losses,
         "jfacc": jfacc,
         "bases_captured": captured,
+        "front_position": front_position,
         "bases_captured_by": {
             cp.name: ("blue" if cp.captured.is_blue else "red")
             for cp in game.theater.controlpoints

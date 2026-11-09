@@ -12,8 +12,11 @@ checks the band:
 * ``peer`` (Russia 2010 against a 2005 US force): exchange ratio between
   0.5 and 2.5, and the front stays contested (neither side takes more than
   one base).
-* ``red_wins`` (Russia against Georgia 2008): red takes a base within the
-  turns played in at least 3 of 5 seeds.
+* ``red_wins`` (Russia against Georgia 2008): red takes a base within 6
+  turns in at least 3 of 5 seeds.
+
+Each run also reports where its fronts ended (``front_position`` in
+campaign_e2e's JSON: 0 = at blue's base, 1 = at red's).
 
 Usage:
     python resources/tools/campaign_matrix.py --scenarios iraq peer --seeds 5 \\
@@ -69,6 +72,12 @@ class RunResult:
                 break
             taken += sum(1 for who in turn.get("bases_captured_by", {}).values() if who == side)
         return taken
+
+    def front_positions(self) -> list[float]:
+        """Each front's position after the last turn (0 = at blue's base)."""
+        if not self.turns:
+            return []
+        return list(self.turns[-1].get("front_position", {}).values())
 
     @property
     def exchange_ratio(self) -> float:
@@ -130,7 +139,9 @@ def red_can_win(runs: list[RunResult]) -> tuple[bool, str]:
         return False, "no completed runs"
     wins = sum(1 for r in done if r.bases_taken("red", within=6) >= 1)
     need = max(1, round(0.6 * len(done)))
-    return wins >= need, f"red took a base within 6 turns in {wins} of {len(done)} runs (need {need})"
+    return wins >= need, (
+        f"red took a base within 6 turns in {wins} of {len(done)} runs (need {need})"
+    )
 
 
 SCENARIOS = {
@@ -185,7 +196,8 @@ def describe(run: RunResult) -> str:
         f"red {run.lost('red')}/{run.flown('red')} (ratio {run.exchange_ratio:.2f}); "
         f"bases blue {run.bases_taken('blue')}, red {run.bases_taken('red')}; "
         f"red raids {run.raids('red')}, scrambles {run.scrambles('red')}, "
-        f"SAM moves {run.moves('red')}; red phases {' > '.join(run.phases('red')) or '-'}"
+        f"SAM moves {run.moves('red')}; red phases {' > '.join(run.phases('red')) or '-'}; "
+        f"fronts {', '.join(f'{p:.2f}' for p in run.front_positions()) or '-'}"
     )
 
 

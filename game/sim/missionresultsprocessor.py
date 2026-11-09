@@ -6,7 +6,7 @@ from typing import Any, TYPE_CHECKING
 from uuid import UUID
 
 from game.ato.flighttype import FlightType
-from game.debriefing import Debriefing
+from game.debriefing import BaseCaptureEvent, Debriefing
 from game.ground_forces.combat_stance import CombatStance
 from game.profiling import logged_duration
 from game.squadrons.csarservice import CsarService
@@ -22,6 +22,53 @@ if TYPE_CHECKING:
 MINOR_DEFEAT_INFLUENCE = 0.1
 DEFEAT_INFLUENCE = 0.3
 STRONG_DEFEAT_INFLUENCE = 0.5
+
+#: Ground units the attacker must still have to take an undefended base in a
+#: fast-forwarded turn.
+FAST_FORWARD_CAPTURE_MIN_UNITS = 4
+
+#: Stances that drive into an undefended base.
+OFFENSIVE_STANCES = (
+    CombatStance.AGGRESSIVE,
+    CombatStance.ELIMINATION,
+    CombatStance.BREAKTHROUGH,
+)
+
+
+def fast_forward_captures(game: Game) -> list[BaseCaptureEvent]:
+    """Bases taken in a turn fought entirely by the combat model.
+
+    In DCS a base changes hands when ground units drive into its capture zone.
+    The fast forward has no such trigger, so a base falls when the front has
+    reached it: its strength is spent, it has no armor left, and the attacker
+    across that front still has a force on an offensive stance.
+    """
+    from game.theater.base import BASE_MIN_STRENGTH
+
+    captures: list[BaseCaptureEvent] = []
+    taken: set[UUID] = set()
+    for front in game.theater.conflicts():
+        for attacker, defender in (
+            (front.blue_cp, front.red_cp),
+            (front.red_cp, front.blue_cp),
+        ):
+            if defender.id in taken or attacker.id in taken:
+                continue
+            if defender.is_fleet or attacker.captured.is_neutral:
+                continue
+            if attacker.is_friendly_to(defender):
+                continue
+            if defender.base.strength > BASE_MIN_STRENGTH:
+                continue
+            if defender.base.total_armor > 0:
+                continue
+            if attacker.base.total_armor < FAST_FORWARD_CAPTURE_MIN_UNITS:
+                continue
+            if attacker.stances.get(defender.id) not in OFFENSIVE_STANCES:
+                continue
+            taken.add(defender.id)
+            captures.append(BaseCaptureEvent(defender, attacker.captured))
+    return captures
 
 
 class MissionResultsProcessor:
@@ -64,6 +111,8 @@ class MissionResultsProcessor:
             # ownership, turning a win into a defeat.
             with logged_duration("commit_front_line_battle_impact"):
                 self.commit_front_line_battle_impact(debriefing, events)
+            with logged_duration("commit_fast_forward_captures"):
+                self.commit_fast_forward_captures(debriefing)
             with logged_duration("commit_captures"):
                 self.commit_captures(debriefing, events)
             with logged_duration("commit_farp_setups"):
@@ -352,6 +401,22 @@ class MissionResultsProcessor:
     def commit_damaged_runways(debriefing: Debriefing) -> None:
         for damaged_runway in debriefing.damaged_runways:
             damaged_runway.damage_runway()
+
+    def commit_fast_forward_captures(self, debriefing: Debriefing) -> None:
+        """Adds the bases taken in a fast-forwarded turn (see
+        fast_forward_captures) to the debriefing's captures. A DCS mission
+        reports its own captures from the capture triggers."""
+        if not getattr(debriefing, "simulated", False):
+            return
+        reported = {c.control_point.id for c in debriefing.base_captures}
+        for capture in fast_forward_captures(self.game):
+            if capture.control_point.id in reported:
+                continue
+            logging.info(
+                f"{capture.control_point} falls to {capture.captured_by_player} "
+                "in the fast forward: its front is spent and undefended"
+            )
+            debriefing.base_captures.append(capture)
 
     def commit_captures(self, debriefing: Debriefing, events: GameUpdateEvents) -> None:
         for captured in debriefing.base_captures:

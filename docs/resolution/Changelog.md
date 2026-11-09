@@ -72,6 +72,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 * **[Campaign AI]** The planner keeps a theater tanker track and carrier recovery tankers going
   according to its doctrine. The "Automatic Theater tanker package planning" setting now only
   affects the legacy planner.
+* **[Fast Forward]** Bases can be captured in a turn fought entirely by fast forward. Before, only
+  the DCS mission's capture triggers could take a base, so a front fast-forwarded all the way to a
+  base stopped there. A base now falls when its front strength is spent and it has no armor left,
+  and the side attacking across that front still has at least 4 ground units on an aggressive,
+  elimination or breakthrough stance. DCS missions still capture bases only through their triggers.
 * **[UI]** The package list is easier to read:
   * Packages are grouped by mission category, with coloured headers and counts, and sorted by TOT.
   * Category chips hide or show each group.

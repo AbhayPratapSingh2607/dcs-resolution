@@ -219,6 +219,9 @@ class Debriefing:
         self.air_losses: AirLosses = self.dead_aircraft()
         self.ground_losses: GroundLosses = self.dead_ground_units()
         self.base_captures: list[BaseCaptureEvent] = self.base_capture_events()
+        #: True for a turn fought entirely by the combat model (fast forward),
+        #: where no DCS capture trigger can fire.
+        self.simulated = False
         #: Aircraft destroyed on the ground by simulated OCA strikes.
         self.parked_aircraft_losses: list[Squadron] = []
         #: Narrative of the combat resolved while fast forwarding.

@@ -118,6 +118,7 @@ class MissionSimulation:
         if self.unit_map is None:
             self.unit_map = UnitMap()
         debriefing = Debriefing({"mission_ended": True}, self.game, self.unit_map)
+        debriefing.simulated = True
         debriefing.merge_simulation_results(self.aircraft_simulation.results)
         return debriefing
 
