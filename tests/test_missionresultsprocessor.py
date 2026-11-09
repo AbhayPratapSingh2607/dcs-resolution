@@ -41,6 +41,7 @@ COMMIT_STEPS = [
     "commit_front_line_battle_impact",
     "record_carcasses",
     "update_war_state",
+    "record_observations",
 ]
 
 

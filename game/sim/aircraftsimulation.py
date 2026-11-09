@@ -4,6 +4,7 @@ import itertools
 import logging
 from collections.abc import Iterator
 from datetime import datetime, timedelta
+from typing import Optional
 
 from typing_extensions import TYPE_CHECKING
 
@@ -29,6 +30,7 @@ class AircraftSimulation:
         self.results = SimulationResults()
         self.model = CombatModel(game, self.results)
         self.ground_war: GroundWar | None = None
+        self._last_observed: Optional[datetime] = None
         #: False for passes that resolve only air operations (the parts of a
         #: 6 hour ATO period outside the DCS window, game.sim.atoperiod).
         self.ground_war_enabled = True
@@ -100,6 +102,7 @@ class AircraftSimulation:
         ).update_active_combats()
 
         if combat_resolution_method is CombatResolutionMethod.RESOLVE:
+            self._observe(time)
             sead_hunt(self.model, time, events)
             if self.ground_war is not None and (
                 self.ground_window is None
@@ -127,6 +130,24 @@ class AircraftSimulation:
         ):
             events.complete_simulation()
 
+    #: How often each side's surveillance picture is sampled for the air
+    #: campaign planner's learned threat axes.
+    OBSERVE_INTERVAL = timedelta(minutes=5)
+
+    def _observe(self, time: datetime) -> None:
+        last = self._last_observed
+        if last is not None and time - last < self.OBSERVE_INTERVAL:
+            return
+        self._last_observed = time
+        try:
+            from game.commander.jfacc.observations import collect
+
+            self.results.observations.extend(
+                collect(self.model, time, self.iter_flights())
+            )
+        except Exception:
+            logging.exception("Could not sample surveillance observations")
+
     def has_activity(self) -> bool:
         """True while any flight is still flying (or yet to fly) or fighting."""
         if self.combats:
@@ -144,6 +165,7 @@ class AircraftSimulation:
     def reset(self) -> None:
         self.revert_simulated_damage(_Events())
         self.combats = []
+        self._last_observed = None
         for flight in self.iter_flights():
             flight.set_state(Uninitialized(flight, self.game.settings))
 

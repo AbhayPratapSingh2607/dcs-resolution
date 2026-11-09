@@ -410,3 +410,9 @@ conditions:
   min_cloud_base_for_lgb_ft: 12000
   # Helicopter operations stop below this visibility.
   helicopter_min_visibility_km: 3
+
+# Adaptation from the side's own observations (game/commander/jfacc/observations.py).
+adaptation:
+  # Weight of the threat axes learned from observed enemy air activity,
+  # relative to the strongest axis toward an enemy fighter base.
+  learned_axis_weight: 0.5

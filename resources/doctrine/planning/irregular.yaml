@@ -109,6 +109,7 @@ modifiers:
     hold_turns: 2
     when: {moe: own_air_losses, ge: 0.4}
     effects:
+      iads_preserve: true
       risk_scale: 0.5
       raid_style: none
       scale_categories: {strike: 0.0, interdiction: 0.3, dca: 0.5}

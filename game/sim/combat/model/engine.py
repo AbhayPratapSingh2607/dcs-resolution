@@ -236,6 +236,17 @@ class CombatModel:
                 result.append(airframe)
         return result
 
+    def site_emcon(self, tgo: TheaterGroundObject) -> str:
+        """The emission control order the owning side's IADS management gave
+        the site (game.commander.jfacc.iads), "" to follow doctrine."""
+        cache = self.__dict__.setdefault("_emcon_cache", {})
+        key = str(tgo.id)
+        if key not in cache:
+            from game.commander.jfacc.iads import emcon_order
+
+            cache[key] = emcon_order(self.game, tgo)
+        return str(cache[key])
+
     def awareness(self, player: Player, time: datetime) -> SideAwareness:
         key = (player.is_blue, time)
         if key not in self._awareness_cache:

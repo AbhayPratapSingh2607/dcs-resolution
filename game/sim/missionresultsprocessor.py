@@ -74,6 +74,8 @@ class MissionResultsProcessor:
                 self.record_carcasses(debriefing)
             with logged_duration("update_war_state"):
                 self.update_war_state(debriefing)
+            with logged_duration("record_observations"):
+                self.record_observations(debriefing)
 
     def commit_resolved_period(
         self, debriefing: Debriefing, events: GameUpdateEvents
@@ -94,6 +96,17 @@ class MissionResultsProcessor:
             self.commit_damaged_runways(debriefing)
             self.record_carcasses(debriefing)
             self.update_war_state(debriefing)
+            self.record_observations(debriefing)
+
+    def record_observations(self, debriefing: Debriefing) -> None:
+        """What each side's own sensors and losses told it about the enemy's
+        air operations (learned threat axes for the JFACC planner)."""
+        try:
+            from game.commander.jfacc.observations import record_turn
+
+            record_turn(self.game, debriefing)
+        except Exception:
+            logging.exception("Could not record air campaign observations")
 
     def update_war_state(self, debriefing: Debriefing) -> None:
         war_state = getattr(self.game, "war_state", None)

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from game import Game
     from game.theater import ControlPoint
     from game.theater.player import Player
+    from .observations import ObservationLog
 
 NM = 1852.0
 
@@ -87,9 +88,51 @@ def defended_assets(game: Game, player: Player) -> list[ControlPoint]:
     return assets
 
 
+def _merge_axis(
+    local: list[ThreatAxis],
+    asset: ControlPoint,
+    heading: float,
+    weight: float,
+    source: str,
+    merge_deg: float,
+) -> None:
+    for axis in local:
+        delta = abs((axis.heading - heading + 180) % 360 - 180)
+        if delta <= merge_deg:
+            total = axis.strength + weight
+            # Strength-weighted mean heading.
+            axis.heading = math.degrees(
+                math.atan2(
+                    axis.strength * math.sin(math.radians(axis.heading))
+                    + weight * math.sin(math.radians(heading)),
+                    axis.strength * math.cos(math.radians(axis.heading))
+                    + weight * math.cos(math.radians(heading)),
+                )
+            ) % 360
+            axis.strength = total
+            if source not in axis.source_names:
+                axis.source_names.append(source)
+            return
+    local.append(ThreatAxis(asset, heading, weight, [source]))
+
+
+#: Label of the axes learned from observed enemy activity.
+OBSERVED = "observed enemy activity"
+
+
 def threat_axes(
-    game: Game, player: Player, reach_nm: float, merge_deg: float, max_axes: int
+    game: Game,
+    player: Player,
+    reach_nm: float,
+    merge_deg: float,
+    max_axes: int,
+    learned: Optional[ObservationLog] = None,
+    learned_weight: float = 0.0,
 ) -> list[ThreatAxis]:
+    """Axes enemy air can come from, per defended asset: toward the enemy
+    fighter bases in reach, plus (``learned``) the bearings the side has
+    actually seen enemy air activity on. ``learned_weight`` scales the
+    observed axes relative to the strongest geometric axis of the asset."""
     bases = list(_enemy_fighter_bases(game, player))
     axes: list[ThreatAxis] = []
     for asset in defended_assets(game, player):
@@ -101,24 +144,17 @@ def threat_axes(
             heading = asset.position.heading_between_point(base.position)
             # Nearer bases are a more pressing threat.
             weight = strength * (1.0 - 0.6 * distance / (reach_nm * NM))
-            for axis in local:
-                delta = abs((axis.heading - heading + 180) % 360 - 180)
-                if delta <= merge_deg:
-                    total = axis.strength + weight
-                    # Strength-weighted mean heading.
-                    axis.heading = math.degrees(
-                        math.atan2(
-                            axis.strength * math.sin(math.radians(axis.heading))
-                            + weight * math.sin(math.radians(heading)),
-                            axis.strength * math.cos(math.radians(axis.heading))
-                            + weight * math.cos(math.radians(heading)),
-                        )
-                    ) % 360
-                    axis.strength = total
-                    axis.source_names.append(base.name)
-                    break
-            else:
-                local.append(ThreatAxis(asset, heading, weight, [base.name]))
+            _merge_axis(local, asset, heading, weight, base.name, merge_deg)
+        if learned is not None and learned_weight > 0:
+            scale = max((a.strength for a in local), default=1.0)
+            for observed in learned.axes(asset):
+                # Confidence grows with the number of observations.
+                confidence = min(1.0, observed.mass / 6.0)
+                weight = learned_weight * scale * observed.share * confidence
+                if weight > 0:
+                    _merge_axis(
+                        local, asset, observed.heading, weight, OBSERVED, merge_deg
+                    )
         axes.extend(local)
     axes.sort(key=lambda a: -a.strength)
     # One station can screen several assets on the same axis: keep the

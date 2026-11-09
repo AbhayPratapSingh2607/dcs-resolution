@@ -27,6 +27,7 @@ from .assessment import CampaignAssessment, assess
 from .campaignstate import SideCampaign
 from .composer import ComposedPackage, FlightRequest, PackageComposer, PackageRequest
 from .dca import hvaa_station, station_for, threat_axes, threatened_bases
+from .observations import ObservationLog
 from .casestimate import flight_kills_or_fallback, front_armor_share
 from .groundsupport import cas_lines, kill_boxes
 from .phases import PhaseManager
@@ -230,6 +231,16 @@ class JfaccPlanner:
             ).nominate()
 
         self.side.qra = self._hold_qra() if planning_allowed else []
+        with tracer.trace("JFACC IADS management"):
+            from .iads import plan_emcon
+
+            plan_emcon(
+                game,
+                self.player,
+                self.side,
+                self.profile,
+                preserving=bool(self.effect("iads_preserve", False)),
+            )
         total = self._sortie_capacity()
         self.apportionment = Apportionment.for_phase(self.profile, self.spec, total)
         self._apply_category_scaling()
@@ -621,6 +632,10 @@ class JfaccPlanner:
             reach,
             float(dca.get("axis_merge_deg", 30)),
             int(dca.get("max_axes", 3)),
+            learned=ObservationLog(self.side),
+            learned_weight=float(
+                self.profile.get("adaptation", "learned_axis_weight", 0.0)
+            ),
         )
         stations = [
             station_for(

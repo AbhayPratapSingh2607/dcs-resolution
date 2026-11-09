@@ -69,6 +69,18 @@ class SkynetNode:
         unit_type = group.units[0].unit_type
         if unit_type is not None and isinstance(unit_type, GroundUnitType):
             node.properties = unit_type.skynet_properties.to_dict()
+        if group.iads_role in (IadsRole.SAM, IadsRole.SAM_AS_EWR):
+            # Emission control ordered by the side's air campaign planner.
+            from game.commander.jfacc.iads import emcon_order, skynet_overrides
+
+            try:
+                game = group.ground_object.control_point.coalition.game
+            except AttributeError:
+                game = None
+            order = emcon_order(game, group.ground_object)
+            if order:
+                node.properties.update(skynet_overrides(order))
+                node.properties["emcon"] = order
         return node
 
 

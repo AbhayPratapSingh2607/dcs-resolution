@@ -163,6 +163,7 @@ modifiers:
         - {moe: own_air_losses, ge: 0.2}
         - {moe: air_superiority, le: 0.4}
     effects:
+      iads_preserve: true
       dca_forward_scale: 0.3
       cap_under_own_sam: true
       risk_scale: 0.5
@@ -203,3 +204,14 @@ ground_support:
 
 enablers:
   tanker_continuous: false
+
+adaptation:
+  # A defensive air force lives by knowing where the raids come from.
+  learned_axis_weight: 1.0
+
+iads:
+  emcon:
+    # Serbia 1999: radars on only briefly, sites kept alive for months.
+    mobile: ambush
+    hunted_threshold: 0.5
+    max_dark_share: 0.5

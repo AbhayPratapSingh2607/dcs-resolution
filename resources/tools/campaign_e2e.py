@@ -197,8 +197,23 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "second_sorties": reused,
             "mean_estimated_risk": round(sum(risks) / len(risks), 4) if risks else 0,
             "scrubbed": len(side.scrubbed),
+            "modifiers": sorted(side.modifiers),
+            "raids": list(side.raids),
+            "enemy_sorties_seen": side.enemy_sorties_seen,
+            "learned_axes": _learned_axes(game, coalition.player, side),
         }
     return metrics
+
+
+def _learned_axes(game: Any, player: Any, side: Any) -> list[str]:
+    from game.commander.jfacc.observations import ObservationLog
+
+    log = ObservationLog(side)
+    result = []
+    for cp in game.theater.control_points_for(player):
+        for axis in log.axes(cp, max_axes=1):
+            result.append(f"{cp.name} {axis.heading:03.0f} ({axis.mass:.0f})")
+    return result
 
 
 def jfacc_limit(game: Any, blue: bool) -> float:
@@ -308,6 +323,13 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         )
         print("  planned:", ", ".join(f"{k} {v}/{m['apportioned'].get(k, 0)}" for k, v in m["planned"].items()))
         print("  mix:", ", ".join(f"{v} {k}" for k, v in m["sortie_mix"].items()))
+        if m["modifiers"] or m["raids"]:
+            print(f"  modifiers: {', '.join(m['modifiers']) or '-'}; raids: {', '.join(m['raids']) or '-'}")
+        if m["learned_axes"]:
+            print(
+                f"  learned axes (saw {m['enemy_sorties_seen']} enemy aircraft): "
+                + ", ".join(m["learned_axes"][:6])
+            )
     if verbose:
         print("Combat log:")
         for entry in debriefing.simulation_log:

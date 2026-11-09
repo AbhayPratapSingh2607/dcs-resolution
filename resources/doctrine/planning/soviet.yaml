@@ -77,6 +77,7 @@ modifiers:
         - {moe: own_air_losses, ge: 0.4}
         - {moe: air_superiority, le: 0.35, sustain: 2}
     effects:
+      iads_preserve: true
       dca_forward_scale: 0.4
       cap_under_own_sam: true
       risk_scale: 0.6
@@ -112,3 +113,8 @@ dca:
 conditions:
   # Su-24 and MiG-27 bomb at night by radar and dead reckoning.
   night_requires_sensor: true
+
+iads:
+  emcon:
+    # PVO mobile brigades (SA-6, SA-8, SA-11) fought from ambush.
+    mobile: ambush

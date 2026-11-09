@@ -509,6 +509,10 @@ def engage_site(
     ambush_doctrine = (
         model.doctrine(site.tgo.control_point.captured).sam_ambush and not cued
     )
+    # Emission control ordered by the side's IADS management.
+    emcon = model.site_emcon(site.tgo)
+    if emcon == "active":
+        ambush_doctrine = False
     shots_this_round = 0
     targets = [
         a for a in (only if only is not None else model.airframes(flight)) if a.alive
@@ -530,8 +534,11 @@ def engage_site(
             if not (profile.min_alt_m <= max(altitude, 1.0) <= profile.max_alt_m):
                 continue
             reach = profile.range_km
-            # Ambushes are a tactic of mobile short and medium range systems.
-            ambush = ambush_doctrine and profile.emitter and profile.range_km <= 60
+            # Ambushes are a tactic of mobile short and medium range systems,
+            # unless the site was ordered to ambush.
+            ambush = profile.emitter and (
+                (ambush_doctrine and profile.range_km <= 60) or emcon == "ambush"
+            )
             if profile.emitter:
                 reach = min(reach, radar_horizon_km(profile.mast_m, altitude))
                 burn = 1 - jam * (1 - profile.eccm)
@@ -544,6 +551,9 @@ def engage_site(
                     reach *= 0.65
                 if hiding:
                     reach *= 0.7
+                if emcon == "dark":
+                    # Silent to survive: self-defense shots only.
+                    reach *= 0.35
             else:
                 # Optical systems need to see the target.
                 reach = min(reach, 8.0 * env.visual_factor + 1)
@@ -897,6 +907,13 @@ def sead_hunt(model: CombatModel, now: datetime, events: GameUpdateEvents) -> No
                 for tgo in enemy_sites:
                     site = site_for(model, tgo)
                     if site.is_dark(now) or not site.emits or not site.radar_units():
+                        continue
+                    emcon = model.site_emcon(tgo)
+                    # Silent sites give the hunters nothing to home on; ambush
+                    # sites radiate only briefly.
+                    if emcon == "dark" or (
+                        emcon == "ambush" and model.rng().random() < 0.7
+                    ):
                         continue
                     reach = shooters[0][
                         1

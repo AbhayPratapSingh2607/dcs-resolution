@@ -98,6 +98,16 @@ class SideCampaign:
     enemy_sorties_seen: int = 0
     #: Massed raids planned this period, for the UI.
     raids: list[str] = field(default_factory=list)
+    #: Bearings enemy air activity was observed on, per own control point id
+    #: (game.commander.jfacc.observations: 36 bins, decayed per turn).
+    observed_axes: dict[str, list[float]] = field(default_factory=dict)
+    #: How often each own ground object was hit (decayed), by TGO id.
+    attacked: dict[str, float] = field(default_factory=dict)
+    #: Turn the observation history was last decayed.
+    observed_turn: int = -1
+    #: Emission control order per own radar SAM site, by TGO id
+    #: (game.commander.jfacc.iads: active, ambush or dark).
+    iads_orders: dict[str, str] = field(default_factory=dict)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})

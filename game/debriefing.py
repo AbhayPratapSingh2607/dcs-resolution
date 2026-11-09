@@ -227,6 +227,8 @@ class Debriefing:
         self.intel_events: list[Any] = []
         self.combat_credits: list[Any] = []
         self.flights_flown: list[Any] = []
+        #: Enemy flights each side's surveillance saw in fast-forward.
+        self.observations: list[Any] = []
         self.collateral_events: list[bool] = []
         #: Where and how the combat model shot each aircraft down, keyed by
         #: id(pilot) like ejected_pilot_positions (aircrew.AirLossDetail).
@@ -366,6 +368,7 @@ class Debriefing:
         self.intel_events = list(results.intel_events)
         self.combat_credits = list(results.combat_credits)
         self.flights_flown = list(results.flights_flown)
+        self.observations = list(getattr(results, "observations", []))
         self.collateral_events = list(results.collateral_events)
         # Invalidate the cached casualty counts now that front-line losses changed.
         self.__dict__.pop("_casualties_by_origin", None)

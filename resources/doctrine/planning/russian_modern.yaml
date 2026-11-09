@@ -219,6 +219,7 @@ modifiers:
         - {moe: own_air_losses, ge: 0.3}
         - {moe: air_superiority, le: 0.45, sustain: 2}
     effects:
+      iads_preserve: true
       dca_forward_scale: 0.4
       cap_under_own_sam: true
       risk_scale: 0.6
@@ -279,3 +280,23 @@ ground_support:
 enablers:
   tanker_radius_fraction: 0.85
   recovery_tanker: false
+
+adaptation:
+  # The PVO watches where the enemy comes from and screens those axes.
+  learned_axis_weight: 0.8
+
+# IADS management (game/commander/jfacc/iads.py): emission control orders.
+iads:
+  manage: true
+  emcon:
+    # Long-range sites are the umbrella and radiate; mobile sites fight in the
+    # network too.
+    lorad: active
+    mobile: active
+    # Sites the enemy keeps hitting switch to ambush tactics...
+    hunted_threshold: 0.8
+    hunted: ambush
+    # ...and, when the side is preserving its forces, the most hunted go dark
+    # to survive (at most this share of the sites).
+    preserve: dark
+    max_dark_share: 0.3

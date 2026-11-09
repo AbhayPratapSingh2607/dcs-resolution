@@ -49,6 +49,9 @@ class SimulationResults:
     air_loss_details: list[Any] = field(default_factory=list)
     #: Every flight that took part in this turn's simulation.
     flights_flown: list[Any] = field(default_factory=list)
+    #: Enemy flights each side's own surveillance saw
+    #: (game.commander.jfacc.observations.Observation).
+    observations: list[Any] = field(default_factory=list)
     #: Seed for the combat model, so auto-resolved results can be reproduced.
     seed: int = field(default_factory=lambda: random.randrange(2**31))
     log: CombatLog = field(default_factory=CombatLog)

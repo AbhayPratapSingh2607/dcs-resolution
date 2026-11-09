@@ -68,6 +68,15 @@ if dcsRetribution and SkynetIADS then
     env.info(string.format("DCSRetribution|Skynet-IADS plugin - debugRED=%s", tostring(debugRED)))
     env.info(string.format("DCSRetribution|Skynet-IADS plugin - debugBLUE=%s", tostring(debugBLUE)))
 
+    -- Sites with an emission control order from the air campaign planner keep
+    -- their go-live range even when the per-type adjustment below runs.
+    local emconSites = {}
+    local function reapplyEmcon()
+        for _, entry in pairs(emconSites) do
+            entry.unit:setGoLiveRangeInPercent(entry.percent)
+        end
+    end
+
     -- actual configuration code
     local function initializeIADSElement(iads, iads_unit, element)
         if iads_unit == nil then
@@ -90,7 +99,23 @@ if dcsRetribution and SkynetIADS then
             iads_unit:setGoLiveRangeInPercent(tonumber(element.go_live_range_in_percent))
         end
         if element.autonomous_behaviour then
-            iads_unit:setAutonomousBehaviour(element.autonomous_behaviour)
+            -- The value is exported as text (a number, or the name of the
+            -- Skynet constant); Skynet compares it with the numeric constants.
+            local mode = tonumber(element.autonomous_behaviour)
+            if mode == nil then
+                if string.find(element.autonomous_behaviour, "DARK", 1, true) then
+                    mode = SkynetIADSAbstractRadarElement.AUTONOMOUS_STATE_DARK
+                else
+                    mode = SkynetIADSAbstractRadarElement.AUTONOMOUS_STATE_DCS_AI
+                end
+            end
+            iads_unit:setAutonomousBehaviour(mode)
+        end
+        if element.emcon then
+            env.info(string.format("DCSRetribution|Skynet-IADS plugin - %s emission control: %s", element.dcsGroupName or "?", element.emcon))
+            if element.go_live_range_in_percent then
+                table.insert(emconSites, { unit = iads_unit, percent = tonumber(element.go_live_range_in_percent) })
+            end
         end
         if element.ConnectionNode then
             for i, cn in pairs(element.ConnectionNode) do
@@ -257,6 +282,7 @@ if dcsRetribution and SkynetIADS then
         end
         if adjustGoLiveRange then
             setGoLiveRange(redIADS)
+            reapplyEmcon()
         end
     end
 
@@ -272,6 +298,7 @@ if dcsRetribution and SkynetIADS then
         end
         if adjustGoLiveRange then
             setGoLiveRange(blueIADS)
+            reapplyEmcon()
         end
     end
 
