@@ -111,7 +111,7 @@ class AircraftSimulation:
         # positions are used.
         CombatInitiator(
             self.game, self.combats, events, self.model
-        ).update_active_combats()
+        ).update_active_combats(time)
 
         if combat_resolution_method is CombatResolutionMethod.RESOLVE:
             self._observe(time)

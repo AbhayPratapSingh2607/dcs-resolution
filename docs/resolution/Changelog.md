@@ -96,6 +96,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   hides the enemy's ATO again if it was shown.
 * **[Skynet]** The autonomous behaviour of SAM sites (go dark when cut off from the network) now
   reaches Skynet as the number it expects; before, every site behaved as DCS AI.
+* **[Fast Forward]** Air engagements in which nobody fired no longer restart every second. A CAP
+  that couldn't catch an enemy inside its commit range (an AWACS turning away) started a new,
+  empty engagement each tick; the pair now waits 5 minutes before engaging again. In one turn this
+  cut air engagements from 166 to 29.
+* **[UI]** Before **Begin Campaign**, the ATO panel says the pre-war posture plan is never flown;
+  the first real plan is made when the campaign begins.
 * **[Fast Forward]** A second sortie whose airframes were shot down earlier in the period is
   cancelled. Before, the lost airframes flew it, and their losses could exceed the squadron's
   aircraft.

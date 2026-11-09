@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import itertools
 import logging
-from collections.abc import Iterator
-from datetime import timedelta
+from collections.abc import Callable, Iterator
+from datetime import datetime, timedelta
 from typing import Optional, TYPE_CHECKING
 
 from game.theater.player import Player
@@ -35,7 +35,7 @@ class CombatInitiator:
         self.events = events
         self.model = model
 
-    def update_active_combats(self) -> None:
+    def update_active_combats(self, time: Optional[datetime] = None) -> None:
         blue_a2a = AircraftEngagementZones.from_ato(self.game.blue.ato)
         red_a2a = AircraftEngagementZones.from_ato(self.game.red.ato)
         blue_sam = SamEngagementZones.from_theater(
@@ -63,7 +63,7 @@ class CombatInitiator:
                 a2a = blue_a2a
                 own_a2a = red_a2a
                 sam = blue_sam
-            self.check_flight_for_combat(flight, a2a, own_a2a, sam)
+            self.check_flight_for_combat(flight, a2a, own_a2a, sam, time)
 
     def check_flight_for_combat(
         self,
@@ -71,13 +71,18 @@ class CombatInitiator:
         a2a: AircraftEngagementZones,
         own_a2a: AircraftEngagementZones,
         sam: SamEngagementZones,
+        time: Optional[datetime] = None,
     ) -> None:
         if (joined := self.check_flight_for_joined_combat(flight)) is not None:
             logging.info(f"{flight} is joining existing combat {joined}")
             joined.join(flight)
             own_a2a.remove_flight(flight)
             self.events.update_combat(joined)
-        elif (combat := self.check_flight_for_new_combat(flight, a2a, sam)) is not None:
+        elif (
+            combat := self.check_flight_for_new_combat(
+                flight, a2a, sam, self._quiet_filter(time)
+            )
+        ) is not None:
             logging.info(f"Creating new combat because {combat.because()}")
             combat.model = self.model
             combat.update_flight_states()
@@ -98,9 +103,22 @@ class CombatInitiator:
                 return combat
         return None
 
+    def _quiet_filter(
+        self, time: Optional[datetime]
+    ) -> Optional[Callable[[Flight, Flight], bool]]:
+        """Whether two opposing flights just had an engagement without a shot
+        (see CombatModel.mark_quiet), so shouldn't start another yet."""
+        model = self.model
+        if model is None or time is None:
+            return None
+        return lambda a, b: model.recently_quiet(a, b, time)
+
     @staticmethod
     def check_flight_for_new_combat(
-        flight: Flight, a2a: AircraftEngagementZones, sam: SamEngagementZones
+        flight: Flight,
+        a2a: AircraftEngagementZones,
+        sam: SamEngagementZones,
+        quiet: Optional[Callable[[Flight, Flight], bool]] = None,
     ) -> Optional[FrozenCombat]:
         if not flight.state.in_flight:
             return None
@@ -111,9 +129,13 @@ class CombatInitiator:
         position = flight.state.estimate_position()
 
         if flight.state.vulnerable_to_intercept and a2a.covers(position):
-            flights = [flight]
-            flights.extend(a2a.iter_intercepting_flights(position))
-            return AirCombat(timedelta(minutes=1), flights)
+            interceptors = [
+                f
+                for f in a2a.iter_intercepting_flights(position)
+                if quiet is None or not quiet(flight, f)
+            ]
+            if interceptors:
+                return AirCombat(timedelta(minutes=1), [flight, *interceptors])
 
         if flight.state.vulnerable_to_sam and sam.covers(position):
             return DefendingSam(

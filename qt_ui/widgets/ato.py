@@ -42,6 +42,13 @@ from ..windows.atotimeline import AtoTimelineDialog
 from ..models import AtoModel, GameModel, NullListModel, PackageModel
 
 
+#: Shown above the package list before the campaign begins.
+PRE_WAR_NOTE = (
+    "Pre-war posture: this plan is never flown. Begin Campaign plans turn 1, "
+    "when hostilities start."
+)
+
+
 class QFlightList(QListView):
     """List view for displaying the flights of a package."""
 
@@ -576,8 +583,17 @@ class QAirTaskingOrderPanel(QSplitter):
             "Show/Plan OPFOR's ATO: ", self.red_ato_checkbox
         )
 
+        # Before the campaign begins, the ATO shows the pre-war posture plan.
+        # It is never flown: Begin Campaign plans turn 1 from scratch.
+        self.pre_war_note = QLabel(PRE_WAR_NOTE)
+        self.pre_war_note.setWordWrap(True)
+        self.pre_war_note.setStyleSheet("color: #e0b050;")
+        ato_layout = QVBoxLayout()
+        ato_layout.addLayout(self.red_ato_labeled)
+        ato_layout.addWidget(self.pre_war_note)
+
         self.ato_group_box = QGroupBox("ATO")
-        self.ato_group_box.setLayout(self.red_ato_labeled)
+        self.ato_group_box.setLayout(ato_layout)
         self.addWidget(self.ato_group_box)
 
         self.package_panel = QPackagePanel(game_model, self.ato_model)
@@ -595,6 +611,14 @@ class QAirTaskingOrderPanel(QSplitter):
         # Fog of war may have been turned on (Settings) while the enemy's ATO
         # is shown: hide it again.
         GameUpdateSignal.get_instance().gameupdated.connect(self._enforce_fog)
+        GameUpdateSignal.get_instance().gameupdated.connect(self._update_pre_war_note)
+        self._update_pre_war_note()
+
+    def _update_pre_war_note(self, game: object = None) -> None:
+        # The signal carries the game, which may be newer than the model's.
+        if game is None:
+            game = self.game_model.game
+        self.pre_war_note.setVisible(getattr(game, "turn", None) == 0)
 
     def _enforce_fog(self, _game: object = None) -> None:
         if self.red_ato_checkbox.isChecked() and not self._opfor_allowed():

@@ -88,6 +88,8 @@ class AirCombat(JoinableCombat):
         assert self.engagement is not None and self.model is not None
         self.model.log(time, CombatDomain.AIR, "", self.engagement.summary())
         logging.debug(f"{self} resolved: {self.engagement.summary()}")
+        if self.engagement.shots == 0:
+            self.model.mark_quiet(list(self.flights), time)
         self.release_flights(
             events, time, elapsed_time, aborted=self.engagement.aborted_flights()
         )

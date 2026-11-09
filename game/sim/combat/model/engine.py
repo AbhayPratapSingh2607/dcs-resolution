@@ -6,7 +6,7 @@ import math
 import random
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterator, Optional, TYPE_CHECKING
 
 from game.sim.combatlog import CombatDomain
@@ -151,6 +151,13 @@ class SideAwareness:
         return any(s.detects(target, target_alt_m, target_rcs) for s in self.sources)
 
 
+#: After an air engagement in which nobody fired, the same opposing flights
+#: don't start another one for this long. Without it, a CAP whose commit region
+#: holds an enemy it can't catch (an AWACS turning away, a CAP out of reach)
+#: starts a new empty engagement every tick.
+QUIET_ENGAGEMENT_COOLDOWN = timedelta(minutes=5)
+
+
 class CombatModel:
     def __init__(self, game: Game, results: SimulationResults) -> None:
         self.game = game
@@ -190,6 +197,27 @@ class CombatModel:
         self.preempted: set[tuple[int, str]] = set()
         #: Shot statistics for calibration: kind -> [shots, kills].
         self.shot_stats: defaultdict[str, list[int]] = defaultdict(lambda: [0, 0])
+        #: Pairs of opposing flights (by id) whose last engagement ended
+        #: without a shot, until when they won't start another one.
+        self.quiet_pairs: dict[frozenset[int], datetime] = {}
+
+    def mark_quiet(self, flights: list[Flight], now: datetime) -> None:
+        """Records that these flights just fought an engagement in which nobody
+        fired, so opposing pairs among them stay apart for a while."""
+        until = now + QUIET_ENGAGEMENT_COOLDOWN
+        for a in flights:
+            for b in flights:
+                if a.squadron.player.is_blue and not b.squadron.player.is_blue:
+                    self.quiet_pairs[frozenset((id(a), id(b)))] = until
+
+    def recently_quiet(self, a: Flight, b: Flight, now: datetime) -> bool:
+        until = self.quiet_pairs.get(frozenset((id(a), id(b))))
+        if until is None:
+            return False
+        if now >= until:
+            del self.quiet_pairs[frozenset((id(a), id(b)))]
+            return False
+        return True
 
     def quality(self, player: Player) -> ForceQuality:
         """Training, readiness and doctrine of a side, from its faction."""
