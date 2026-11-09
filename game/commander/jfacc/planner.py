@@ -1257,7 +1257,14 @@ class JfaccPlanner:
     def _plan_jiptl(self) -> None:
         from game.theater.theatergroundobject import SamGroundObject
 
-        for nomination in self.nominations:
+        # H-hour sequencing (item 2): suppression is planned first, in the
+        # first wave, so the strikes of the next wave can fly through the SEAD
+        # corridors it opens instead of each needing its own HARM escort.
+        ordered = sorted(
+            self.nominations,
+            key=lambda n: 0 if n.category is Category.SEAD else 1,
+        )
+        for nomination in ordered:
             if nomination.priority <= 0 or nomination.key in self.planned_keys:
                 continue
             category = nomination.category

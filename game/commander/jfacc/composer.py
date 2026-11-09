@@ -21,7 +21,7 @@ import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from game.ato.flighttype import FlightType
 from game.ato.package import Package
@@ -94,6 +94,25 @@ class PackageRequest:
     asap: bool = False
     #: SAM sites destroyed by earlier packages before this one arrives.
     suppressed: Optional[set[object]] = None
+
+
+@dataclass
+class SeadCorridor:
+    """Airspace HARM shooters suppress for a while (item 1)."""
+
+    area: Any
+    start: datetime
+    end: datetime
+    shooters: int
+
+
+#: Flights that open a SEAD corridor.
+CORRIDOR_TASKS = {
+    FlightType.SEAD,
+    FlightType.SEAD_ESCORT,
+    FlightType.SEAD_SWEEP,
+    FlightType.DEAD,
+}
 
 
 @dataclass
@@ -195,6 +214,8 @@ class PackageComposer:
         #: Focused turns: CAPs stay on station until this time (the end of
         #: the mission window) rather than for the default patrol duration.
         self.patrol_until: Optional[datetime] = None
+        #: SEAD corridors opened this period (item 1).
+        self.corridors: list[SeadCorridor] = []
 
     # ----------------------------------------------------------- analysis
 
@@ -478,6 +499,16 @@ class PackageComposer:
 
         main = [r for r in request.flights if r.task not in SUPPORT_TASKS]
         support = [r for r in request.flights if r.task in SUPPORT_TASKS]
+        # A SEAD corridor already suppressing this package's ingress at its
+        # TOT stands in for its own HARM escort (item 1).
+        corridor_sead = self.corridor_cover(request, tot)
+        if corridor_sead:
+            support = [
+                r
+                for r in support
+                if not (r.task is FlightType.SEAD_ESCORT and not r.jammer)
+            ]
+            notes.append(f"in a SEAD corridor ({corridor_sead} HARM shooters)")
         for flight_request in main + support:
             flight, allocation, note = self._place_flight(
                 builder, flight_request, target, tot, heli
@@ -555,6 +586,7 @@ class PackageComposer:
             require_sead
             and route_sam
             and not has_sead
+            and not corridor_sead
             and request.risk_kind not in URGENT_RISK_KINDS
         ):
             # The SEAD force is what limits this package: ask for more.
@@ -568,7 +600,7 @@ class PackageComposer:
         if threat is not None:
             route_threat = self._planned_route_threat(package, request, threat)
             risk, limit, sead_aircraft = self._risk(
-                package, route_threat, jammer_flights, request
+                package, route_threat, jammer_flights, request, corridor_sead
             )
             if risk.expected_loss_rate > limit:
                 # One more try: add HARM shooters to cover what the route
@@ -597,7 +629,11 @@ class PackageComposer:
                         except Exception:
                             return scrub("no viable route for added SEAD")
                         risk, limit, sead_aircraft = self._risk(
-                            package, route_threat, jammer_flights, request
+                            package,
+                            route_threat,
+                            jammer_flights,
+                            request,
+                            corridor_sead,
                         )
             if risk.expected_loss_rate > limit:
                 return scrub(
@@ -632,7 +668,79 @@ class PackageComposer:
             except Exception:
                 continue
             self.ledger.update(allocation, takeoff, land)
+        self._open_corridor(package)
         return ComposedPackage(package, risk, allocations, notes), ""
+
+    # ------------------------------------------------------- SEAD corridors
+
+    def _open_corridor(self, package: Package) -> None:
+        """A package with HARM shooters suppresses the airspace along their
+        route around its TOT, for other packages too: in the combat model any
+        airborne SEAD flight hunts emitters it can reach, and its presence
+        deters the sites from radiating."""
+        from shapely.geometry import LineString
+
+        shooters = [f for f in package.flights if f.flight_type in CORRIDOR_TASKS]
+        count = sum(f.count for f in shooters)
+        if not count:
+            return
+        width_m = float(self.packages_cfg.get("sead_corridor_nm", 12)) * 1852
+        before = timedelta(
+            minutes=float(self.packages_cfg.get("sead_corridor_lead_min", 10))
+        )
+        after = timedelta(
+            minutes=float(self.packages_cfg.get("sead_corridor_linger_min", 20))
+        )
+        for flight in shooters:
+            points = [
+                (w.position.x, w.position.y) for w in flight.flight_plan.waypoints[1:-1]
+            ]
+            if len(points) < 2:
+                continue
+            tot = package.time_over_target
+            self.corridors.append(
+                SeadCorridor(
+                    LineString(points).buffer(width_m),
+                    tot - before,
+                    tot + after,
+                    count,
+                )
+            )
+            return
+
+    def corridor_cover(self, request: PackageRequest, tot: datetime) -> int:
+        """HARM shooters of the corridors covering this package's ingress at
+        its TOT (0: none). The ingress is the last ``ingress_exposure_nm``
+        before the target, on the way from the nearest base."""
+        from shapely.geometry import LineString
+
+        if not self.corridors or request.threat is None:
+            return 0
+        if any(
+            r.task in CORRIDOR_TASKS
+            for r in request.flights
+            if r.task not in SUPPORT_TASKS
+        ):
+            return 0
+        target = request.target.position
+        origin = self.origin_for(request.target)
+        start = origin.position if origin is not None else target  # type: ignore[attr-defined]
+        ingress_m = float(self.packages_cfg.get("ingress_exposure_nm", 40)) * 1852
+        if start.distance_to_point(target) > ingress_m:
+            start = target.point_from_heading(
+                target.heading_between_point(start), ingress_m
+            )
+        leg = LineString([(start.x, start.y), (target.x, target.y)])
+        if leg.length <= 0:
+            return 0
+        share = float(self.packages_cfg.get("sead_corridor_cover", 0.8))
+        shooters = 0
+        for corridor in self.corridors:
+            if not corridor.start <= tot <= corridor.end:
+                continue
+            if leg.intersection(corridor.area).length / leg.length >= share:
+                shooters += corridor.shooters
+        return min(shooters, 8)
 
     def _planned_route_threat(
         self, package: Package, request: PackageRequest, threat: RouteThreat
@@ -680,6 +788,7 @@ class PackageComposer:
         threat: RouteThreat,
         jammer_flights: list[Flight],
         request: PackageRequest,
+        corridor_sead: int = 0,
     ) -> tuple[RiskEstimate, float, int]:
         from game.sim.combat.model.forcequality import for_faction
 
@@ -689,7 +798,7 @@ class PackageComposer:
             FlightType.SEAD_SWEEP,
             FlightType.DEAD,
         }
-        sead_aircraft = sum(
+        sead_aircraft = corridor_sead + sum(
             f.count for f in package.flights if f.flight_type in sead_types
         )
         jammers = sum(f.count for f in jammer_flights)

@@ -108,6 +108,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   Player aircraft are never removed, helicopters only if the option is set, and the removal
   isn't counted as a loss.
 
+* **[Auto Planner]** SEAD covers a corridor, not one package. A strike flying through airspace
+  that an earlier SEAD or DEAD package is suppressing at its time on target no longer needs its own
+  HARM escort, and SEAD and DEAD are planned first, so the strikes after them can use those
+  corridors. SEAD-capable squadrons are no longer used up escorting one package each.
+
 ## Fixes
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs

@@ -242,6 +242,12 @@ SAM sites compound, and SEAD removes at most about half the threat.
 The rollback allowance exists because the fast-forward combat model is far deadlier against an
 intact modern IADS than history. Without it the planner would never start the rollback.
 
+**SEAD corridors.** A package with HARM shooters suppresses the airspace along their route from
+10 minutes before its time on target to 20 after. A package whose ingress lies in such a corridor
+at its time on target doesn't need its own HARM escort, and the corridor's shooters count in its
+estimate. SEAD and DEAD are planned first, in the first wave, so the strikes of the next wave can
+use their corridors.
+
 CAPs are estimated too, with the defense limit. A CAP orbits near the edge of SAM coverage and
 turns away rather than pressing through it to a target, so its SAM exposure is a fraction (4%)
 of a strike package's on the same route. SAM sites within 15 nm of its station count at reduced

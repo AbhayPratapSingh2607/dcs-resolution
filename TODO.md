@@ -386,13 +386,25 @@ Senaki and the 4 B-1Bs got no tasks, while DCA flew 40 sorties against 30 Iraqi
 fighters hiding in shelters. These items still apply with focused turns: they decide what
 the few packages of a turn are.
 
-- [ ] **1. SEAD covers a corridor, not one package.** A SEAD or DEAD flight suppresses a
+- [x] **1. SEAD covers a corridor, not one package.** Done 2026-11-09: every package with
+  HARM shooters (SEAD, SEAD escort, SEAD sweep, DEAD) opens a corridor: its shooters'
+  route buffered by 12 nm (`packages.sead_corridor_nm`), from 10 minutes before its TOT to
+  20 after. A later package whose ingress leg (last 40 nm) is at least 80% inside an
+  active corridor drops its own HARM escort, passes the "no SEAD" rule, and counts the
+  corridor's shooters (up to 8) in its risk estimate. This matches the combat model, where
+  any airborne SEAD flight hunts emitters and deters sites from radiating. First focused
+  plans: 1 package per side used a corridor; blue's bottleneck in the peer test moved from
+  SEAD escorts to fighter sweeps (36 drops). F10 (merging packages) will use corridors
+  more. Original note: A SEAD or DEAD flight suppresses a
   route corridor for a time window, and every package on that corridor inside the window
   counts as escorted. Today each package entering radar SAM coverage needs its own SEAD
   escort. The few SEAD-capable squadrons (F-16CM, AV-8B, Hornets) are used up by the DEAD
   packages, which caused 59 drops ("SEAD Escort: no mission-capable aircraft free in the
   sortie window"). This is also what F10 relies on.
-- [ ] **2. H-hour sequencing in Phase I.**
+- [ ] **2. H-hour sequencing in Phase I.** Partly done 2026-11-09: SEAD/DEAD nominations
+  are planned before the rest of the target list, in the first wave, so strikes in the
+  next wave (about 10 minutes later in a 60-minute window) can use their corridors. Still
+  to do: C2 strikes in the first wave.
   - First wave: DEAD against EWRs and the SAMs covering the corridors, plus strikes on
     C2 targets.
   - Second wave, 10–20 minutes later: strike and OCA packages through the suppressed
