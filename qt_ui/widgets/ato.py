@@ -588,9 +588,17 @@ class QAirTaskingOrderPanel(QSplitter):
         self.pre_war_note = QLabel(PRE_WAR_NOTE)
         self.pre_war_note.setWordWrap(True)
         self.pre_war_note.setStyleSheet("color: #e0b050;")
+        # The turn briefing (F13): phase, intent, key packages, threats.
+        self.turn_briefing = QLabel()
+        self.turn_briefing.setWordWrap(True)
+        self.turn_briefing.setTextFormat(Qt.TextFormat.RichText)
+        self.turn_briefing.setStyleSheet(
+            "QLabel { padding: 4px; border: 1px solid #3a4a5a; border-radius: 3px; }"
+        )
         ato_layout = QVBoxLayout()
         ato_layout.addLayout(self.red_ato_labeled)
         ato_layout.addWidget(self.pre_war_note)
+        ato_layout.addWidget(self.turn_briefing)
 
         self.ato_group_box = QGroupBox("ATO")
         self.ato_group_box.setLayout(ato_layout)
@@ -619,6 +627,19 @@ class QAirTaskingOrderPanel(QSplitter):
         if game is None:
             game = self.game_model.game
         self.pre_war_note.setVisible(getattr(game, "turn", None) == 0)
+        self._update_turn_briefing(game)
+
+    def _update_turn_briefing(self, game: object) -> None:
+        from qt_ui import atopresentation as ap
+
+        text = None
+        if game is not None and getattr(game, "turn", 0) > 0:
+            try:
+                text = ap.turn_briefing(game)  # type: ignore[arg-type]
+            except Exception:
+                logging.exception("Could not build the turn briefing")
+        self.turn_briefing.setText(text or "")
+        self.turn_briefing.setVisible(bool(text))
 
     def _enforce_fog(self, _game: object = None) -> None:
         if self.red_ato_checkbox.isChecked() and not self._opfor_allowed():

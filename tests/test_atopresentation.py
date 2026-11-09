@@ -256,3 +256,51 @@ def test_focused_turn_counts_from_mission_start_and_shows_the_run_out() -> None:
     assert ap.in_dcs_window(game, package) is None  # type: ignore[arg-type]
     # The timeline runs on past the window until the last landing.
     assert ap.period_bounds(game) == (START, START + timedelta(minutes=130))
+
+
+def test_turn_briefing_lists_key_packages_and_routine_lines() -> None:
+    from game.commander.jfacc.campaignstate import PhaseChange
+
+    strike = _Package(
+        FlightType.STRIKE,
+        "Bridge",
+        _flight(FlightType.STRIKE, 4, "F-15E", _Plan(0, 10, 50, 90)),
+        tot=50,
+    )
+    strike.planning_info = {"reason": "Cut the supply route"}
+    strike.has_players = False  # type: ignore[attr-defined]
+    cap = _Package(
+        FlightType.BARCAP,
+        "CAP Kutaisi 320",
+        _flight(FlightType.BARCAP, 2, "F-16C", _Plan(0, 10, 40, 100)),
+    )
+    awacs = _Package(
+        FlightType.AEWC,
+        "Kutaisi",
+        _flight(FlightType.AEWC, 1, "E-3A", _Plan(0, 5, 35, 200)),
+    )
+    for package in (cap, awacs):
+        package.has_players = False  # type: ignore[attr-defined]
+    for package in (strike, cap, awacs):
+        for flight in package.flights:
+            flight.client_count = 0
+    game = _game(strike, cap, awacs)
+    side = game.air_campaign.side(True)
+    side.history.append(PhaseChange(1, side.phase, "start"))
+    side.intent = "Gain air superiority."
+    side.moes = {"enemy_fighters": 30.0, "battle_area_sams": 4.0}
+
+    text = ap.turn_briefing(game)  # type: ignore[arg-type]
+
+    assert text is not None
+    assert "Gain air superiority." in text
+    assert "Cut the supply route" in text
+    assert "1 CAP station" in text and "1 AWACS" in text
+    assert "about 30 enemy fighters" in text
+    # The CAP is routine, not a key package.
+    assert "CAP Kutaisi 320:" not in text
+
+
+def test_no_briefing_without_the_air_campaign_planner() -> None:
+    game = _game()
+    assert ap.turn_briefing(game) is None  # type: ignore[arg-type]

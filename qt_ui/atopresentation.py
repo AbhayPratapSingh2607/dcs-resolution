@@ -403,3 +403,41 @@ def lanes(packages: Iterable[Package]) -> list[Lane]:
         lane.packages.sort(key=lambda p: p.time_over_target)
     result.sort(key=lambda lane: (GROUP_ORDER[lane.group.key], lane.first_start))
     return result
+
+
+# ------------------------------------------------------------- turn briefing
+
+
+def turn_briefing(game: Game, blue: bool = True) -> Optional[str]:
+    """The turn summary (game.commander.jfacc.briefing) as HTML for the ATO
+    panel, or None when the side doesn't use the air campaign planner."""
+    from html import escape as e
+
+    from game.commander.jfacc.briefing import turn_summary
+
+    summary = turn_summary(game, blue, name_of=title)
+    if summary is None:
+        return None
+    when = (
+        f" · mission {fmt(summary.window[0])}–{fmt(summary.window[1])}"
+        if summary.window
+        else ""
+    )
+    lines = [f"<b>Turn {summary.turn}: {e(summary.phase)}</b>{when}"]
+    if summary.intent:
+        lines.append(e(summary.intent))
+    if summary.key:
+        lines.append("<b>Key packages</b>")
+        for package in summary.key:
+            you = " (you)" if package.players else ""
+            lines.append(
+                f"&nbsp;&nbsp;{fmt(package.tot)} {e(package.name)}{you}: "
+                f"{e(package.reason)}"
+            )
+        if summary.more_key:
+            lines.append(f"&nbsp;&nbsp;and {summary.more_key} more")
+    if summary.routine:
+        lines.append("Also: " + ", ".join(summary.routine) + ".")
+    if summary.threats:
+        lines.append("Threats (our intelligence): " + ", ".join(summary.threats) + ".")
+    return "<br>".join(lines)

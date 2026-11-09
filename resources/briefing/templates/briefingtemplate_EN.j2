@@ -3,6 +3,12 @@ DCS Retribution Turn {{ game.turn }}
 ====================
 Most briefing information, including communications and flight plan information, can be found on your kneeboard.
 
+{% if turn_summary %}
+The plan:
+====================
+{{ turn_summary }}
+
+{% endif %}
 Current situation:
 ====================
 {% if not frontlines  %}

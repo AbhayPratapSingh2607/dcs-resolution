@@ -4,6 +4,7 @@ Briefing generation logic
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from typing import Dict, List, TYPE_CHECKING
@@ -168,10 +169,23 @@ class BriefingGenerator(MissionInfoGenerator):
         """Generate the mission briefing"""
         self._generate_frontline_info()
         self.generate_allied_flights_by_departure()
+        self.turn_summary = self._turn_summary()
         self.mission.set_description_text(self.template.render(vars(self)))
         self.mission.add_picture_blue(
             os.path.abspath("./resources/ui/splash_screen.png")
         )
+
+    def _turn_summary(self) -> str:
+        """Blue's plan for the turn (F13), empty without the air campaign
+        planner."""
+        from game.commander.jfacc.briefing import turn_summary
+
+        try:
+            summary = turn_summary(self.game, blue=True)
+        except Exception:
+            logging.exception("Could not build the turn summary for the briefing")
+            return ""
+        return summary.as_text() if summary is not None else ""
 
     def _generate_frontline_info(self) -> None:
         """Build FrontLineInfo objects from FrontLine type and append to briefing."""
