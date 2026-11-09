@@ -377,6 +377,11 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         "fronts": front_losses,
         "jfacc": jfacc,
         "bases_captured": captured,
+        "bases_captured_by": {
+            cp.name: ("blue" if cp.captured.is_blue else "red")
+            for cp in game.theater.controlpoints
+            if cp.name in captured
+        },
         "events": [f"{h}: {t}" for h, t in report.events],
         "warnings": warnings,
         "failures": failures,

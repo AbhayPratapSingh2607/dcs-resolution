@@ -1,7 +1,8 @@
 # Doctrine-driven air campaign planner
 
-The auto planner can plan each turn the way a Western Joint Force Air Component Commander
-(JFACC) would. It works from the top down:
+The auto planner can plan each turn the way the side's air force would: a Western Joint Force
+Air Component Commander (JFACC), a Russian or Soviet air operation, a client state's air
+defense, or an irregular force's handful of aircraft. It works from the top down:
 
 1. assess the campaign,
 2. pick a campaign phase,
@@ -13,8 +14,12 @@ The auto planner can plan each turn the way a Western Joint Force Air Component 
 Each turn is one 6 hour air tasking order (ATO) period. You choose which part of it to fly in
 DCS. The fast-forward combat model fights the rest.
 
-Factions with Western doctrine use it by default. Other factions keep the legacy planner. Both
-can be changed per side.
+Every doctrine except WWII uses it by default, each with its own planning profile (see
+[Doctrines](#doctrines)). WWII factions keep the legacy planner. Both can be changed per side.
+
+The planner plans from its own side's intelligence picture, never from ground truth: enemy
+aircraft numbers are estimates, SAM sites it believes destroyed are planned around as destroyed,
+and enemy flights it never saw teach it nothing.
 
 ## Turning it on
 
@@ -26,14 +31,19 @@ Settings > Campaign Management > HQ Automation:
 | Air tasking order period (hours) | How much of the day one turn plans, 1–6 hours. The default is 6. |
 | Acceptable attrition per sortie override | Replaces the doctrine's loss limits (see [Risk](#risk-and-scrubbing)). 0 keeps the doctrine's limits. |
 
-Which doctrine uses the new planner is set by `planning_profile:` in
-`resources/combat/doctrines.yaml`. The planning profile itself, with every number on this page, is
-`resources/doctrine/planning/western.yaml`.
+Which planning profile a doctrine uses is set by `planning_profile:` in
+`resources/combat/doctrines.yaml`. The profiles, with every number on this page, are in
+`resources/doctrine/planning/`. A profile can `extends:` another and change only what differs.
 
 ## Campaign phases
 
-The planner moves through Desert Storm style phases. A phase lasts at least two turns. It moves on
-when the measures of effectiveness (MOEs) for that phase are met.
+Phases are data in the planning profile: each has its mission shares, target weights and flags
+(ground stance, raids, risk), and transitions to other phases when measures of effectiveness
+(MOEs) are met. Interrupts (such as a defense against an enemy offensive) take over from any
+offensive phase and resume it when they're over. Modifiers, such as force preservation, overlay
+the current phase without replacing it.
+
+The Western profile moves through Desert Storm style phases. A phase lasts at least two turns.
 
 | Phase | Focus | Moves on when |
 |---|---|---|
@@ -66,11 +76,13 @@ mission type can't use go to the others, in the order set in the profile.
   * Doctrine decides this (`enablers.tanker_continuous` and `recovery_tanker`). The "Automatic
     Theater tanker package planning" setting only affects the legacy planner.
 * **Defensive counter-air:**
-  * CAP stations sit on each enemy threat axis, outside SAM coverage.
+  * CAP stations sit on each enemy threat axis, outside SAM coverage. Axes run toward enemy
+    fighter bases, and toward where the side has actually seen enemy aircraft come from (see
+    [Adaptation](#adaptation)).
   * HVAA CAP covers the AEW&C and tanker tracks.
   * Point defense covers carriers.
-  * QRA ground alert is held at threatened bases. Those fighters are reserved for the whole period
-    and given no other mission. Neither the combat model nor the DCS mission scrambles them yet.
+  * Ground alert pairs wait at threatened bases and are scrambled by GCI (see
+    [Ground alert and GCI](#ground-alert-and-gci)).
 * **Ground support.** CAS vul windows cover fronts with troops in contact, weighted toward the
   main effort, and are spread over the period. Each CAS flight's expected kills are worked out
   from its actual loadout (an A-10C two-ship with Mavericks and CBUs is about 12 vehicles; an
@@ -95,6 +107,81 @@ mission type can't use go to the others, in the order set in the profile.
   missions. Laser and TV guided weapons aren't planned under a low cloud base. Missing support
   scrubs the package, except CAS for troops in contact and defensive packages, which fly with what
   is available if the risk allows.
+
+## Doctrines
+
+| Profile | Used by | How it fights |
+|---|---|---|
+| `western` | NATO and Western-trained air forces | Desert Storm phases: strategic attack, SEAD rollback, battlefield preparation, ground offensive. Packages with SEAD, jammers and escort; low risk limits. |
+| `russian_modern` | Modern Russia and peers | Readiness, then an initial air operation of massed raids for three turns, then the front offensive. Defends with PVO and front defense phases. Strikes without SEAD if it must; higher risk limits. |
+| `soviet` | Soviet and Cold War Warsaw Pact | Like `russian_modern`, with bigger, more widely spaced raids, low-level ingress, unguided weapons first and more mobile SAM ambushes. |
+| `client` | Client states (Iraq, Iran, Syria, North Korea...) | Homeland air defense first; limited offensives when the balance allows. Hides its air force and IADS when losing. |
+| `irregular` | Insurgents and militias | Survives; harasses with small packages; no enablers, no ground alert. |
+
+* **Massed raids** (`russian_modern`, `soviet`). The most important targets (airfields, command
+  nodes, long-range SAMs, early warning radars) get a raid instead of a package: a suppression
+  echelon against the SAM sites on the route, the main strike group with a fighter clearing
+  element, and a follow-up group, each a package of its own minutes apart. The raid is planned
+  whole or not at all. Packages of a raid share a raid id, shown in their planning details.
+* **Low-level ingress** (doctrines with `strike_altitude: low`). Strikers fly ingress and egress
+  at 500 ft AGL in DCS, and the risk estimate trades radar SAM exposure for guns and short-range
+  SAMs along the track.
+* **Force preservation.** When a side's air losses mount or it is losing the air battle, it
+  pulls its CAPs back under its own SAMs, stops raids, cuts offensive sorties, puts more fighters
+  on ground alert and hides its most-hunted SAM sites.
+
+## Adaptation
+
+Each side keeps a picture of where the enemy's air operations come from: the bearings, per own
+base, at which its own early warning radars and AWACS saw enemy aircraft during the turn, and
+where its own aircraft and ground units were hit. Older observations fade each turn. The learned
+axes move CAP stations and ground alert stations, guide SAM moves and decide where decoys go.
+
+## IADS management
+
+Sides whose profile manages its IADS (`iads.manage`, every profile except `western`):
+
+* **Emission control.** Each radar SAM site gets an order every period:
+  * *active*: radiates and fights as part of the network.
+  * *ambush*: radars dark until the target is close, then a short engagement. Hard for ELINT and
+    anti-radiation hunters to find. The default for mobile sites in `soviet` and `client`.
+  * *dark*: silent to survive, firing only in self-defense. Given to the most hunted sites under
+    force preservation, never to more than a set share of the IADS.
+
+  The orders apply in the fast-forward combat model and are passed to Skynet in DCS.
+* **Moving SAM sites.** At the start of each turn, some mobile SAM sites relocate: a site that
+  fired last turn shoots and scoots a few km, a site the enemy keeps hitting drives away, and a
+  site that would cover an observed threat axis better moves there. New positions are on own
+  ground, behind the front, on dry, level, open ground and apart from other sites. The enemy
+  isn't told: its intel picture and any decoys stay at the old position until it finds the site
+  again.
+* **Decoys.** Doctrines with deception keep decoys beside each radar SAM site, placed toward the
+  observed threat axis where the enemy looks first.
+
+## Ground alert and GCI
+
+Fighter pairs on ground alert (QRA) wait at the runway end of threatened bases, each with a CAP
+station on the base's main threat axis and a sector around it. Their aircraft are held for the
+whole period.
+
+The side's ground-controlled interception (GCI) watches its own radar picture (early warning
+radars and AWACS, with radar horizon and jamming). When it sees an enemy raid inside an alert's
+sector, it scrambles the nearest pairs: one pair per two raiders, up to the doctrine's limit per
+raid (`alert.max_scrambles_per_raid`). The pair takes off and flies to its station, engaging
+what it finds there. A dead or jammed radar network scrambles nothing, and alerts never
+scrambled don't fly.
+
+* **Fast-forward:** the combat model runs the GCI every tick.
+* **DCS:** alert groups are late activated with no trigger. The **GCI ground alert scrambles**
+  plugin (on by default) activates them by the same rules from what the coalition's EWRs and
+  AWACS detect. Without the plugin, alert fighters never launch in DCS.
+
+## Fog of war and the enemy's plan
+
+With fog of war on (soft or strict), the enemy's ATO, its view in the ATO timeline and its air
+campaign tab are hidden. You know the enemy's air operations only from the flights your radars
+see on the map. With fog of war off, all of it is shown, and the enemy's ATO can be edited as
+before.
 
 ## Buying aircraft
 
@@ -221,10 +308,23 @@ planner, it prints per turn:
 * second sorties,
 * estimated against actual loss rate.
 
+It also prints active modifiers, raids, ground alerts held and scrambled, IADS orders and
+moves, and the learned threat axes.
+
 `resources/tools/jfacc_report.py` prints one turn's plan, the JIPTL and the reasons packages were
 scrubbed.
+
+`resources/tools/campaign_matrix.py` plays scenarios over several seeds in parallel and checks
+them against bands:
+
+| Scenario | Band |
+|---|---|
+| `iraq`, `iran` | Blue loses at most one aircraft per five red, and red takes no base. |
+| `peer` (Russia 2010 against the US) | Exchange ratio between 0.5 and 2.5; neither side takes more than one base. |
+| `red_wins` (Russia against Georgia 2008) | Red takes a base within 6 turns in 3 of 5 seeds. |
 
 ```
 .venv/Scripts/python resources/tools/campaign_e2e.py --turns 4 --seed 3
 .venv/Scripts/python resources/tools/jfacc_report.py --turns 1 --jiptl 20
+.venv/Scripts/python resources/tools/campaign_matrix.py --scenarios iraq peer --seeds 5 --workers 2
 ```

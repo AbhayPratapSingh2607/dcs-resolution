@@ -44,6 +44,29 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   shortfalls that limited the plan first, then replacements for squadrons below strength. The
   Intelligence window has a new Air campaign page.
   [Guide](Air-Campaign-Planner.md)
+* **[Auto Planner]** The air campaign planner now plans for every doctrine except WWII, each the
+  way its air force fights:
+  * Planning profiles for Russian, Soviet, client-state and irregular doctrines, with their own
+    phases, risk limits and package rules. Phases are now data in the profile, and profiles can
+    extend each other.
+  * Soviet and Russian massed raids: suppression, main strike group with fighter clearing, and
+    follow-up echelons minutes apart. Low-level ingress for Soviet-style doctrines, in DCS and in
+    the risk estimate.
+  * Force preservation when losing: CAPs under own SAMs, raids stopped, more fighters on alert,
+    hunted SAM sites go dark.
+  * Each side learns the enemy's attack axes from what its own radars saw and where it was hit,
+    and moves CAP stations, alert stations, SAM sites and decoys to match.
+  * IADS management: emission control orders (active, ambush, dark) for each SAM site, in the
+    combat model and Skynet; mobile SAM sites relocate between turns, leaving the enemy's intel
+    stale; decoys placed toward the threat.
+  * Ground alert fighters are scrambled by GCI from the side's own radar picture, in fast-forward
+    and in DCS (new **GCI ground alert scrambles** plugin).
+  * Planning uses only the side's intel picture: estimated enemy aircraft and SAM sites believed
+    alive, not ground truth.
+  * With fog of war on, the enemy's ATO, timeline and air campaign plan are hidden.
+  * `campaign_matrix.py` checks the planners over several seeds against historical bands.
+
+  [Guide](Air-Campaign-Planner.md#doctrines)
 * **[Campaign AI]** The planner keeps 4 CSAR helicopters owned or on order and buys them before
   any other aircraft, so pilots who go down can be rescued.
 * **[Campaign AI]** The planner keeps a theater tanker track and carrier recovery tankers going
@@ -61,6 +84,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   same timeline. [Guide](Air-Campaign-Planner.md#reading-the-ato)
 
 ## Fixes
+
+* **[Skynet]** The autonomous behaviour of SAM sites (go dark when cut off from the network) now
+  reaches Skynet as the number it expects; before, every site behaved as DCS AI.
+* **[Fast Forward]** A second sortie whose airframes were shot down earlier in the period is
+  cancelled. Before, the lost airframes flew it, and their losses could exceed the squadron's
+  aircraft.
 
 * **[New Game]** Creating a campaign from a script no longer fails because the "squadrons start
   full" option wasn't passed to the generator.

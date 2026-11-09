@@ -426,9 +426,7 @@ class JfaccPlanner:
         strongest: dict[str, Any] = {}
         for candidate in axes:
             strongest.setdefault(candidate.defended.name, candidate)
-        bases = [
-            b for b in threatened_bases(self.game, self.player, reach) if not b.is_fleet
-        ][: int(alert.get("bases_max", 4))]
+        bases = self._alert_bases(reach * 1.5, int(alert.get("bases_max", 4)))
         held: list[str] = []
         for base in bases:
             main_axis = strongest.get(base.name)
@@ -469,6 +467,32 @@ class JfaccPlanner:
                 flight = package.flights[0]
                 held.append(f"{flight.count}x {flight.unit_type.display_name} at {base.name}")
         return held
+
+    def _alert_bases(self, reach_nm: float, limit: int) -> list[Any]:
+        """Own bases with fighters that can hold an alert, nearest to the
+        enemy's fighter bases first, within reach of at least one."""
+        from .dca import _enemy_fighter_bases
+
+        enemy = [base.position for base, _ in _enemy_fighter_bases(self.game, self.player)]
+        if not enemy:
+            return []
+        ranked: list[tuple[float, Any]] = []
+        for cp in self.game.theater.control_points_for(self.player):
+            if cp.is_fleet:
+                continue
+            if not any(
+                s.location is cp
+                and s.untasked_aircraft >= 2
+                and FlightType.BARCAP in s.auto_assignable_mission_types
+                and role_for(s) == "fighter"
+                for s in self.coalition.air_wing.iter_squadrons()
+            ):
+                continue
+            distance = min(cp.position.distance_to_point(p) for p in enemy) / 1852.0
+            if distance <= reach_nm:
+                ranked.append((distance, cp))
+        ranked.sort(key=lambda r: r[0])
+        return [cp for _, cp in ranked[:limit]]
 
     def _combat_squadrons(self) -> list[Squadron]:
         squadrons: list[Squadron] = []
