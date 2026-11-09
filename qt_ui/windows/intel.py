@@ -177,7 +177,7 @@ class IntelTabs(QTabWidget):
         self.addTab(IntelPictureTab(game), "Intel picture")
         from qt_ui.windows.aircampaign import AirCampaignTab
 
-        self.addTab(AirCampaignTab(game), "Air campaign")
+        self.addTab(AirCampaignTab(game, player), "Air campaign")
 
 
 class IntelWindow(QDialog):

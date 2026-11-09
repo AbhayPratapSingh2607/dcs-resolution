@@ -408,7 +408,7 @@ class AtoTimelineDialog(QDialog):
         layout.addLayout(toolbar)
 
         self.opfor = QCheckBox("Show OPFOR's ATO")
-        self.opfor.toggled.connect(lambda red: self.timeline.set_blue(not red))
+        self.opfor.toggled.connect(self._on_opfor_toggled)
         toolbar.addWidget(self.opfor)
         toolbar.addStretch()
         legend = QLabel(
@@ -450,6 +450,16 @@ class AtoTimelineDialog(QDialog):
 
     def set_opfor(self, opfor: bool) -> None:
         self.opfor.setChecked(opfor)
+
+    def _on_opfor_toggled(self, red: bool) -> None:
+        from game.server.fogofwar import OPFOR_PLAN_HIDDEN, opfor_plan_visible
+
+        if red and not opfor_plan_visible(self.game_model.game):
+            # Fog of war: the enemy's ATO stays hidden.
+            self.opfor.setToolTip(OPFOR_PLAN_HIDDEN)
+            self.opfor.setChecked(False)
+            return
+        self.timeline.set_blue(not red)
 
     def fit(self) -> None:
         start, end = self.timeline.bounds()

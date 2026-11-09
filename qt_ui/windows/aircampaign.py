@@ -8,6 +8,7 @@ Only the player's own side is shown: the enemy's plans are not known.
 from __future__ import annotations
 
 from collections import Counter
+from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from game.game import Game
+from game.theater.player import Player
 from qt_ui.windows.intel_picture import SortableItem
 
 TARGET_COLUMNS = (
@@ -50,15 +52,26 @@ MOE_LABELS = {
 
 
 class AirCampaignTab(QWidget):
-    def __init__(self, game: Game) -> None:
+    def __init__(self, game: Game, player: Optional[Player] = None) -> None:
         super().__init__()
         layout = QVBoxLayout()
         self.setLayout(layout)
-        side = game.air_campaign.maybe_side(True)
+        blue = player is None or player.is_blue
+        if not blue:
+            from game.server.fogofwar import OPFOR_PLAN_HIDDEN, opfor_plan_visible
+
+            if not opfor_plan_visible(game):
+                hidden = QLabel(OPFOR_PLAN_HIDDEN)
+                hidden.setWordWrap(True)
+                layout.addWidget(hidden)
+                layout.addStretch(1)
+                return
+        side = game.air_campaign.maybe_side(blue)
         if side is None or not side.history:
             layout.addWidget(
                 QLabel(
-                    "Your side uses the legacy planner. The doctrine-driven air "
+                    ("Your side" if blue else "The enemy")
+                    + " uses the legacy planner. The doctrine-driven air "
                     "campaign planner can be selected in Settings > Campaign "
                     "Management > HQ Automation."
                 )

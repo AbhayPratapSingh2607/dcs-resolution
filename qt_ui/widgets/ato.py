@@ -595,7 +595,9 @@ class QAirTaskingOrderPanel(QSplitter):
         if self.timeline_dialog is None:
             self.timeline_dialog = AtoTimelineDialog(self.game_model, self.window())
             self.timeline_dialog.package_selected.connect(self.select_package)
-        self.timeline_dialog.set_opfor(self.red_ato_checkbox.isChecked())
+        self.timeline_dialog.set_opfor(
+            self.red_ato_checkbox.isChecked() and self._opfor_allowed()
+        )
         self.timeline_dialog.show()
         self.timeline_dialog.raise_()
         self.timeline_dialog.activateWindow()
@@ -647,8 +649,19 @@ class QAirTaskingOrderPanel(QSplitter):
             self.package_panel.enable_buttons(False)
             self.flight_panel.set_package(None)
 
+    def _opfor_allowed(self) -> bool:
+        from game.server.fogofwar import OPFOR_PLAN_HIDDEN, opfor_plan_visible
+
+        allowed = opfor_plan_visible(self.game_model.game)
+        self.red_ato_checkbox.setToolTip("" if allowed else OPFOR_PLAN_HIDDEN)
+        return allowed
+
     def on_ato_changed(self) -> None:
         opfor = self.red_ato_checkbox.isChecked()
+        if opfor and not self._opfor_allowed():
+            # Fog of war: the enemy's ATO stays hidden.
+            self.red_ato_checkbox.setChecked(False)
+            return
         ato_model = (
             self.game_model.red_ato_model if opfor else self.game_model.ato_model
         )

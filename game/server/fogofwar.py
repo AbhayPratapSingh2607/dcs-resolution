@@ -12,6 +12,11 @@ setting:
 
 Enemy flights are shown only while blue radar coverage (EWRs, AWACS) can see
 them, and never with their routes.
+
+The enemy's air tasking order, its timeline and its air campaign plan are
+shown only with fog of war off (``opfor_plan_visible``); with fog of war on,
+the player knows the enemy's air operations only from the flights blue's
+radars see on the map.
 """
 
 from __future__ import annotations
@@ -131,6 +136,19 @@ def covered_by_blue_radar(game: Game, position: Point) -> bool:
             if flight.state.estimate_position().distance_to_point(position) <= 350_000:
                 return True
     return False
+
+
+def opfor_plan_visible(game: Optional[Game]) -> bool:
+    """Whether the player may see (and edit) the enemy's ATO, its timeline
+    and its air campaign plan."""
+    return fog_mode(game) is FogOfWar.OFF
+
+
+#: Shown where the enemy's plan is hidden.
+OPFOR_PLAN_HIDDEN = (
+    "Hidden by fog of war: the enemy's air operations are known only from "
+    "what blue's radars see on the map."
+)
 
 
 def show_flight_routes(game: Optional[Game], flight: Flight) -> bool:
