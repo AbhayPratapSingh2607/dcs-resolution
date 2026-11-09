@@ -531,6 +531,16 @@ class Game:
         # Update statistics
         self.game_stats.update(self)
 
+        # Sides that manage their IADS relocate mobile SAM sites overnight,
+        # before anyone plans around them.
+        with logged_duration("IADS repositioning"):
+            try:
+                from game.commander.jfacc.iads import reposition_iads
+
+                reposition_iads(self, for_blue, for_red)
+            except Exception:
+                logging.exception("IADS repositioning failed")
+
         # Plan flights & combat for next turn
         with logged_duration("Threat zone computation"):
             self.compute_threat_zones(events)

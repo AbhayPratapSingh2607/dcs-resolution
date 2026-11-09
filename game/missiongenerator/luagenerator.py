@@ -297,10 +297,41 @@ class LuaGenerator:
             )
 
         self.generate_csar_data(lua_data)
+        self.generate_gci_data(lua_data)
 
         trigger = TriggerStart(comment="Set DCS Retribution data")
         trigger.add_action(DoScript(String(lua_data.create_operations_lua())))
         self.mission.triggerrules.triggers.append(trigger)
+
+    def generate_gci_data(self, lua_data: LuaData) -> None:
+        """Ground alert groups and scramble rules for the GCI plugin."""
+        from game.commander.jfacc.planner import profile_for
+        from game.sim.gci import DEFAULT_MAX_PER_RAID, RAID_CLUSTER_M
+        from game.theater.player import Player
+
+        gci_object = lua_data.add_item("GCI")
+        # Tables holding sub-tables serialize only those: scalars go in as
+        # named items.
+        gci_object.add_item("raidClusterMeters").set_value(str(int(RAID_CLUSTER_M)))
+        for player in (Player.BLUE, Player.RED):
+            side = gci_object.add_item("blue" if player.is_blue else "red")
+            limit = DEFAULT_MAX_PER_RAID
+            try:
+                profile = profile_for(self.game, player)
+                if profile is not None:
+                    limit = int(profile.get("alert", "max_scrambles_per_raid", limit))
+            except Exception:
+                logging.exception("Could not read the GCI scramble limit")
+            side.add_item("maxPerRaid").set_value(str(limit))
+            alerts = side.add_item("alerts")
+            for info in self.mission_data.alert_groups:
+                if info.blue != player.is_blue:
+                    continue
+                item = alerts.add_item()
+                item.add_key_value("group", info.group_name)
+                item.add_key_value("x", str(round(info.x)))
+                item.add_key_value("y", str(round(info.y)))
+                item.add_key_value("radius", str(round(info.radius_m)))
 
     def generate_csar_data(self, lua_data: LuaData) -> None:
         """Injects Ops.CSAR data into the dcsRetribution table.

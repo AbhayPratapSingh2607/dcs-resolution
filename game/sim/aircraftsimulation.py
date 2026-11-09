@@ -43,6 +43,9 @@ class AircraftSimulation:
         self.reset()
         self.results = SimulationResults()
         self.model = CombatModel(self.game, self.results)
+        from game.sim.gci import GciController
+
+        self.gci = GciController(self.game, self.model)
         self.ground_war = None
         self.ground_window = ground_window(self.game)
         if self.ground_war_enabled and getattr(
@@ -92,8 +95,17 @@ class AircraftSimulation:
                 still_active.append(combat)
         self.combats = still_active
 
+        self._ground_unavailable_sorties(time)
         for flight in self.iter_flights():
             flight.on_game_tick(events, time, duration)
+
+        # Ground alert fighters scramble against raids the side's radars see.
+        gci = getattr(self, "gci", None)
+        if gci is not None:
+            try:
+                gci.tick(time, self.iter_flights())
+            except Exception:
+                logging.exception("GCI scramble failed")
 
         # Finish updating all flights before checking for combat so that the new
         # positions are used.
@@ -130,6 +142,48 @@ class AircraftSimulation:
         ):
             events.complete_simulation()
 
+    def _ground_unavailable_sorties(self, time: datetime) -> None:
+        """A second sortie (game.commander.jfacc.sorties) flies airframes that
+        flew earlier in the period. If the squadron lost aircraft since, there
+        may be none left to fly it: the sortie is cancelled rather than flown
+        by airframes that were shot down."""
+        from game.ato.flightstate import WaitingForStart
+
+        due = [
+            f
+            for f in self.iter_flights()
+            if f.reused_airframes > 0
+            and isinstance(f.state, WaitingForStart)
+            and f.state.start_time <= time
+        ]
+        if not due:
+            return
+        lost: dict[int, int] = {}
+        for loss in self.results.air_losses:
+            key = id(loss.flight.squadron)
+            lost[key] = lost.get(key, 0) + 1
+        for flight in due:
+            squadron = flight.squadron
+            in_use = 0
+            for other in self.iter_flights():
+                if other is flight or other.squadron is not squadron:
+                    continue
+                state = other.state
+                if isinstance(state, (WaitingForStart, Completed)) or not other.alive:
+                    continue
+                in_use += len(self.model.airframes(other)) or other.count
+            pool = squadron.owned_aircraft - lost.get(id(squadron), 0)
+            if in_use + flight.count <= pool:
+                continue
+            logging.info(
+                f"{flight} cancelled: {squadron} has {pool - in_use} airframes left"
+            )
+            flight.grounded = True  # type: ignore[attr-defined]
+            package = flight.package
+            package.remove_flight(flight)
+            if not package.flights:
+                squadron.coalition.ato.remove_package(package)
+
     #: How often each side's surveillance picture is sampled for the air
     #: campaign planner's learned threat axes.
     OBSERVE_INTERVAL = timedelta(minutes=5)
@@ -152,8 +206,14 @@ class AircraftSimulation:
         """True while any flight is still flying (or yet to fly) or fighting."""
         if self.combats:
             return True
+        from game.sim.gci import is_on_alert
+
         for flight in self.iter_flights():
-            if flight.alive and not isinstance(flight.state, Completed):
+            if (
+                flight.alive
+                and not isinstance(flight.state, Completed)
+                and not is_on_alert(flight)
+            ):
                 return True
         return False
 

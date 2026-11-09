@@ -26,6 +26,13 @@ class FlightState(ABC):
 
         from game.ato.flightstate.onstation import advance_to, starts_on_station
 
+        if getattr(self.flight, "alert", False) and not getattr(
+            self.flight, "alert_released", False
+        ):
+            from game.ato.flightstate.onalert import OnAlert
+
+            self.flight.set_state(OnAlert(self.flight, self.settings))
+            return
         start_time = self.flight.flight_plan.startup_time()
         if start_time <= now:
             self._set_active_flight_state(start_time)

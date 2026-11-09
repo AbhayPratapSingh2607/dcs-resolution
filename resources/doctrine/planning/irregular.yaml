@@ -142,3 +142,6 @@ ground_support:
   supporting_cas_lines: 1
   air_assault:
     max_per_period: 0
+
+alert:
+  pairs_per_base: 0

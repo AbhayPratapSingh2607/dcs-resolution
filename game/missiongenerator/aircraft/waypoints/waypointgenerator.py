@@ -67,9 +67,22 @@ class WaypointGenerator:
         self.settings = settings
         self.mission_data = mission_data
 
+    @property
+    def on_ground_alert(self) -> bool:
+        return getattr(self.flight, "alert", False) and not getattr(
+            self.flight, "alert_released", False
+        )
+
     def create_waypoints(self) -> tuple[timedelta, list[FlightWaypoint]]:
         for waypoint in self.flight.points:
             waypoint.tot = None
+        if self.on_ground_alert:
+            # A late-activated group's waypoint times count from its
+            # activation: time the route as if it took off at mission start,
+            # so it flies it on time whenever the GCI scrambles it.
+            plan = self.flight.flight_plan
+            package = self.flight.package
+            package.time_over_target -= plan.takeoff_time() - self.time
 
         waypoints = self.flight.flight_plan.waypoints
         mission_start_time = self.set_takeoff_time(waypoints[0])
@@ -253,6 +266,10 @@ class WaypointGenerator:
             a.min_fuel = min_fuel
 
     def set_takeoff_time(self, waypoint: FlightWaypoint) -> timedelta:
+        if self.on_ground_alert:
+            self.set_alert_activation()
+            waypoint.tot = self.flight.flight_plan.takeoff_time()
+            return timedelta()
         force_delay = False
         if isinstance(self.flight.state, WaitingForStart):
             delay = self.flight.state.time_remaining(self.time)
@@ -309,6 +326,24 @@ class WaypointGenerator:
         self.prevent_spawn_at_hostile_airbase(activation_trigger)
         activation_trigger.add_action(ActivateGroup(self.group.id))
         self.mission.triggerrules.triggers.append(activation_trigger)
+
+    def set_alert_activation(self) -> None:
+        """Ground alert: the group waits, inactive, at the runway end until the
+        GCI plugin (resources/plugins/gci) activates it against a raid. No
+        time trigger."""
+        from game.missiongenerator.missiondata import AlertGroupInfo
+
+        self.group.late_activation = True
+        station = self.flight.package.target.position
+        self.mission_data.alert_groups.append(
+            AlertGroupInfo(
+                group_name=str(self.group.name),
+                blue=self.flight.squadron.player.is_blue,
+                x=station.x,
+                y=station.y,
+                radius_m=float(getattr(self.flight.package, "alert_radius_m", 0.0)),
+            )
+        )
 
     def prevent_spawn_at_hostile_airbase(self, trigger: TriggerRule) -> None:
         # Prevent delayed flights from spawning at airbases if they were

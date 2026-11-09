@@ -201,6 +201,11 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "raids": list(side.raids),
             "enemy_sorties_seen": side.enemy_sorties_seen,
             "learned_axes": _learned_axes(game, coalition.player, side),
+            "iads_moves": list(getattr(side, "iads_moves", [])),
+            "qra": list(side.qra),
+            "iads_orders": dict(
+                __import__("collections").Counter(getattr(side, "iads_orders", {}).values())
+            ),
         }
     return metrics
 
@@ -248,6 +253,18 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     loop.run_to_first_contact()
     debriefing = loop.sim.debrief_simulated()
     simulated_s = time.time() - started
+    # Ground alerts count as flown only when the GCI scrambled them.
+    scrambles = {True: 0, False: 0}
+    gci = getattr(loop.sim.aircraft_simulation, "gci", None)
+    for _, blue, alert_flight, _ in getattr(gci, "scrambles", []):
+        scrambles[blue] += 1
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            for f in package.flights:
+                if getattr(f, "alert", False) and not getattr(f, "alert_released", False):
+                    flown[coalition.player.is_blue] -= f.count
+    for name, m in jfacc.items():
+        m["scrambles"] = scrambles[name == "blue"]
     loop.complete_with_results(debriefing)
     report = AfterActionReport.from_debriefing(debriefing)
     game.pass_turn()
@@ -325,6 +342,11 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         print("  mix:", ", ".join(f"{v} {k}" for k, v in m["sortie_mix"].items()))
         if m["modifiers"] or m["raids"]:
             print(f"  modifiers: {', '.join(m['modifiers']) or '-'}; raids: {', '.join(m['raids']) or '-'}")
+        if m.get("qra") or m.get("scrambles"):
+            print(f"  ground alert: {len(m.get('qra', []))} pairs held, {m.get('scrambles', 0)} scrambled")
+        if m["iads_moves"] or m["iads_orders"]:
+            orders = ", ".join(f"{n} {o}" for o, n in m["iads_orders"].items()) or "-"
+            print(f"  IADS: {orders}; moves: {'; '.join(m['iads_moves']) or '-'}")
         if m["learned_axes"]:
             print(
                 f"  learned axes (saw {m['enemy_sorties_seen']} enemy aircraft): "

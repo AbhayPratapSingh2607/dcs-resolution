@@ -1,0 +1,31 @@
+{
+    "nameInUI": "GCI ground alert scrambles",
+    "descriptionInUI": "Scrambles the fighters the air campaign planner holds on ground alert when the coalition's own early warning radars and AWACS see an enemy raid in their sector. Without this, alert fighters never launch in DCS.",
+    "defaultValue": true,
+    "specificOptions": [
+        {
+            "nameInUI": "Scan interval (seconds)",
+            "mnemonic": "scanInterval",
+            "minimumValue": 5,
+            "maximumValue": 120,
+            "defaultValue": 15
+        },
+        {
+            "nameInUI": "Show scramble messages to players",
+            "mnemonic": "announce",
+            "defaultValue": false
+        },
+        {
+            "nameInUI": "Debug logging",
+            "mnemonic": "debug",
+            "defaultValue": false
+        }
+    ],
+    "scriptsWorkOrders": [
+        {
+            "file": "gci.lua",
+            "mnemonic": "gci"
+        }
+    ],
+    "configurationWorkOrders": []
+}

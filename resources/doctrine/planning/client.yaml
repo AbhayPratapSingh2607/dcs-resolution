@@ -164,6 +164,7 @@ modifiers:
         - {moe: air_superiority, le: 0.4}
     effects:
       iads_preserve: true
+      alert_pairs_bonus: 1
       dca_forward_scale: 0.3
       cap_under_own_sam: true
       risk_scale: 0.5
@@ -215,3 +216,14 @@ iads:
     mobile: ambush
     hunted_threshold: 0.5
     max_dark_share: 0.5
+  moves:
+    # Serbia 1999: mobile batteries moved constantly.
+    move_share: 0.4
+    road_move_km: 20
+  decoys:
+    per_site: 2
+
+alert:
+  pairs_per_base: 2
+  sector_radius_nm: 80
+  bases_max: 4

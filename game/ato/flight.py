@@ -75,6 +75,10 @@ class Flight(
         #: flying again after turnaround (game.commander.jfacc.sorties). They
         #: were claimed from the squadron by the earlier sortie.
         self.reused_airframes = 0
+        #: Fighters on ground alert (QRA): they launch when the side's GCI
+        #: scrambles them (game.sim.gci), not on a schedule.
+        self.alert = False
+        self.alert_released = False
         if claim_inv:
             self.squadron.claim_inventory(count)
         if roster is None:
@@ -175,6 +179,8 @@ class Flight(
         if "use_same_loadout_for_all_members" not in state:
             state["use_same_loadout_for_all_members"] = True
         state.setdefault("reused_airframes", 0)
+        state.setdefault("alert", False)
+        state.setdefault("alert_released", False)
         self.__dict__.update(state)
         if isinstance(self.roster, FlightRoster):
             self.roster = FlightMembers.from_roster(self, self.roster)

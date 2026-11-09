@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from game.coalition import Coalition
     from game.dcs.aircrafttype import AircraftType
     from game.squadrons import Squadron
-    from game.theater import MissionTarget
+    from game.theater import ControlPoint, MissionTarget
 
 
 SUPPORT_TASKS = {
@@ -71,6 +71,11 @@ class FlightRequest:
     #: Only aircraft with built-in jamming.
     jammer: bool = False
     note: str = ""
+    #: Only squadrons based here.
+    home: Optional[ControlPoint] = None
+    #: Ground alert: the airframes are held for the whole period and the
+    #: flight waits at the runway for the GCI to scramble it.
+    alert: bool = False
 
 
 @dataclass
@@ -327,13 +332,18 @@ class PackageComposer:
         # them: other tasks take them only when nothing else can fly it.
         if request.task not in SCARCE_TASKS and not request.jammer:
             candidates = sorted(candidates, key=lambda s: _scarcity(s))
+        if request.home is not None:
+            candidates = [s for s in candidates if s.location is request.home]
         why = "no suitable squadron in range"
         for squadron in candidates:
             if request.jammer and not getattr(
                 squadron.aircraft, "has_built_in_jamming", False
             ):
                 continue
-            takeoff, land = self._sortie_window(squadron, target, tot, request.task)
+            if request.alert:
+                takeoff, land = self.ledger.period_start, self.ledger.period_end
+            else:
+                takeoff, land = self._sortie_window(squadron, target, tot, request.task)
             allocation = self.ledger.find(squadron, request.count, takeoff, land)
             if allocation is None:
                 why = "no mission-capable aircraft free in the sortie window"
@@ -367,6 +377,12 @@ class PackageComposer:
                     has_players=flight.roster is not None
                     and flight.roster.player_count > 0,
                 )
+            if request.alert:
+                from game.ato.starttype import StartType
+
+                flight.alert = True
+                if squadron.location.required_aircraft_start_type is None:
+                    flight.start_type = StartType.RUNWAY
             builder.package.add_flight(flight)
             ok, note = weaponeering.apply(flight, self.profile, self.conditions)
             if not ok:

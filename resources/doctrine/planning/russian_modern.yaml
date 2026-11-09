@@ -220,6 +220,7 @@ modifiers:
         - {moe: air_superiority, le: 0.45, sustain: 2}
     effects:
       iads_preserve: true
+      alert_pairs_bonus: 1
       dca_forward_scale: 0.4
       cap_under_own_sam: true
       risk_scale: 0.6
@@ -300,3 +301,23 @@ iads:
     # to survive (at most this share of the sites).
     preserve: dark
     max_dark_share: 0.3
+  # Mobile SAM sites relocate between turns (at most move_share of them):
+  # sites that fired only scoot a few km; hunted sites and sites that would
+  # cover an observed threat axis better drive up to road_move_km.
+  moves:
+    move_share: 0.25
+    road_move_km: 25
+    scoot_km: 6
+    min_flot_km: 15
+  # Decoys beside each radar SAM site, placed toward the observed threat axis
+  # on open ground (needs a doctrine with deception).
+  decoys:
+    per_site: 1
+
+# PVO: dezhurnye sily, the duty forces on alert at every fighter base, under
+# close ground control.
+alert:
+  pairs_per_base: 2
+  sector_radius_nm: 100
+  bases_max: 5
+  max_scrambles_per_raid: 2

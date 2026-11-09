@@ -416,3 +416,14 @@ adaptation:
   # Weight of the threat axes learned from observed enemy air activity,
   # relative to the strongest axis toward an enemy fighter base.
   learned_axis_weight: 0.5
+
+# Ground alert (QRA) scrambled by GCI (game/sim/gci.py and the GCI Lua
+# plugin): fighter pairs at the runway end at threatened bases, launched when
+# the side's own radars see a raid within sector_radius_nm of the station.
+alert:
+  pairs_per_base: 1
+  flight_size: 2
+  sector_radius_nm: 60
+  station_forward_nm: [10, 30]
+  bases_max: 3
+  max_scrambles_per_raid: 1

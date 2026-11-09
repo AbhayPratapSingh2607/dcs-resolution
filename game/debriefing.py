@@ -367,7 +367,13 @@ class Debriefing:
         self.parked_aircraft_losses.extend(results.parked_aircraft_losses)
         self.intel_events = list(results.intel_events)
         self.combat_credits = list(results.combat_credits)
-        self.flights_flown = list(results.flights_flown)
+        # Ground alert pairs the GCI never scrambled didn't fly.
+        self.flights_flown = [
+            f
+            for f in results.flights_flown
+            if not (getattr(f, "alert", False) and not getattr(f, "alert_released", False))
+            and not getattr(f, "grounded", False)
+        ]
         self.observations = list(getattr(results, "observations", []))
         self.collateral_events = list(results.collateral_events)
         # Invalidate the cached casualty counts now that front-line losses changed.

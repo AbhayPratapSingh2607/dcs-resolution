@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from game.ato.flighttype import FlightType
 from .apportionment import Apportionment
@@ -230,7 +230,15 @@ class JfaccPlanner:
                 game, self.player, self.profile, self.side, self.assessment, self.phase
             ).nominate()
 
-        self.side.qra = self._hold_qra() if planning_allowed else []
+        self.composer = PackageComposer(
+            game,
+            self.coalition,
+            self.profile,
+            self.ledger,
+            self.conditions,
+            aewc_available=self.coalition.air_wing.can_auto_plan(FlightType.AEWC),
+        )
+        self.side.qra = self._plan_alerts() if planning_allowed else []
         with tracer.trace("JFACC IADS management"):
             from .iads import plan_emcon
 
@@ -248,14 +256,6 @@ class JfaccPlanner:
         #: SAM site id -> TOT of the DEAD package tasked against it.
         self.suppressed: dict[object, datetime] = {}
         self.aewc_planned = False
-        self.composer = PackageComposer(
-            game,
-            self.coalition,
-            self.profile,
-            self.ledger,
-            self.conditions,
-            aewc_available=self.coalition.air_wing.can_auto_plan(FlightType.AEWC),
-        )
         self.composer.risk_multiplier = float(
             self.spec.flag("risk_multiplier", 1.0)
         ) * float(self.effect("risk_scale", 1.0))  # type: ignore[arg-type]
@@ -389,38 +389,85 @@ class JfaccPlanner:
 
     # ========================================================== capacity
 
-    def _hold_qra(self) -> list[str]:
-        """Hold fighters on ground alert at bases within reach of enemy
-        fighters. Their airframes are reserved for the whole period, so they
-        are never tasked with anything else. The alert itself isn't flown:
-        neither the combat model nor the DCS mission scrambles aircraft."""
+    def _plan_alerts(self) -> list[str]:
+        """Ground alert (QRA) at the bases within reach of enemy fighters.
+
+        Each alert is a package of one fighter pair holding at the runway
+        end, with a station on the base's main threat axis. The side's GCI
+        (game.sim.gci, and the GCI Lua plugin in DCS) scrambles it when its
+        own radars see an enemy raid within the sector radius of the
+        station. The airframes are held for the whole period, so they are
+        never tasked with anything else; alerts that are never scrambled
+        don't fly."""
+        from .dca import CapStation
+
+        alert = self.profile.section("alert")
         dca = self.profile.section("dca")
-        per_base = int(dca.get("qra_per_base", 0))
-        if per_base <= 0:
+        pairs = int(alert.get("pairs_per_base", int(dca.get("qra_per_base", 0)) // 2))
+        # Force preservation holds more fighters back for the defense.
+        pairs += int(self.effect("alert_pairs_bonus", 0))  # type: ignore[call-overload]
+        if pairs <= 0:
             return []
+        size = int(alert.get("flight_size", 2))
+        radius_m = float(alert.get("sector_radius_nm", 80)) * 1852.0
+        near, far = (float(v) for v in alert.get("station_forward_nm", [10, 30]))
         reach = float(dca.get("threat_reach_nm", 200))
+        axes = threat_axes(
+            self.game,
+            self.player,
+            reach,
+            float(dca.get("axis_merge_deg", 30)),
+            int(dca.get("max_axes", 3)) * 3,
+            learned=ObservationLog(self.side),
+            learned_weight=float(
+                self.profile.get("adaptation", "learned_axis_weight", 0.0)
+            ),
+        )
+        strongest: dict[str, Any] = {}
+        for candidate in axes:
+            strongest.setdefault(candidate.defended.name, candidate)
+        bases = [
+            b for b in threatened_bases(self.game, self.player, reach) if not b.is_fleet
+        ][: int(alert.get("bases_max", 4))]
         held: list[str] = []
-        for base in threatened_bases(self.game, self.player, reach):
-            if base.is_fleet:
-                # Carriers defend themselves with point-defense CAP.
-                continue
-            candidates = [
-                s
-                for s in self.coalition.air_wing.iter_squadrons()
-                if s.location is base
-                and s.untasked_aircraft > 0
-                and FlightType.BARCAP in s.auto_assignable_mission_types
-                and role_for(s) == "fighter"
-            ]
-            for squadron in sorted(candidates, key=lambda s: -s.untasked_aircraft):
-                allocation = self.ledger.find(
-                    squadron, per_base, self.ledger.period_start, self.ledger.period_end
+        for base in bases:
+            main_axis = strongest.get(base.name)
+            if main_axis is not None:
+                station = station_for(
+                    self.game, self.player, main_axis, (near, far), under_own_sams=True
                 )
-                if allocation is None:
-                    continue
-                self.ledger.commit(allocation)
-                held.append(f"{per_base}x {squadron.aircraft.display_name} at {base.name}")
-                break
+            else:
+                station = CapStation(
+                    f"Alert {base.name}", base.position, self.player, base, 0.0
+                )
+            for _ in range(pairs):
+                request = PackageRequest(
+                    target=station,
+                    flights=[FlightRequest(FlightType.BARCAP, size, home=base, alert=True)],
+                    category_name="dca",
+                    reason=f"Ground alert at {base.name}",
+                )
+                composed, why = self.composer.compose(
+                    request, self.timeline.earliest, self.now
+                )
+                if composed is None:
+                    break
+                package = composed.package
+                package.alert_radius_m = radius_m
+                package.planning_rationale = (
+                    f"{self.phase.title} | Ground alert at {base.name}, scrambled by "
+                    f"GCI against raids within {radius_m / 1852:.0f} nm of the station"
+                )
+                package.planning_info = {
+                    "phase": self.phase.title,
+                    "reason": f"Ground alert at {base.name}",
+                    "threat": "",
+                    "risk": "",
+                    "notes": ["Launches only when the GCI scrambles it"],
+                }
+                self.coalition.ato.add_package(package)
+                flight = package.flights[0]
+                held.append(f"{flight.count}x {flight.unit_type.display_name} at {base.name}")
         return held
 
     def _combat_squadrons(self) -> list[Squadron]:

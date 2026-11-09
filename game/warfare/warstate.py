@@ -200,11 +200,20 @@ class WarState:
             for e in getattr(debriefing, "intel_events", []) or []
             if e.source is IntelSource.ENGAGEMENT
         ]
+        managed: dict[bool, bool] = {}
         for event in fired:
             tgo = tgo_by_id(game, event.tgo_id)
             if tgo is None or not is_mobile(tgo):
                 continue
             owner = tgo.control_point.captured
+            if owner.is_blue not in managed:
+                from game.commander.jfacc.iads import manages_iads
+
+                managed[owner.is_blue] = manages_iads(game, owner)
+            if managed[owner.is_blue]:
+                # The side's IADS management moves its sites for real
+                # (game.commander.jfacc.iads.reposition_iads).
+                continue
             if self.doctrine(game, owner).shoot_and_scoot and rng.random() < 0.5:
                 viewer = Player.BLUE if event.observer_blue else Player.RED
                 self.picture(game, viewer).scooted(tgo)

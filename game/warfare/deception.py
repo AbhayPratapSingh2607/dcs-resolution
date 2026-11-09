@@ -55,10 +55,16 @@ def place_decoys(game: Game, war_state: WarState) -> int:
         if doctrine.deception <= 0:
             continue
         rng = war_state.rng(game, f"decoys{player}")
+        from game.commander.jfacc.iads import decoy_plan
+
+        plan = decoy_plan(game, player)
         for cp in game.theater.control_points_for(player):
             for tgo in cp.ground_objects:
                 if tgo.is_dead:
                     war_state.deception.pop(tgo.id, None)
+                    continue
+                if plan is not None and _is_radar_sam(tgo):
+                    placed += _planned_decoys(game, war_state, tgo, plan, rng)
                     continue
                 if not is_mobile(tgo) or tgo.id in war_state.deception:
                     continue
@@ -70,6 +76,37 @@ def place_decoys(game: Game, war_state: WarState) -> int:
                 ]
                 placed += count
     return placed
+
+
+def _is_radar_sam(tgo: TheaterGroundObject) -> bool:
+    from game.theater.theatergroundobject import SamGroundObject
+
+    return isinstance(tgo, SamGroundObject) and any(
+        getattr(u, "is_anti_air", False) for u in tgo.units if u.alive
+    )
+
+
+def _planned_decoys(
+    game: Game,
+    war_state: WarState,
+    tgo: TheaterGroundObject,
+    plan: tuple[object, int],
+    rng: random.Random,
+) -> int:
+    """The side's IADS management keeps per_site decoys beside each radar
+    SAM site, toward the threat axis (game.commander.jfacc.iads)."""
+    from game.commander.jfacc.iads import near_decoys, planned_decoy_offset
+
+    side, per_site = plan
+    decoys = war_state.deception.setdefault(tgo.id, [])
+    added = 0
+    for _ in range(max(0, per_site - near_decoys(decoys))):
+        offset = planned_decoy_offset(game, tgo, side, rng)  # type: ignore[arg-type]
+        if offset is None:
+            break
+        decoys.append(offset)
+        added += 1
+    return added
 
 
 def _decoy_offset(

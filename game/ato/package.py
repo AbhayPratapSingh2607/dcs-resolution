@@ -37,6 +37,9 @@ class Package(RadioFrequencyContainer):
     #: each has its echelon role (suppression, main, follow_up).
     raid_id: str = ""
     raid_role: str = ""
+    #: Ground alert packages: radius around the package's station within
+    #: which the GCI scrambles them against a raid (game.sim.gci).
+    alert_radius_m: float = 0.0
 
     def __init__(
         self,

@@ -108,6 +108,11 @@ class SideCampaign:
     #: Emission control order per own radar SAM site, by TGO id
     #: (game.commander.jfacc.iads: active, ambush or dark).
     iads_orders: dict[str, str] = field(default_factory=dict)
+    #: Own SAM sites that fired, with the turn they last fired, by TGO id.
+    fired_sites: dict[str, int] = field(default_factory=dict)
+    #: Turn the IADS was last repositioned, and the moves made, for the UI.
+    moves_turn: int = -1
+    iads_moves: list[str] = field(default_factory=list)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})

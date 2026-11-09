@@ -125,6 +125,19 @@ class CsarPilotGroupInfo:
 
 
 @dataclass
+class AlertGroupInfo:
+    """A ground alert group the GCI plugin activates against raids
+    (resources/plugins/gci)."""
+
+    group_name: str
+    blue: bool
+    #: The alert's station, DCS x (north) and y (east).
+    x: float
+    y: float
+    radius_m: float
+
+
+@dataclass
 class MissionData:
     awacs: list[AwacsInfo] = field(default_factory=list)
     runways: list[RunwayData] = field(default_factory=list)
@@ -145,3 +158,5 @@ class MissionData:
     #: DownedPilot's id (as a string). Used to wire the rescue helicopter's
     #: Embarking task to the right pilot, and to hand the group to Ops.CSAR.
     csar_pilot_groups: dict[str, CsarPilotGroupInfo] = field(default_factory=dict)
+    #: Ground alert groups for the GCI plugin.
+    alert_groups: list[AlertGroupInfo] = field(default_factory=list)

@@ -208,6 +208,16 @@ def record_turn(game: Game, debriefing: Any) -> None:
                 continue
             if own and detail.position is not None:
                 log.add_point(assets, detail.position.x, detail.position.y, LOSS_WEIGHT)
+        # Own sites that engaged: the side knows its crews fired.
+        for event in getattr(debriefing, "intel_events", None) or []:
+            if getattr(getattr(event, "source", None), "name", "") != "ENGAGEMENT":
+                continue
+            if event.observer_blue == player.is_blue:
+                continue  # The enemy's own sites fired at this side.
+            side.fired_sites[str(event.tgo_id)] = game.turn
+        for key, turn in list(side.fired_sites.items()):
+            if turn < game.turn - 3:
+                del side.fired_sites[key]
         # Own ground objects hit.
         losses = debriefing.ground_losses
         own_tgos = (

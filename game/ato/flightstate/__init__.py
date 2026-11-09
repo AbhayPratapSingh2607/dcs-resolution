@@ -4,6 +4,7 @@ from .incombat import InCombat
 from .inflight import InFlight
 from .killed import Killed
 from .navigating import Navigating
+from .onalert import OnAlert
 from .startup import StartUp
 from .takeoff import Takeoff
 from .taxi import Taxi
