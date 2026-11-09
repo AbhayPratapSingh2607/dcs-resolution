@@ -1236,6 +1236,7 @@ class Settings:
         page=CAMPAIGN_DOCTRINE_PAGE,
         section=WARFARE_SECTION,
         default=True,
+        causes_expensive_game_update=True,
         detail=(
             "Each side builds a picture of the enemy from pre-war intelligence, early "
             "warning radars, AWACS, sightings, engagements, strike reports and "
@@ -1248,6 +1249,7 @@ class Settings:
         page=CAMPAIGN_DOCTRINE_PAGE,
         section=WARFARE_SECTION,
         default=FogOfWar.STRICT,
+        causes_expensive_game_update=True,
         choices={
             "Off: show all enemy forces": FogOfWar.OFF,
             "Soft: show all, unconfirmed sites dimmed": FogOfWar.SOFT,

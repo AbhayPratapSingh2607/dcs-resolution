@@ -90,6 +90,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Fog of War]** Changing the fog of war or intelligence setting now refreshes the map. Before,
+  the map kept what it showed under the old setting until the next turn: with fog of war turned
+  off, enemy routes stayed hidden and sites stayed marked unconfirmed. Turning fog of war on also
+  hides the enemy's ATO again if it was shown.
 * **[Skynet]** The autonomous behaviour of SAM sites (go dark when cut off from the network) now
   reaches Skynet as the number it expects; before, every site behaved as DCS AI.
 * **[Fast Forward]** A second sortie whose airframes were shot down earlier in the period is

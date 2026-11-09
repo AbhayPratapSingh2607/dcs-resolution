@@ -590,6 +590,16 @@ class QAirTaskingOrderPanel(QSplitter):
         self.timeline_dialog: Optional[AtoTimelineDialog] = None
         self.package_panel.timeline_requested.connect(self.open_timeline)
 
+        from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
+
+        # Fog of war may have been turned on (Settings) while the enemy's ATO
+        # is shown: hide it again.
+        GameUpdateSignal.get_instance().gameupdated.connect(self._enforce_fog)
+
+    def _enforce_fog(self, _game: object = None) -> None:
+        if self.red_ato_checkbox.isChecked() and not self._opfor_allowed():
+            self.red_ato_checkbox.setChecked(False)
+
     def open_timeline(self) -> None:
         """Opens (or raises) the non-modal ATO timeline window."""
         if self.timeline_dialog is None:

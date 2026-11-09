@@ -25,6 +25,7 @@ def choices_option(
     choices: Union[Iterable[str], Mapping[str, ValueT]],
     detail: Optional[str] = None,
     tooltip: Optional[str] = None,
+    causes_expensive_game_update: bool = False,
     **kwargs: Any,
 ) -> ValueT:
     if not isinstance(choices, Mapping):
@@ -37,7 +38,7 @@ def choices_option(
                 text,
                 detail,
                 tooltip,
-                causes_expensive_game_update=False,
+                causes_expensive_game_update=causes_expensive_game_update,
                 choices=dict(choices),
             )
         },

@@ -226,6 +226,8 @@ class AutoSettingsLayout(QGridLayout):
 
         def on_changed(index: int) -> None:
             self.sc.settings.__dict__[name] = combobox.itemData(index)
+            if description.causes_expensive_game_update:
+                self.write_full_settings()
 
         for text, value in description.choices.items():
             combobox.addItem(text, value)
