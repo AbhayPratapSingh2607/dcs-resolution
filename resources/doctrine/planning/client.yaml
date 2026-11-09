@@ -164,6 +164,8 @@ modifiers:
         - {moe: air_superiority, le: 0.4}
     effects:
       iads_preserve: true
+      # GCI: no scrambles into raids more than this many times the alerts able to meet them.
+      scramble_max_odds: 1.0
       alert_pairs_bonus: 1
       dca_forward_scale: 0.3
       cap_under_own_sam: true
@@ -226,4 +228,6 @@ iads:
 alert:
   pairs_per_base: 2
   sector_radius_nm: 80
+  # Interceptors aren't thrown at raids more than twice their number.
+  max_odds: 2.0
   bases_max: 4

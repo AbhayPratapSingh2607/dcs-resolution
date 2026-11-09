@@ -176,14 +176,20 @@ something.
 
 ### Player comprehension
 
-- [ ] **F13. A turn briefing.** A short plan summary at the top of the ATO panel and in
-  the mission briefing:
+- [ ] **F13. A turn briefing.** Partly done 2026-11-09: a box at the top of the ATO panel
+  (`atopresentation.turn_briefing`) shows the turn, phase and mission time, the intent and
+  main effort, up to 5 key packages (yours first) with what each is for, the routine lines
+  in one line ("Also: 3 CAP stations, 1 AWACS, 1 tanker, 2 ground alert pairs, 2 CAPs
+  returning home"), and the threats as our intelligence sees them. Still to do: the same
+  text in the DCS mission briefing, and what the enemy is expected to do. A short plan
+  summary at the top of the ATO panel and in the mission briefing:
   - phase and intent;
   - main effort;
   - the 3–5 key packages and what each is for;
   - known threats;
   - what the enemy is expected to do (only what blue's intel supports).
-- [ ] **F14. A less cluttered ATO list and map.**
+- [ ] **F14. A less cluttered ATO list and map.** The list part mostly exists: packages
+  are grouped by category with collapsible chips. Still to do: the map symbols.
   - Group the list by package with the key packages first. Collapse routine DCA and
     support to one line each, e.g. "2 CAP stations, 1 AWACS, 1 tanker".
   - On the map, draw CAP stations, tanker and AWACS tracks as compact symbols instead of
@@ -444,29 +450,29 @@ From the test matrix (`resources/tools/campaign_matrix.py`) and e2e runs on 2026
 Results: red_wins PASS (4 of 4), iraq PASS (exchange ratio 5.6–24), iran FAIL. peer passed
 only a short run (3 seeds, 4 turns).
 
-- [ ] **6. Iran: nobody fights.** In all 4 runs Iran lost 0 aircraft and blue lost 1–12.
-  - After turn 1, blue plans only 2-ship packages and drops ~170 packages a turn.
-  - Red flew ~170 sorties with 0 GCI scrambles and 0 SAM moves.
-  - **Cause found (2026-11-09): the rollback never starts.** On turn 1 blue scrubbed 114
-    packages for "expected attrition above the limit" and planned no SEAD, DEAD, OCA or
-    strike.
-    - The cheapest DEAD target in Iran's IADS still has a route SAM weight of 11 or more,
-      so its estimate is 14–20% per sortie against a 4.5% limit. Deeper targets are
-      30–75%.
-    - The rollback allowance (up to 10% for DEAD on the outer layer) only applies at a
-      route SAM weight of 8 or less, so it never applies against a dense modern IADS.
-    - The result is a deadlock: no target is ever acceptable, so the IADS is never
-      thinned.
-  - **Possible fixes, to decide on:**
-    - "The rollback has to start somewhere": when no IADS target is within the limits,
-      allow DEAD on the least-defended SAMs up to the rollback limit, sized by the IADS
-      rather than a fixed weight of 8.
-    - Stand-off SEAD: ARM shooters that fire from outside the MEZ shouldn't be charged
-      the full route SAM weight. The risk model counts the whole route through coverage
-      today.
-    - Corridor SEAD (item 1), which concentrates suppression on one route.
-  - Still to check: why Iran's ground alerts never scramble and its SAMs never move. Both
-    are probably because blue never sends anything offensive to react to.
+- [x] **6. Iran: nobody fights.** Done 2026-11-09. Before: in all 4 runs Iran lost 0
+  aircraft and blue lost 1–12, and after turn 1 blue planned only CAPs, scrubbing ~170
+  packages a turn.
+  - **Cause:** the rollback never started. The cheapest DEAD target in Iran's IADS has a
+    route SAM weight of 11 or more (estimate 14–20% against a 4.5% limit), and the rollback
+    allowance only applied at a weight of 8 or less. Also, the estimate was far off: on
+    turn 1 blue's packages estimated 11% and lost 1.4–5.5%.
+  - **Fix 1, openers:** when no SAM site is within the rollback allowance's route weight, the
+    2 least-defended sites may be attacked at up to 20% (`risk.rollback_allowance.
+    opener_limit`, `opener_packages`). Blue flew 2 DEAD packages on turn 1. On their own,
+    openers stalled from turn 2: red moved SAMs onto the axis and the next sites estimated
+    just over 20%.
+  - **Fix 2, loss experience** (`experience.py`): each side scales later estimates by
+    (lost + 3) / (expected + 3) over its own estimated packages, per kind (strike, CAP
+    station), between ×0.35 and ×3, decayed ×0.7 a turn.
+  - **Result** (USA 2005 vs Iran 2015, 5 turns, seed 1): blue flew SEAD, DEAD and CAS every
+    turn (DEAD on turns 1 and 3), losing 0–8% per sortie (5.5%, 0, 0, 8%, 0). Red lost 5
+    aircraft on turn 1.
+  - Not done:
+    - stand-off SEAD (shooters outside the MEZ charged less);
+    - why Iran's ground alerts rarely scramble.
+  - The e2e report now lists scrub reasons ("scrubbed for") and the nearest misses ("closest
+    to flying").
 - [x] **7. Blue's risk estimate shows 0.0%.** Fixed 2026-11-09:
   - DCA packages are now estimated and gated (risk kind "defense"). Before, they had no
     estimate at all, so a turn of only CAPs averaged to 0%. The e2e report says how many
@@ -498,10 +504,25 @@ only a short run (3 seeds, 4 turns).
       station;
     - when the enemy sweeps, red should pull CAPs back under its SAMs or replace them
       with ground alerts. Force preservation does this today, but only after the losses.
+  - **Partly done 2026-11-09:** the loss experience factor (item 6) raises a side's
+    estimates when its packages lose more than estimated, up to ×3. In a peer run (Russia
+    2010, 3 turns, focused) red's estimate rose from 2.9% to 7.8% after turn 1. Its actual
+    losses stayed at 11–31% per sortie (fighter sweeps 3/8 and 4/6, BARCAP 2–3/8).
+  - **Still to do:** the air term itself. A station's estimate should count the enemy
+    sweeps and escorts that can reach it (from the enemy sorties the side's radars saw
+    last turn), not just the enemy fighter count.
 - [ ] **9. Red client loss rate.** In the iraq runs, Iraq lost 45–71 aircraft out of
   84–99 sorties (over 50% per sortie) against a 6% risk limit. Its estimate is far too low.
   Either Iraq should fly much less (ground alerts only when outclassed), or the estimate
   should stop those sorties.
+  - **Mostly done 2026-11-09.** With focused turns, Iraq flies about 5–7 aircraft a turn,
+    and its losses are the alert pairs GCI scrambles (2–3 a turn), 4–6 aircraft.
+  - GCI no longer scrambles into raids more than `alert.max_odds` times the alert aircraft
+    able to meet them: 3 by default, 2 for client air forces. Force preservation lowers
+    this (`scramble_max_odds`: 1.5 for Russian and Soviet, 1 for client).
+  - Left: the scrambled pairs still mostly die. Their sectors could be pulled under the
+    SAM umbrella under force preservation. Historically Iraq lost most interceptors it
+    launched too.
 - [ ] **Focused turns raise the loss rate per sortie.** First focused e2e runs (2 turns,
   2026-11-09): peer blue 7.4–9.7% and red 18–25% per sortie, against limits of 2% and 4%;
   Iran red 23–29%. Part of this is arithmetic: the idle CAP sorties that used to dilute the
@@ -535,7 +556,11 @@ generated mission lands, and tick items once they're flown. Report problems with
       activated, so it isn't visible before;
     - an announce message, and the scramble shown in `dcs.log`;
     - no more pairs per raid than the doctrine allows (2 for Russia);
-    - pairs that are never scrambled stay hidden all mission.
+    - pairs that are never scrambled stay hidden all mission;
+    - (added 2026-11-09) a raid far bigger than the alert aircraft in its sector gets
+      nothing scrambled: more than 3× for Russia, 2× for client air forces such as Iraq,
+      and less under force preservation. With the plugin's debug option, `dcs.log` says
+      "raid of N too strong".
   - Then kill red's early warning radars (or test where they don't cover) and repeat.
     Nothing should launch.
 - [ ] **D2. Skynet emission control.** Find SAMs set to ambush or dark (the app's air
@@ -604,6 +629,9 @@ generated mission lands, and tick items once they're flown. Report problems with
     defense is now on ground alert.
 
 **Checked in the app (no DCS needed):**
+- [ ] **A5. Turn briefing.** From turn 1, a box above the package list summarizes the turn:
+  phase, mission time, intent, key packages with their purpose, routine lines, threats.
+  Assign yourself to a package: it moves to the top marked "(you)" after the next update.
 - [ ] **A4. Focused turn settings.** Settings → Campaign management shows **Focused turns**,
   its lead-in and packages-per-side guidance. Turn it off and replan (or start a new turn):
   the 6 h period and the window picker come back.

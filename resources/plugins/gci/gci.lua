@@ -128,6 +128,26 @@ local function cluster(list)
     return raids
 end
 
+local function inSector(alert, raid)
+    local dx = (tonumber(alert.x) or 0) - raid.x
+    local dy = (tonumber(alert.y) or 0) - raid.y
+    return math.sqrt(dx * dx + dy * dy) <= (tonumber(alert.radius) or 0)
+end
+
+-- Alert aircraft still on the ground that could meet the raid.
+local function ableToMeet(alerts, raid)
+    local able = 0
+    for _, alert in ipairs(alerts) do
+        if not GCI.activated[alert.group] and inSector(alert, raid) then
+            local group = Group.getByName(alert.group)
+            if group and group:isExist() then
+                able = able + (tonumber(alert.size) or 2)
+            end
+        end
+    end
+    return able
+end
+
 local function nearestAlert(alerts, raid)
     local best, bestDistance = nil, math.huge
     for _, alert in ipairs(alerts) do
@@ -187,6 +207,7 @@ local function scan()
         local alerts = sideData and sideData.alerts or {}
         if #alerts > 0 then
             local maxPerRaid = tonumber(sideData.maxPerRaid) or 2
+            local maxOdds = tonumber(sideData.maxOdds) or 3
             local raids = cluster(contacts(side.coalitionId))
             local committed = GCI.committed[side.key]
             for _, raid in ipairs(raids) do
@@ -195,6 +216,13 @@ local function scan()
                     launched = launched + (committed[member] or 0)
                 end
                 local wanted = math.min(maxPerRaid, math.max(1, math.ceil(raid.size / 2)))
+                -- No pairs thrown at a raid that outnumbers them beyond the
+                -- doctrine's odds (pairs already sent count, two each).
+                local able = ableToMeet(alerts, raid) + 2 * math.min(launched, maxPerRaid)
+                if raid.size > maxOdds * math.max(able, 1) then
+                    debug("%s raid of %d too strong for %d alert aircraft", side.key, raid.size, able)
+                    wanted = 0
+                end
                 debug("%s raid of %d at %d/%d, %d pairs committed", side.key, raid.size, raid.x, raid.y, launched)
                 while launched < wanted do
                     local alert = nearestAlert(alerts, raid)

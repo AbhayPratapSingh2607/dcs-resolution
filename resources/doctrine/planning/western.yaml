@@ -68,6 +68,20 @@ risk:
   rollback_allowance:
     limit: 0.10
     max_route_weight: 8
+    # When even the least-defended SAM site's route is heavier than
+    # max_route_weight (a dense modern IADS), no DEAD would ever be acceptable
+    # and the IADS would never be thinned. Then the opener_packages
+    # least-defended sites may be attacked up to opener_limit each period.
+    opener_limit: 0.20
+    opener_packages: 2
+  # Loss experience (game/commander/jfacc/experience.py): later estimates are
+  # multiplied by (lost + prior) / (expected + prior) over the side's own
+  # estimated packages, kept per kind (strike, CAP station), decayed per turn.
+  experience:
+    prior: 3.0
+    decay: 0.7
+    min: 0.35
+    max: 3.0
 
 # ---------------------------------------------------------------- procurement
 # Request for forces. Shortfalls that limited the period's plan are requested
@@ -427,3 +441,6 @@ alert:
   station_forward_nm: [10, 30]
   bases_max: 3
   max_scrambles_per_raid: 1
+  # No scrambles into raids more than this many times the alert aircraft
+  # able to meet them (in the sector, plus pairs already sent).
+  max_odds: 3.0

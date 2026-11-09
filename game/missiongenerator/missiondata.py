@@ -135,6 +135,8 @@ class AlertGroupInfo:
     x: float
     y: float
     radius_m: float
+    #: Aircraft in the group.
+    size: int = 2
 
 
 @dataclass

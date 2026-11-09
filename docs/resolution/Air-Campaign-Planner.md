@@ -242,6 +242,18 @@ SAM sites compound, and SEAD removes at most about half the threat.
 The rollback allowance exists because the fast-forward combat model is far deadlier against an
 intact modern IADS than history. Without it the planner would never start the rollback.
 
+Against a dense IADS even the outermost sites can have a route SAM weight above 8. Then the two
+least-defended SAM sites are **openers**: DEAD against them may accept up to 20%, so the rollback
+starts somewhere.
+
+**Loss experience.** The estimate is fitted to a few reference scenarios and can be well off
+against other opponents. Each side compares the model's expected losses for its estimated
+packages with the aircraft it actually lost on them, separately for strike packages and CAP
+stations. Later estimates are multiplied by (lost + 3) / (expected + 3), between ×0.35 and ×3.
+The history fades by 30% a turn. A scrub reason shows the factor ("x0.45 from losses so far").
+Only the side's own losses count, which it always knows. The constants are in the profile under
+`risk.experience`.
+
 **SEAD corridors.** A package with HARM shooters suppresses the airspace along their route from
 10 minutes before its time on target to 20 after. A package whose ingress lies in such a corridor
 at its time on target doesn't need its own HARM escort, and the corridor's shooters count in its

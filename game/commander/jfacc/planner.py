@@ -337,6 +337,7 @@ class JfaccPlanner:
             self.spec.flag("rollback_allowance", False)
         )
         self.composer.phase_name = self.phase.value
+        self._apply_experience()
 
         if planning_allowed:
             with tracer.trace("JFACC personnel recovery"):
@@ -358,6 +359,7 @@ class JfaccPlanner:
                 finally:
                     self.budget_exempt = False
             with tracer.trace("JFACC offensive packages"):
+                self._choose_rollback_openers()
                 self._plan_jiptl()
             self.apportionment.begin_overflow()
             with tracer.trace("JFACC overflow"):
@@ -1254,15 +1256,56 @@ class JfaccPlanner:
             return None if value is None else int(value)
         return self.WAVE_PREFERENCE.get(category)
 
+    def _choose_rollback_openers(self) -> None:
+        """Item 6: against a dense IADS even the outermost SAM sites are
+        beyond the rollback allowance's route weight, so no DEAD is ever
+        acceptable and the IADS is never thinned. When that happens, the
+        least-defended sites (``opener_packages``, by route threat) may be
+        attacked up to ``opener_limit``: the rollback has to start
+        somewhere."""
+        from game.theater.theatergroundobject import SamGroundObject
+
+        self.composer.opener_targets = set()
+        if not self.composer.rollback_allowed:
+            return
+        allowance = self.profile.get("risk", "rollback_allowance", {}) or {}
+        count = int(allowance.get("opener_packages", 2))
+        if count <= 0:
+            return
+        max_weight = float(allowance.get("max_route_weight", 0))
+        weighed: list[tuple[float, Any]] = []
+        for nomination in self.nominations:
+            target = nomination.target
+            if nomination.priority <= 0 or not isinstance(target, SamGroundObject):
+                continue
+            threat = self.composer.threat_for(target, exclude=target)
+            weighed.append((threat.sam_weight, target))
+        if not weighed:
+            return
+        weighed.sort(key=lambda pair: pair[0])
+        if weighed[0][0] <= max_weight:
+            # The normal allowance can start the rollback.
+            return
+        self.composer.opener_targets = {t.id for _, t in weighed[:count]}
+        names = ", ".join(t.name for _, t in weighed[:count])
+        logging.info(
+            f"JFACC {self.player}: no SAM site within the rollback allowance "
+            f"(lightest route weight {weighed[0][0]:.1f}); opening on {names}"
+        )
+
     def _plan_jiptl(self) -> None:
         from game.theater.theatergroundobject import SamGroundObject
 
         # H-hour sequencing (item 2): suppression is planned first, in the
         # first wave, so the strikes of the next wave can fly through the SEAD
         # corridors it opens instead of each needing its own HARM escort.
+        openers = self.composer.opener_targets
         ordered = sorted(
             self.nominations,
-            key=lambda n: 0 if n.category is Category.SEAD else 1,
+            key=lambda n: (
+                0 if getattr(n.target, "id", None) in openers else 1,
+                0 if n.category is Category.SEAD else 1,
+            ),
         )
         for nomination in ordered:
             if nomination.priority <= 0 or nomination.key in self.planned_keys:
@@ -1315,8 +1358,22 @@ class JfaccPlanner:
 
     # ========================================================== record
 
+    def _apply_experience(self) -> None:
+        from . import experience
+
+        config = experience.ExperienceConfig.from_profile(
+            self.profile.section("risk").get("experience")
+        )
+        self.composer.experience = {
+            kind: experience.factor(self.side, kind, config)
+            for kind in (experience.STRIKE, experience.STATION)
+        }
+
     def _record(self) -> None:
+        from . import experience
+
         side = self.side
+        experience.note_plan(side, self.coalition.ato.packages)
         side.jiptl = snapshot(self.nominations[:60], self.planned_keys)
         side.apportioned = dict(self.apportionment.quota)
         side.planned = dict(self.apportionment.used)

@@ -78,6 +78,8 @@ modifiers:
         - {moe: air_superiority, le: 0.35, sustain: 2}
     effects:
       iads_preserve: true
+      # GCI: no scrambles into raids more than this many times the alerts able to meet them.
+      scramble_max_odds: 1.5
       alert_pairs_bonus: 1
       dca_forward_scale: 0.4
       cap_under_own_sam: true

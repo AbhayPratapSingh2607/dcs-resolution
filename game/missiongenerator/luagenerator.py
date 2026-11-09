@@ -306,7 +306,11 @@ class LuaGenerator:
     def generate_gci_data(self, lua_data: LuaData) -> None:
         """Ground alert groups and scramble rules for the GCI plugin."""
         from game.commander.jfacc.planner import profile_for
-        from game.sim.gci import DEFAULT_MAX_PER_RAID, RAID_CLUSTER_M
+        from game.sim.gci import (
+            DEFAULT_MAX_PER_RAID,
+            RAID_CLUSTER_M,
+            max_scramble_odds,
+        )
         from game.theater.player import Player
 
         gci_object = lua_data.add_item("GCI")
@@ -323,6 +327,8 @@ class LuaGenerator:
             except Exception:
                 logging.exception("Could not read the GCI scramble limit")
             side.add_item("maxPerRaid").set_value(str(limit))
+            odds = max_scramble_odds(self.game, player.is_blue)
+            side.add_item("maxOdds").set_value(f"{odds:g}")
             alerts = side.add_item("alerts")
             for info in self.mission_data.alert_groups:
                 if info.blue != player.is_blue:
@@ -332,6 +338,7 @@ class LuaGenerator:
                 item.add_key_value("x", str(round(info.x)))
                 item.add_key_value("y", str(round(info.y)))
                 item.add_key_value("radius", str(round(info.radius_m)))
+                item.add_key_value("size", str(info.size))
 
     def generate_csar_data(self, lua_data: LuaData) -> None:
         """Injects Ops.CSAR data into the dcsRetribution table.

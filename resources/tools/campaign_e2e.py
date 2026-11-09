@@ -35,6 +35,7 @@ import logging
 import os
 import pickle
 import random
+import re
 import sys
 import time
 from datetime import datetime
@@ -162,6 +163,26 @@ def aircraft_flown(game: Any) -> dict[bool, int]:
 JFACC_LOSS_TOLERANCE = 3.0
 
 
+def _near_misses(scrubbed: list[tuple[str, str]], count: int = 3) -> list[str]:
+    """The attrition scrubs closest to their limit: what would fly next."""
+    found = []
+    for name, why in scrubbed:
+        est = re.search(r"([\d.]+)% per sortie", str(why))
+        limit = re.search(r"limit ([\d.]+)%", str(why))
+        weight = re.search(r"SAM weight ([\d.]+)", str(why))
+        if est and limit:
+            ratio = float(est.group(1)) / max(float(limit.group(1)), 0.01)
+            found.append(
+                (
+                    ratio,
+                    f"{name} {est.group(1)}%/{limit.group(1)}%"
+                    + (f" w{weight.group(1)}" if weight else ""),
+                )
+            )
+    found.sort()
+    return [text for _, text in found[:count]]
+
+
 def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
     """What the JFACC planner tasked this turn, per side using it."""
     from collections import Counter
@@ -201,6 +222,13 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "mean_estimated_risk": round(sum(risks) / len(risks), 4) if risks else 0,
             "estimated_packages": estimated,
             "scrubbed": len(side.scrubbed),
+            "near_misses": _near_misses(side.scrubbed),
+            "scrub_reasons": dict(
+                Counter(
+                    re.sub(r"\(.*", "", re.sub(r"[\d.]+%?", "#", str(why))).strip()
+                    for _, why in side.scrubbed
+                ).most_common(6)
+            ),
             "modifiers": sorted(side.modifiers),
             "raids": list(side.raids),
             "enemy_sorties_seen": side.enemy_sorties_seen,
@@ -227,6 +255,56 @@ def _learned_axes(game: Any, player: Any, side: Any) -> list[str]:
     return result
 
 
+def flights_by_task(game: Any) -> dict[bool, list[tuple[Any, str, int, float]]]:
+    """(flight, task, aircraft, estimated loss rate) for every flight planned,
+    before the turn is flown. Ground alerts are left out (they fly only if
+    scrambled)."""
+    result: dict[bool, list[tuple[Any, str, int, float]]] = {True: [], False: []}
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            risk = getattr(package, "planning_risk", None) or {}
+            estimate = float(risk.get("estimate", -1))
+            for flight in package.flights:
+                if getattr(flight, "alert", False):
+                    continue
+                task = flight.flight_type.value
+                if getattr(flight, "returning", False):
+                    task += " (returning)"
+                result[coalition.player.is_blue].append(
+                    (flight, task, flight.count, estimate)
+                )
+    return result
+
+
+def losses_by_task(
+    flights: list[tuple[Any, str, int, float]], debriefing: Any, blue: bool
+) -> dict[str, dict[str, float]]:
+    """Aircraft flown and lost per task, with the mean planning estimate of
+    the packages they flew in (-1 when none had one)."""
+    lost_by_flight: dict[int, int] = {}
+    losses = debriefing.air_losses.player if blue else debriefing.air_losses.enemy
+    for loss in losses:
+        lost_by_flight[id(loss.flight)] = lost_by_flight.get(id(loss.flight), 0) + 1
+    table: dict[str, dict[str, float]] = {}
+    for flight, task, count, estimate in flights:
+        row = table.setdefault(
+            task, {"flown": 0, "lost": 0, "est_sum": 0.0, "est_n": 0}
+        )
+        row["flown"] += count
+        row["lost"] += lost_by_flight.get(id(flight), 0)
+        if estimate >= 0:
+            row["est_sum"] += estimate * count
+            row["est_n"] += count
+    return {
+        task: {
+            "flown": row["flown"],
+            "lost": row["lost"],
+            "estimate": round(row["est_sum"] / row["est_n"], 4) if row["est_n"] else -1,
+        }
+        for task, row in sorted(table.items(), key=lambda kv: -kv[1]["flown"])
+    }
+
+
 def jfacc_limit(game: Any, blue: bool) -> float:
     from game.commander.jfacc.planner import profile_for
     from game.theater.player import Player
@@ -248,6 +326,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     turn = game.turn
     fronts_before = front_sizes(game)
     flown = aircraft_flown(game)
+    planned_flights = flights_by_task(game)
     owners_before = {cp.name: cp.captured.name for cp in game.theater.controlpoints}
     errors_before = len(errors.records)
     jfacc = jfacc_plan_metrics(game)
@@ -273,6 +352,9 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
                     flown[coalition.player.is_blue] -= f.count
     for name, m in jfacc.items():
         m["scrambles"] = scrambles[name == "blue"]
+        m["by_task"] = losses_by_task(
+            planned_flights[name == "blue"], debriefing, name == "blue"
+        )
     loop.complete_with_results(debriefing)
     # Where each front stands once the turn's results are committed
     # (before the next turn's strength recovery): blue's share of the two bases'
@@ -366,6 +448,23 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
             ),
         )
         print("  mix:", ", ".join(f"{v} {k}" for k, v in m["sortie_mix"].items()))
+        by_task = m.get("by_task") or {}
+        if by_task:
+            print(
+                "  lost by task:",
+                ", ".join(
+                    f"{task} {int(r['lost'])}/{int(r['flown'])}"
+                    + (f" (est {r['estimate']:.1%})" if r["estimate"] >= 0 else "")
+                    for task, r in by_task.items()
+                ),
+            )
+        if m.get("scrub_reasons"):
+            print(
+                "  scrubbed for:",
+                "; ".join(f"{n}x {why}" for why, n in m["scrub_reasons"].items()),
+            )
+        if m.get("near_misses"):
+            print("  closest to flying:", ", ".join(m["near_misses"]))
         if m["modifiers"] or m["raids"]:
             print(
                 f"  modifiers: {', '.join(m['modifiers']) or '-'}; raids: {', '.join(m['raids']) or '-'}"
@@ -420,6 +519,12 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
 
 
 def main() -> int:
+    # Target names can be non-ASCII; a redirected Windows console is cp1252.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):
+            pass
     args = parse_args()
     if args.seed is not None:
         random.seed(args.seed)

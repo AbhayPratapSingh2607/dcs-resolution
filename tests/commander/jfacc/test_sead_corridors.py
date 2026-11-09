@@ -84,3 +84,47 @@ def test_suppression_packages_bring_their_own() -> None:
     composer = _composer(origin=_point(0, 0))
     composer.corridors.append(_corridor(0, 100, TOT - timedelta(minutes=10)))
     assert composer.corridor_cover(_strike(_point(80, 0), FlightType.DEAD), TOT) == 0
+
+
+def _opener_planner(weights: list[float], rollback: bool = True) -> Any:
+    from game.commander.jfacc.planner import JfaccPlanner
+    from game.commander.jfacc.profile import load_profile
+    from game.theater.theatergroundobject import SamGroundObject
+
+    planner = cast(Any, JfaccPlanner.__new__(JfaccPlanner))
+    planner.profile = load_profile("western")
+    planner.player = "blue"
+    sites = []
+    for i, weight in enumerate(weights):
+        site = SamGroundObject.__new__(SamGroundObject)
+        site.__dict__.update(id=f"sam{i}", name=f"SAM {i}", _weight=weight)
+        sites.append(site)
+    planner.nominations = [
+        SimpleNamespace(target=site, priority=1.0) for site in sites
+    ]
+    planner.composer = SimpleNamespace(
+        rollback_allowed=rollback,
+        opener_targets=set(),
+        threat_for=lambda target, exclude=None: RouteThreat(
+            sam_weight=target.__dict__["_weight"]
+        ),
+    )
+    return planner
+
+
+def test_dense_iads_gets_rollback_openers_on_its_lightest_sites() -> None:
+    planner = _opener_planner([14.0, 11.0, 20.0, 12.5])
+    planner._choose_rollback_openers()
+    assert planner.composer.opener_targets == {"sam1", "sam3"}
+
+
+def test_no_openers_when_the_normal_allowance_can_start_the_rollback() -> None:
+    planner = _opener_planner([14.0, 6.0])
+    planner._choose_rollback_openers()
+    assert planner.composer.opener_targets == set()
+
+
+def test_no_openers_outside_rollback_phases() -> None:
+    planner = _opener_planner([14.0, 11.0], rollback=False)
+    planner._choose_rollback_openers()
+    assert planner.composer.opener_targets == set()

@@ -156,6 +156,12 @@ class MissionResultsProcessor:
             record_turn(self.game, debriefing)
         except Exception:
             logging.exception("Could not record air campaign observations")
+        try:
+            from game.commander.jfacc import experience
+
+            experience.record_turn(self.game, debriefing)
+        except Exception:
+            logging.exception("Could not record air campaign loss experience")
 
     def update_war_state(self, debriefing: Debriefing) -> None:
         war_state = getattr(self.game, "war_state", None)

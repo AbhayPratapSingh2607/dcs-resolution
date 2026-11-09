@@ -205,9 +205,15 @@ class PackageComposer:
         self.phase_name = ""
         #: The phase allows the outer-layer rollback risk allowance.
         self.rollback_allowed = False
+        #: SAM sites that open the rollback against an IADS with no site
+        #: inside the normal allowance (item 6; set by the planner).
+        self.opener_targets: set[object] = set()
         from .risk import RiskModel
 
         self.risk_model = RiskModel.from_profile(profile.section("risk").get("model"))
+        #: Loss experience factor per package kind (experience.py), set by
+        #: the planner each turn.
+        self.experience: dict[str, float] = {}
         #: Strike packages fly in at low level (Soviet-style doctrines): the
         #: combat model and the DCS flight plans do, so the risk estimate must.
         self.low_level = _low_level_doctrine(coalition)
@@ -649,6 +655,7 @@ class PackageComposer:
                 "air": route_threat.air_strength,
                 "sead": float(sead_aircraft),
                 "estimate": risk.expected_loss_rate,
+                "model_estimate": risk.model_estimate,
                 "limit": limit,
                 "target_defended": float(route_threat.target_defended),
             }
@@ -838,6 +845,9 @@ class PackageComposer:
             model=self.risk_model,
             station=_holds_station(package),
         )
+        from .experience import kind_of
+
+        risk = risk.scaled(self.experience.get(kind_of(package), 1.0))
         limit = min(
             self.profile.attrition_limit
             * self.profile.priority_multiplier(request.risk_kind)
@@ -859,6 +869,11 @@ class PackageComposer:
             return 0.0
         if not isinstance(request.target, SamGroundObject):
             return 0.0
+        if request.target.id in self.opener_targets:
+            # Item 6: no SAM site is within the normal allowance, so the
+            # least-defended ones are attacked at a higher cost to start the
+            # rollback at all.
+            return float(allowance.get("opener_limit", 0.2))
         if threat.sam_weight > float(allowance.get("max_route_weight", 0)):
             return 0.0
         return float(allowance.get("limit", 0.0))

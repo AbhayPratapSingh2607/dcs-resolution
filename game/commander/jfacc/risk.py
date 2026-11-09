@@ -85,11 +85,37 @@ class RiskEstimate:
     expected_loss_rate: float
     sam_component: float
     air_component: float
+    #: The model's estimate before the loss experience factor.
+    model_loss_rate: float = -1.0
+    experience: float = 1.0
 
     def describe(self) -> str:
+        scaled = (
+            f", x{self.experience:.2f} from losses so far"
+            if abs(self.experience - 1.0) >= 0.01
+            else ""
+        )
         return (
             f"{self.expected_loss_rate:.1%} per sortie "
-            f"(SAM {self.sam_component:.1%}, air {self.air_component:.1%})"
+            f"(SAM {self.sam_component:.1%}, air {self.air_component:.1%}{scaled})"
+        )
+
+    def scaled(self, factor: float) -> RiskEstimate:
+        """This estimate corrected by the side's loss experience."""
+        return RiskEstimate(
+            min(1.0, self.expected_loss_rate * factor),
+            self.sam_component,
+            self.air_component,
+            self.expected_loss_rate,
+            factor,
+        )
+
+    @property
+    def model_estimate(self) -> float:
+        return (
+            self.expected_loss_rate
+            if self.model_loss_rate < 0
+            else self.model_loss_rate
         )
 
 

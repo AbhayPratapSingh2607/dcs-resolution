@@ -38,7 +38,9 @@ class _Plan:
         return timedelta(minutes=2)
 
 
-def _flight(player: Player, x: float, y: float, count: int = 2, alert: bool = False) -> Any:
+def _flight(
+    player: Player, x: float, y: float, count: int = 2, alert: bool = False
+) -> Any:
     package = SimpleNamespace(
         time_over_target=NOW + timedelta(hours=5),
         target=SimpleNamespace(position=_pt(x, y)),
@@ -79,7 +81,9 @@ class _Model:
         return self._awareness[player.is_blue]
 
     def airframes(self, flight: Any) -> list[Any]:
-        lead = SimpleNamespace(position=flight.position, altitude_m=5000.0, effective_rcs=5.0)
+        lead = SimpleNamespace(
+            position=flight.position, altitude_m=5000.0, effective_rcs=5.0
+        )
         return [lead] * flight.count
 
     def log(self, time: datetime, domain: Any, side: str, text: str) -> None:
@@ -89,6 +93,7 @@ class _Model:
 @pytest.fixture(autouse=True)
 def _limits(monkeypatch: Any) -> None:
     monkeypatch.setattr(GciController, "_max_per_raid", lambda self, blue: 2)
+    monkeypatch.setattr(GciController, "_max_odds", lambda self, blue: 3.0)
 
 
 def _controller(red_radar: bool = True) -> tuple[GciController, _Model]:
@@ -130,6 +135,18 @@ def test_small_raid_gets_one_pair() -> None:
     alerts = [_flight(Player.RED, 0, 0, alert=True) for _ in range(3)]
     pair = _flight(Player.BLUE, 50_000, 0, count=2)
     assert len(controller.tick(NOW, alerts + [pair])) == 1
+
+
+def test_no_scramble_into_a_raid_beyond_the_odds() -> None:
+    controller, _ = _controller()
+    lone_pair = _flight(Player.RED, 0, 0, alert=True)
+    sweep = _flight(Player.BLUE, 50_000, 0, count=8)
+    # 8 raiders against 2 interceptors is beyond 3:1: the pair stays down.
+    assert controller.tick(NOW, [lone_pair, sweep]) == []
+    assert isinstance(lone_pair.state, OnAlert)
+    # A second pair in the sector brings it to 2:1.
+    second = _flight(Player.RED, 10_000, 0, alert=True)
+    assert len(controller.tick(NOW, [lone_pair, second, sweep])) == 2
 
 
 def test_no_scramble_outside_the_sector_or_without_radar() -> None:

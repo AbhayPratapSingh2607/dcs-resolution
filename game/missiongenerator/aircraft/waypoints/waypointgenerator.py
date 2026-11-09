@@ -342,6 +342,7 @@ class WaypointGenerator:
                 x=station.x,
                 y=station.y,
                 radius_m=float(getattr(self.flight.package, "alert_radius_m", 0.0)),
+                size=int(self.flight.count),
             )
         )
 

@@ -113,6 +113,11 @@ class SideCampaign:
     #: Turn the IADS was last repositioned, and the moves made, for the UI.
     moves_turn: int = -1
     iads_moves: list[str] = field(default_factory=list)
+    #: Loss experience (game.commander.jfacc.experience): decayed (expected,
+    #: actual) aircraft lost per package kind, and the expected losses of
+    #: the plan about to fly.
+    experience: dict[str, tuple[float, float]] = field(default_factory=dict)
+    expected_losses: dict[str, float] = field(default_factory=dict)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})

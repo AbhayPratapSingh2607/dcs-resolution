@@ -8,6 +8,11 @@ package (its station plus ``Package.alert_radius_m``) gets alert pairs
 scrambled against it, nearest first, up to the side's
 ``alert.max_scrambles_per_raid`` and no more than one pair per two raiders.
 
+A raid more than ``alert.max_odds`` times the alert aircraft that could meet
+it (those in its sector, plus pairs already sent) isn't engaged: a pair of
+interceptors sent into an eight-ship sweep is just lost. Force preservation
+modifiers may lower the odds a side accepts (``scramble_max_odds``).
+
 A scrambled pair is re-timed so it takes off now: its package TOT moves so
 the flight plan's takeoff is the current time, and the flight starts its
 takeoff roll. From then on it flies its CAP like any other, engaging what
@@ -34,6 +39,33 @@ if TYPE_CHECKING:
 #: Contacts closer than this belong to the same raid.
 RAID_CLUSTER_M = 40_000.0
 DEFAULT_MAX_PER_RAID = 2
+#: Largest raid, per alert aircraft able to meet it, that GCI engages.
+DEFAULT_MAX_ODDS = 3.0
+
+
+def max_scramble_odds(game: Game, blue: bool) -> float:
+    """The largest raid, per alert aircraft able to meet it, that the side's
+    GCI engages: ``alert.max_odds``, lowered by an active modifier's
+    ``scramble_max_odds`` (force preservation)."""
+    value = DEFAULT_MAX_ODDS
+    try:
+        from game.commander.jfacc.planner import profile_for
+        from game.theater import Player
+
+        profile = profile_for(game, Player.BLUE if blue else Player.RED)
+        if profile is None:
+            return value
+        value = float(profile.get("alert", "max_odds", value))
+        state = getattr(game, "air_campaign", None)
+        side = state.maybe_side(blue) if state is not None else None
+        active = set(side.modifiers) if side is not None else set()
+        for modifier in profile.modifiers:
+            odds = modifier.effects.get("scramble_max_odds")
+            if modifier.name in active and odds is not None:
+                value = min(value, float(odds))
+    except Exception:
+        logging.exception("Could not read the GCI scramble odds")
+    return value
 
 
 def is_on_alert(flight: Flight) -> bool:
@@ -80,6 +112,7 @@ class GciController:
             False: defaultdict(int),
         }
         self.max_per_raid: dict[bool, int] = {}
+        self.max_odds: dict[bool, float] = {}
         #: (time, side, alert flight, raid size) for each scramble, for reports.
         self.scrambles: list[tuple[datetime, bool, Flight, int]] = []
 
@@ -92,13 +125,16 @@ class GciController:
 
                 profile = profile_for(self.game, Player.BLUE if blue else Player.RED)
                 if profile is not None:
-                    value = int(
-                        profile.get("alert", "max_scrambles_per_raid", value)
-                    )
+                    value = int(profile.get("alert", "max_scrambles_per_raid", value))
             except Exception:
                 logging.exception("Could not read the GCI scramble limit")
             self.max_per_raid[blue] = value
         return self.max_per_raid[blue]
+
+    def _max_odds(self, blue: bool) -> float:
+        if blue not in self.max_odds:
+            self.max_odds[blue] = max_scramble_odds(self.game, blue)
+        return self.max_odds[blue]
 
     def tick(self, time: datetime, flights: Iterable[Flight]) -> list[Flight]:
         """Scrambles alert pairs against raids the sides' radars see."""
@@ -122,9 +158,15 @@ class GciController:
                 continue
             committed = self.committed[player.is_blue]
             limit = self._max_per_raid(player.is_blue)
+            odds = self._max_odds(player.is_blue)
             for raid in raids:
                 launched = sum(committed[id(f)] for f in raid.flights)
                 wanted = min(limit, max(1, math.ceil(raid.aircraft / 2)))
+                able = sum(
+                    a.count for a in alerts if self._in_sector(a, raid)
+                ) + 2 * min(launched, limit)
+                if raid.aircraft > odds * max(able, 1):
+                    continue
                 while launched < wanted and alerts:
                     alert = self._nearest_in_sector(alerts, raid)
                     if alert is None:
@@ -159,6 +201,12 @@ class GciController:
             if awareness.covers(position, altitude, lead.effective_rcs):
                 contacts.append((flight, position.x, position.y, len(airframes)))
         return cluster(contacts)
+
+    @staticmethod
+    def _in_sector(alert: Flight, raid: Raid) -> bool:
+        station = alert.package.target.position
+        radius = float(getattr(alert.package, "alert_radius_m", 0.0))
+        return math.hypot(station.x - raid.x, station.y - raid.y) <= radius
 
     @staticmethod
     def _nearest_in_sector(alerts: list[Flight], raid: Raid) -> Optional[Flight]:

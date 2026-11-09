@@ -113,6 +113,19 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   HARM escort, and SEAD and DEAD are planned first, so the strikes after them can use those
   corridors. SEAD-capable squadrons are no longer used up escorting one package each.
 
+* **[Auto Planner]** Against a dense IADS, where even the outermost SAM sites are too risky for
+  the normal limits, the two least-defended sites may be attacked at up to 20% expected losses
+  each turn, so the rollback can start.
+
+* **[Auto Planner]** The planner checks its risk estimates against its own losses. If its
+  packages lose fewer aircraft than estimated, later estimates come down, and the reverse,
+  within limits (x0.35 to x3) and fading over a few turns. Against Iran blue went from flying
+  only CAPs after turn 1 to flying SEAD, DEAD and CAS every turn.
+
+* **[Auto Planner]** A turn briefing at the top of the ATO panel and in the DCS mission briefing:
+  the phase and intent, the key packages and what each is for, the routine lines in one line, and
+  the threats as the side's own intelligence sees them.
+
 ## Fixes
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs

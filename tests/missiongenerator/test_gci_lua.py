@@ -139,6 +139,20 @@ def test_raid_seen_by_radar_scrambles_nearest_pairs() -> None:
     assert len(_activated(runtime)) == 2
 
 
+def test_no_scramble_into_a_raid_beyond_the_odds() -> None:
+    runtime = _runtime()
+    runtime.execute(r"""
+        dcsRetribution.GCI.red.maxOdds = "1"
+        for i = 1, 6 do
+            aircraft["F-16 " .. i] = { x = 40000 + i * 100, z = 5000, coalition = 2 }
+            table.insert(radarSees, "F-16 " .. i)
+        end
+    """)
+    # Six raiders against the four alert aircraft in the sector: beyond 1:1.
+    _scan(runtime)
+    assert _activated(runtime) == []
+
+
 def test_no_scramble_without_radar_contact() -> None:
     runtime = _runtime()
     runtime.execute(r"""
@@ -165,9 +179,13 @@ def test_small_raid_and_out_of_sector() -> None:
 
 def test_skynet_config_parses() -> None:
     runtime = lupa.LuaRuntime()
-    source = (PLUGINS / "skynetiads" / "skynetiads-config.lua").read_text(encoding="utf-8")
+    source = (PLUGINS / "skynetiads" / "skynetiads-config.lua").read_text(
+        encoding="utf-8"
+    )
     # Compiles without running (load returns nil and the error on syntax errors).
-    ok = runtime.eval("function(src) local f, err = load(src); return f ~= nil, err end")(source)
+    ok = runtime.eval(
+        "function(src) local f, err = load(src); return f ~= nil, err end"
+    )(source)
     assert ok[0], ok[1]
 
 
@@ -193,7 +211,10 @@ def test_generator_writes_alert_groups(monkeypatch: Any) -> None:
     gci = runtime.globals().dcsRetribution.GCI
     alert = gci.red.alerts[1]
     assert (alert.group, alert.x, alert.y, alert.radius) == (
-        "Maykop alert 1", "1000", "-2001", "185200",
+        "Maykop alert 1",
+        "1000",
+        "-2001",
+        "185200",
     )
     assert gci.red.maxPerRaid == "2"
     assert len(gci.blue.alerts) == 0
