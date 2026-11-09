@@ -28,6 +28,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   station: the start of the racetrack for CAP, AWACS and tankers, the IP for attack packages. It
   appears at its planned time there, or at mission start with ASAP. Support assets no longer need
   a fast-forward to be on station. [Guide](On-Station-Start.md)
+* **[Air Wing]** Air wing presets in the new game Air Wing Configuration window: US Navy carrier
+  air wings (1975–2020), USMC amphibious ready groups, USAF expeditionary forces, a NATO coalition,
+  and Soviet and Russian air forces. Squadrons are placed by base kind on any theater, can come
+  from different countries, and their aircraft are bought from the starting budget. Skipped
+  squadrons say why each aircraft was rejected. You can save your own air wing as a preset.
+  [Guide](Air-Wing-Presets.md)
 
 ## Fixes
 

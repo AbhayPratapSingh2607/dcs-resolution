@@ -192,7 +192,20 @@ class Coalition:
 
         Final initialization occurs before Game.initialize_turn runs for turn 0.
         """
+        if not squadrons_start_full:
+            self.buy_preset_aircraft()
         self.air_wing.populate_for_turn_0(squadrons_start_full)
+
+    def buy_preset_aircraft(self) -> None:
+        """Buys the starting aircraft requested by air wing presets."""
+        from game.campaignloader.airwingpreset import buy_preset_aircraft
+        from game.theater import ParkingType
+
+        self.budget = buy_preset_aircraft(
+            self.air_wing.iter_squadrons(),
+            self.budget,
+            lambda s: s.location.unclaimed_parking(ParkingType().from_squadron(s)),
+        )
 
     def initialize_turn(self, is_turn_0: bool) -> None:
         """Processes coalition-specific turn initialization.

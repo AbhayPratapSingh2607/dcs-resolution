@@ -25,11 +25,19 @@ class SquadronDefLoader:
         yield persistency.base_path() / "Retribution" / "Squadrons"
         yield Path("resources/squadrons")
 
-    def load(self) -> dict[AircraftType, list[SquadronDef]]:
+    def load(self, any_country: bool = False) -> dict[AircraftType, list[SquadronDef]]:
+        """Loads the squadron definitions usable by the faction.
+
+        Definitions are normally restricted to the faction's country (CJTF factions
+        accept any country). Pass ``any_country=True`` to skip the country check, for
+        example when an air wing preset asks for a foreign squadron.
+        """
         squadrons: dict[AircraftType, list[SquadronDef]] = defaultdict(list)
         country = self.faction.country
         faction = self.faction
-        any_country = country.name.startswith("Combined Joint Task Forces ")
+        any_country = any_country or country.name.startswith(
+            "Combined Joint Task Forces "
+        )
         for directory in self.squadron_directories():
             for path, squadron_def in self.load_squadrons_from(directory):
                 if not any_country and squadron_def.country != country:

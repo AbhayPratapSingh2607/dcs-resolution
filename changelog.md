@@ -9,6 +9,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 * **[Loadouts]** Payloads are listed by their mission editor label. Stations use mission editor labels, and weapons are sorted into category submenus.
 * **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
 * **[Flight Planning]** New "On Station" start type: flights appear in the air at their racetrack or IP instead of taking off.
+* **[Air Wing]** Air wing presets: apply a ready-made air wing (US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a mixed-nation NATO coalition, Soviet and Russian air forces) in the new game Air Wing Configuration window. Squadrons are placed on suitable bases on any theater, and their aircraft are bought from the starting budget. Squadrons can come from different countries, and you can save your own air wing as a preset.
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.

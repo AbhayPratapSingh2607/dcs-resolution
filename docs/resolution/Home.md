@@ -16,6 +16,8 @@ plugins), see [Retribution's wiki](https://github.com/dcs-retribution/dcs-retrib
 * [Super Hornet](Super-Hornet.md): fixes for the CJS Super Hornet mod, including v2.4.6.
 * [On Station start](On-Station-Start.md): flights start in the air at their racetrack or IP,
   so AWACS, tankers and CAP can be on station when the mission begins.
+* [Air wing presets](Air-Wing-Presets.md): ready-made air wings from different eras that work on
+  any theater, bought from the starting budget.
 
 ## Other pages
 
@@ -36,3 +38,4 @@ Resolution's options go into existing pages:
 | Mission Generator | Gameplay | "On Station" in the default start types, CSAR start type, hover or landing extraction, rescuing AI pilots, player hover height and distance, cabin door requirement |
 | Cheat Menu | | Enable Instant FARP Cheat |
 | New Game wizard | Mods | UH-60L Armed Blackhawk |
+| New Game wizard | Air Wing Configuration | Apply Preset..., Save as Preset..., Buy at start |

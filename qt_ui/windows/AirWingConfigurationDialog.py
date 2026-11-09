@@ -1,4 +1,5 @@
 from collections import defaultdict
+from pathlib import Path
 from typing import Iterable, Iterator, Optional, Any
 
 import yaml
@@ -42,13 +43,15 @@ from game.campaignloader.campaignairwingconfig import (
 )
 from game.coalition import Coalition
 from game.dcs.aircrafttype import AircraftType
-from game.persistency import airwing_dir
+from game.campaignloader.airwingpreset import apply_preset, preset_from_air_wing
+from game.persistency import airwing_dir, airwing_presets_dir
 from game.squadrons import AirWing, Pilot, Squadron
 from game.squadrons.squadrondef import SquadronDef
 from game.theater import ControlPoint, ParkingType, Airfield
 from qt_ui.uiconstants import AIRCRAFT_ICONS, ICONS
 from qt_ui.widgets.combos.QSquadronLiverySelector import SquadronLiverySelector
 from qt_ui.widgets.combos.primarytaskselector import PrimaryTaskSelector
+from qt_ui.windows.AirWingPresetDialog import AirWingPresetDialog
 
 
 class QMissionType(QCheckBox):
@@ -264,6 +267,20 @@ class SquadronConfigurationBox(QGroupBox):
         self.max_size_selector.valueChanged.connect(self.update_max_size)
         size_column.addWidget(self.max_size_selector)
 
+        buy_column = QVBoxLayout()
+        task_and_size_row.addLayout(buy_column)
+        buy_column.addWidget(QLabel("Buy at start:"))
+        self.buy_selector = QSpinBox(self)
+        self.buy_selector.setRange(0, self.squadron.max_size)
+        self.buy_selector.setValue(min(squadron.preset_purchase, squadron.max_size))
+        self.buy_selector.setEnabled(not aircraft_present)
+        self.buy_selector.setToolTip(
+            "Aircraft bought from the starting budget at the start of the campaign."
+            if not aircraft_present
+            else "Squadrons start full, so no aircraft need to be bought."
+        )
+        buy_column.addWidget(self.buy_selector)
+
         task_column = QVBoxLayout()
         task_and_size_row.addLayout(task_column)
         task_column.addWidget(QLabel("Primary task:"))
@@ -334,6 +351,8 @@ class SquadronConfigurationBox(QGroupBox):
             index = self.livery_selector.findText(self.squadron.livery)
             self.livery_selector.setCurrentIndex(index)
             self.max_size_selector.setValue(self.squadron.max_size)
+            self.buy_selector.setMaximum(self.squadron.max_size)
+            self.buy_selector.setValue(self.squadron.preset_purchase)
             self.base_selector.setCurrentText(self.squadron.location.name)
             self.player_list.setText(
                 "<br />".join(p.name for p in self.claim_players_from_squadron())
@@ -365,6 +384,7 @@ class SquadronConfigurationBox(QGroupBox):
 
     def update_max_size(self) -> None:
         self.squadron.max_size = self.max_size_selector.value()
+        self.buy_selector.setMaximum(self.squadron.max_size)
         self.parking_tracker.signal_change()
 
     def relocate_squadron(self) -> None:
@@ -441,6 +461,8 @@ class SquadronConfigurationBox(QGroupBox):
         self.squadron.name = self.name_edit.text()
         self.squadron.nickname = self.nickname_edit.text()
         self.squadron.max_size = self.max_size_selector.value()
+        if not self.aircraft_present:
+            self.squadron.preset_purchase = self.buy_selector.value()
         if (primary_task := self.primary_task_selector.selected_task) is not None:
             self.squadron.primary_task = primary_task
         else:
@@ -777,6 +799,8 @@ class AirWingConfigurationTab(QWidget):
         self.squadrons_panel.apply()
 
     def revert(self) -> None:
+        # The panel re-adds every squadron to the tracker as it rebuilds its pages.
+        self.parking_tracker.by_cp.clear()
         self.type_list.revert()
         self.squadrons_panel.revert()
         self.update()
@@ -804,6 +828,8 @@ class AirWingConfigurationDialog(QDialog):
 
         layout.addWidget(doc_label)
 
+        self.game = game
+        self.aircraft_present = aircraft_present
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
 
@@ -823,6 +849,22 @@ class AirWingConfigurationDialog(QDialog):
         load_button.clicked.connect(lambda state: self.load_config())
         load_save_layout.addWidget(load_button)
         load_save_layout.addWidget(save_button)
+        if game.turn == 0:
+            preset_button = QPushButton("Apply Preset...")
+            preset_button.setProperty("style", "btn-primary")
+            preset_button.setToolTip(
+                "Build this side's air wing from a ready-made preset, such as a "
+                "carrier air wing or a coalition task force."
+            )
+            preset_button.clicked.connect(lambda state: self.apply_preset())
+            save_preset_button = QPushButton("Save as Preset...")
+            save_preset_button.setProperty("style", "btn-primary")
+            save_preset_button.setToolTip(
+                "Save this side's air wing as a preset that works on any theater."
+            )
+            save_preset_button.clicked.connect(lambda state: self.save_preset())
+            load_save_layout.addWidget(preset_button)
+            load_save_layout.addWidget(save_preset_button)
         layout.addLayout(load_save_layout)
 
         buttons_layout = QHBoxLayout()
@@ -930,6 +972,56 @@ class AirWingConfigurationDialog(QDialog):
         w.revert()
         if c.game.turn != 0:
             c.initialize_turn(False)
+
+    def current_tab(self) -> AirWingConfigurationTab:
+        w = self.tab_widget.currentWidget()
+        assert isinstance(w, AirWingConfigurationTab)
+        return w
+
+    def apply_preset(self) -> None:
+        tab = self.current_tab()
+        dialog = AirWingPresetDialog(
+            self.game, tab.coalition, self.aircraft_present, self
+        )
+        if dialog.exec_() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        if not dialog.replace_existing:
+            # Keep edits made to the squadrons that stay.
+            tab.apply()
+        created = apply_preset(
+            dialog.plan, self.game, tab.coalition, dialog.replace_existing
+        )
+        tab.revert()
+        QMessageBox.information(
+            self,
+            "Preset applied",
+            f"Added {len(created)} squadron(s) from {dialog.plan.preset.name}.",
+        )
+
+    def save_preset(self) -> None:
+        tab = self.current_tab()
+        fd = QFileDialog(
+            caption="Save Air Wing Preset",
+            directory=str(airwing_presets_dir()),
+            filter="*.yaml",
+        )
+        fd.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        fd.setDefaultSuffix("yaml")
+        if not fd.exec_():
+            return
+        tab.apply()
+        filename = fd.selectedFiles()[0]
+        name = Path(filename).stem
+        data = preset_from_air_wing(
+            name,
+            f"Saved from {self.game.theater.terrain.name}",
+            self.game.date.year,
+            tab.coalition,
+        )
+        with open(filename, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+        # apply() rebuilt the squadron list; rebuild the UI to match.
+        tab.revert()
 
     def revert(self) -> None:
         for tab in self.tabs:
