@@ -50,6 +50,8 @@ TEXT = QColor("#e6ebef")
 DIM = QColor("#9aa7b2")
 WINDOW = QColor(53, 146, 196, 45)
 WINDOW_EDGE = QColor("#3592c4")
+PUSH = QColor(217, 162, 58, 40)
+PUSH_EDGE = QColor("#d9a23a")
 NOW = QColor("#f0c040")
 
 
@@ -202,6 +204,18 @@ class TimelineWidget(QWidget):
 
         self._paint_grid(painter, start, end, top, bottom, small)
 
+        push = ap.main_push(game, self.blue)
+        if push is not None:
+            x0, x1 = self.x_for(push[0]), self.x_for(push[1])
+            painter.fillRect(QRectF(x0, top, x1 - x0, bottom - top), PUSH)
+            painter.setPen(QPen(PUSH_EDGE, 1, Qt.PenStyle.DashLine))
+            painter.drawLine(QPointF(x0, top), QPointF(x0, bottom))
+            painter.drawLine(QPointF(x1, top), QPointF(x1, bottom))
+            painter.drawText(
+                QRectF(x0 + 3, top - 14, max(x1 - x0 - 6, 10), 13),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+                "Main push",
+            )
         window = ap.dcs_window(game)
         if window is not None:
             x0, x1 = self.x_for(window[0]), self.x_for(window[1])

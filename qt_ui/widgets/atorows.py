@@ -1,11 +1,13 @@
 """Grouped package rows and flight rows for the ATO sidebar.
 
 Packages are sorted by mission group (qt_ui.atopresentation.GROUPS) and TOT
-through AtoGroupProxy, which also hides collapsed groups. The first row of
-each group carries a header band. Rows are painted, not laid out as text:
-a colour bar for the group, the package title and TOT on the first line,
-the composition and badges (players, DCS window, missing pilots, risk) on
-the second.
+through AtoGroupProxy, which also hides collapsed groups and folds (W4): a
+routine line with its reliefs, or a category's packages before or after
+the main push, show as one row until opened with a click on their badge.
+The first row of each group carries a header band. Rows are painted, not
+laid out as text: a colour bar for the group, the package title and TOT on
+the first line, the composition and badges (players, DCS window, missing
+pilots, risk) on the second.
 """
 
 from __future__ import annotations
@@ -30,11 +32,16 @@ TEXT = QColor("#e6ebef")
 
 
 class AtoGroupProxy(QSortFilterProxyModel):
-    """Packages sorted by group then TOT; collapsed groups are filtered out."""
+    """Packages sorted by group then TOT; collapsed groups and the members
+    of closed folds are filtered out."""
 
     def __init__(self) -> None:
         super().__init__()
         self.hidden: set[str] = set()
+        #: Folding on (the default) or every package shown.
+        self.folding = True
+        self.folds: dict[int, ap.Fold] = {}
+        self.open_folds: set[str] = set()
         self.setDynamicSortFilter(True)
 
     def set_hidden(self, key: str, hidden: bool) -> None:
@@ -43,6 +50,39 @@ class AtoGroupProxy(QSortFilterProxyModel):
         else:
             self.hidden.discard(key)
         self.invalidateFilter()
+
+    def refold(self, game: object, packages: list[Package], blue: bool = True) -> None:
+        """Recompute the folds for the packages shown."""
+        push = ap.main_push(game, blue) if game is not None else None  # type: ignore[arg-type]
+        self.folds = ap.folds(packages, push)
+        keys = {fold.key for fold in self.folds.values()}
+        self.open_folds &= keys
+        self.invalidateFilter()
+
+    def set_folding(self, folding: bool) -> None:
+        self.folding = folding
+        self.invalidateFilter()
+
+    def fold_of(self, package: Package) -> Optional[ap.Fold]:
+        if not self.folding:
+            return None
+        return self.folds.get(id(package))
+
+    def is_open(self, fold: ap.Fold) -> bool:
+        return fold.key in self.open_folds
+
+    def toggle_fold(self, fold: ap.Fold) -> None:
+        if fold.key in self.open_folds:
+            self.open_folds.discard(fold.key)
+        else:
+            self.open_folds.add(fold.key)
+        self.invalidateFilter()
+
+    def open_fold_for(self, package: Package) -> None:
+        fold = self.fold_of(package)
+        if fold is not None and not self.is_open(fold):
+            self.open_folds.add(fold.key)
+            self.invalidateFilter()
 
     def package(self, index: QModelIndex) -> Package:
         return index.data(AtoModel.PackageRole)
@@ -54,7 +94,12 @@ class AtoGroupProxy(QSortFilterProxyModel):
         package = model.index(source_row, 0, source_parent).data(AtoModel.PackageRole)
         if package is None:
             return False
-        return ap.package_group(package).key not in self.hidden
+        if ap.package_group(package).key in self.hidden:
+            return False
+        fold = self.fold_of(package)
+        if fold is None or self.is_open(fold):
+            return True
+        return fold.representative is package
 
     def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
         a = left.data(AtoModel.PackageRole)
@@ -82,10 +127,25 @@ class PackageRowDelegate(QStyledItemDelegate):
     def __init__(self, game_model: GameModel) -> None:
         super().__init__()
         self.game_model = game_model
+        #: Where each row's fold badge was painted, by package id, so the
+        #: list can toggle the fold on a click there.
+        self.fold_badges: dict[int, QRect] = {}
 
     @staticmethod
     def package(index: QModelIndex) -> Optional[Package]:
         return index.data(AtoModel.PackageRole)
+
+    @staticmethod
+    def fold_state(index: QModelIndex) -> tuple[Optional[ap.Fold], bool]:
+        """The package's fold and whether it is open, from the proxy."""
+        model = index.model()
+        package = index.data(AtoModel.PackageRole)
+        if not isinstance(model, AtoGroupProxy) or package is None:
+            return None, True
+        fold = model.fold_of(package)
+        if fold is None:
+            return None, True
+        return fold, model.is_open(fold)
 
     @staticmethod
     def fonts(option: QStyleOptionViewItem) -> tuple[QFont, QFont, QFont]:
@@ -177,6 +237,33 @@ class PackageRowDelegate(QStyledItemDelegate):
             line1 = QRect(inner.left(), inner.top(), inner.width(), title_metrics.height())
             line2 = QRect(inner.left(), line1.bottom() + VMARGIN, inner.width(), body_metrics.height())
 
+            fold, fold_open = self.fold_state(index)
+            self.fold_badges.pop(id(package), None)
+            if fold is not None and not fold_open:
+                # A closed fold: one row for the line or the wave.
+                painter.setFont(small_font)
+                badge_height = min(line1.height(), small_metrics.height() + 2)
+                top = line1.top() + (line1.height() - badge_height) // 2
+                right = _badge(
+                    painter, line1.right(), top, badge_height, f"▸ {fold.count}", QColor("#4f5f6f"), small_metrics
+                )
+                self.fold_badges[id(package)] = QRect(right + 4, top, line1.right() - right - 4, badge_height)
+                painter.setFont(title_font)
+                painter.setPen(QPen(TEXT))
+                painter.drawText(
+                    QRect(line1.left(), line1.top(), right - line1.left(), line1.height()),
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    title_metrics.elidedText(fold.label, Qt.TextElideMode.ElideRight, max(right - line1.left(), 20)),
+                )
+                painter.setFont(body_font)
+                painter.setPen(QPen(DIM))
+                painter.drawText(
+                    line2,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    body_metrics.elidedText(fold.summary(), Qt.TextElideMode.ElideRight, max(line2.width(), 20)),
+                )
+                return
+
             # Line 1: TOT on the right, title elided to fit.
             tot = f"TOT {ap.fmt(package.time_over_target)}"
             offset = ap.offset_text(game, package.time_over_target) if game else ""
@@ -200,6 +287,10 @@ class PackageRowDelegate(QStyledItemDelegate):
             right = line2.right()
             badge_height = min(line2.height(), small_metrics.height() + 2)
             top = line2.top() + (line2.height() - badge_height) // 2
+            if fold is not None and fold.representative is package:
+                # The first row of an open fold closes it.
+                right = _badge(painter, right, top, badge_height, f"▾ {fold.count}", QColor("#4f5f6f"), small_metrics)
+                self.fold_badges[id(package)] = QRect(right + 4, top, line2.right() - right - 4, badge_height)
             risk = ap.risk_badge(package)
             if risk is not None:
                 right = _badge(painter, right, top, badge_height, risk.text, QColor(risk.color), small_metrics)
@@ -227,6 +318,18 @@ class PackageRowDelegate(QStyledItemDelegate):
         if package is not None and game is not None:
             from PySide6.QtWidgets import QToolTip
 
+            fold, fold_open = self.fold_state(index)
+            if fold is not None and not fold_open:
+                from html import escape
+
+                lines = [f"<b>{escape(fold.label)}</b>", escape(fold.summary())]
+                for member in fold.packages[:12]:
+                    lines.append(f"{ap.fmt(member.time_over_target)} {escape(ap.title(member))}")
+                if fold.count > 12:
+                    lines.append(f"and {fold.count - 12} more")
+                lines.append("<i>Click the badge to open</i>")
+                QToolTip.showText(event.globalPos(), "<br/>".join(lines), view)
+                return True
             QToolTip.showText(event.globalPos(), ap.package_tooltip(game, package), view)
             return True
         return super().helpEvent(event, view, option, index)

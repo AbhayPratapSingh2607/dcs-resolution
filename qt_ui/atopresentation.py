@@ -2,7 +2,9 @@
 
 Qt-free so it can be unit tested: groups and colours (hex strings), short
 composition strings, flight roles, key times, offsets into the ATO period,
-risk badges, tooltips and timeline lanes.
+risk badges, tooltips, timeline lanes and the folds that keep a 6 hour plan
+to one screen (each routine line one row, the main push open, the other
+waves one row per category).
 """
 
 from __future__ import annotations
@@ -405,6 +407,111 @@ def lanes(packages: Iterable[Package]) -> list[Lane]:
     return result
 
 
+# ------------------------------------------------------------------- folds
+
+
+@dataclass
+class Fold:
+    """Packages shown as one row until opened (W4): a routine line with its
+    reliefs, or the packages of a category before or after the main push."""
+
+    key: str
+    label: str
+    packages: list[Package] = field(default_factory=list)
+
+    @property
+    def representative(self) -> Package:
+        return self.packages[0]
+
+    @property
+    def count(self) -> int:
+        return len(self.packages)
+
+    @property
+    def sorties(self) -> int:
+        return sum(sorties(p) for p in self.packages)
+
+    @property
+    def span_text(self) -> str:
+        tots = [p.time_over_target for p in self.packages]
+        return f"{fmt(min(tots))}–{fmt(max(tots))}"
+
+    def summary(self) -> str:
+        n = self.count
+        return f"{n} package{'' if n == 1 else 's'} · {self.sorties} sorties · {self.span_text}"
+
+
+def main_push(game: Game, blue: bool = True) -> Optional[tuple[datetime, datetime]]:
+    """The side's main push this turn (game.commander.jfacc), or None."""
+    state = getattr(game, "air_campaign", None)
+    side = state.maybe_side(blue) if state is not None else None
+    if side is None:
+        return None
+    return getattr(side, "push", None)
+
+
+def fold_key(
+    package: Package, push: Optional[tuple[datetime, datetime]]
+) -> Optional[tuple[str, str]]:
+    """The fold a package belongs to, as (key, label), or None when it
+    stands on its own: a package with players, or one in the main push."""
+    if package.has_players:
+        return None
+    line = _line_key(package)
+    if line is not None:
+        task, name = line
+        return f"line:{task.value}:{name}", f"{task.value} — {name}"
+    if push is None:
+        return None
+    tot = package.time_over_target
+    if push[0] <= tot < push[1]:
+        return None
+    group = package_group(package)
+    side = "before" if tot < push[0] else "after"
+    return f"wave:{group.key}:{side}", f"{group.label} {side} the main push"
+
+
+def folds(
+    packages: Iterable[Package], push: Optional[tuple[datetime, datetime]]
+) -> dict[int, Fold]:
+    """id(package) -> its fold, for every package in a fold of two or more.
+    The fold's packages are in TOT order; the first is its representative
+    row."""
+    by_key: dict[str, Fold] = {}
+    for package in packages:
+        found = fold_key(package, push)
+        if found is None:
+            continue
+        key, label = found
+        by_key.setdefault(key, Fold(key, label)).packages.append(package)
+    result: dict[int, Fold] = {}
+    for fold in by_key.values():
+        if fold.count < 2:
+            continue
+        fold.packages.sort(key=lambda p: p.time_over_target)
+        for package in fold.packages:
+            result[id(package)] = fold
+    return result
+
+
+def folded_rows(
+    packages: Iterable[Package], push: Optional[tuple[datetime, datetime]]
+) -> int:
+    """How many rows the list shows with every fold closed."""
+    packages = list(packages)
+    table = folds(packages, push)
+    rows = 0
+    seen: set[str] = set()
+    for package in packages:
+        fold = table.get(id(package))
+        if fold is None:
+            rows += 1
+        elif fold.key not in seen:
+            seen.add(fold.key)
+            rows += 1
+    return rows
+
+
 # ------------------------------------------------------------- turn briefing
 
 
@@ -418,16 +525,12 @@ def turn_briefing(game: Game, blue: bool = True) -> Optional[str]:
     summary = turn_summary(game, blue, name_of=title)
     if summary is None:
         return None
-    when = (
-        f" · mission {fmt(summary.window[0])}–{fmt(summary.window[1])}"
-        if summary.window
-        else ""
-    )
+    when = e(summary.period_text).replace(", ", " · ", 1)
     lines = [f"<b>Turn {summary.turn}: {e(summary.phase)}</b>{when}"]
     if summary.intent:
         lines.append(e(summary.intent))
     if summary.key:
-        lines.append("<b>Key packages</b>")
+        lines.append(f"<b>{summary.key_heading}</b>")
         for package in summary.key:
             you = " (you)" if package.players else ""
             lines.append(
@@ -436,10 +539,14 @@ def turn_briefing(game: Game, blue: bool = True) -> Optional[str]:
             )
         if summary.more_key:
             lines.append(f"&nbsp;&nbsp;and {summary.more_key} more")
+    if summary.around_push:
+        lines.append(e(summary.around_push))
     if summary.routine:
         lines.append("Also: " + ", ".join(summary.routine) + ".")
     if summary.threats:
-        lines.append("Threats (our intelligence): " + ", ".join(summary.threats) + ".")
+        lines.append(
+            "Enemy expected (our intelligence): " + e(", ".join(summary.threats)) + "."
+        )
     return "<br>".join(lines)
 
 

@@ -1,15 +1,17 @@
-"""The turn summary (F13): what a side's plan for the turn is, in a few lines.
+"""The turn summary (F13, W5): what a side's plan for the turn is, in a few
+lines.
 
 Shown at the top of the ATO panel and in the DCS mission briefing: phase and
-intent, the key packages and what each is for, the routine lines counted in
-one line, and the threats as the side's own intelligence sees them.
+intent, the main push with its time and key packages, one line for what
+flies before and after it, the routine lines counted in one line, and what
+the enemy is expected to do as the side's own intelligence sees it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from game.ato.flighttype import FlightType
 
@@ -33,25 +35,45 @@ class KeyPackage:
 class TurnSummary:
     turn: int
     phase: str
+    #: The mission window (mission only turns), or None.
     window: Optional[tuple[datetime, datetime]]
     intent: str
     key: list[KeyPackage] = field(default_factory=list)
     more_key: int = 0
     routine: list[str] = field(default_factory=list)
+    #: What the enemy is expected to do, from the side's own intelligence
+    #: (the threats line before W5).
     threats: list[str] = field(default_factory=list)
+    #: The main push (full turns), or None.
+    push: Optional[tuple[datetime, datetime]] = None
+    #: One line each for what flies before and after the push ("" if nothing).
+    before: str = ""
+    after: str = ""
+
+    @property
+    def period_text(self) -> str:
+        if self.push is not None:
+            return f", main push {self.push[0]:%H:%M}-{self.push[1]:%H:%M}"
+        if self.window is not None:
+            return f", mission {self.window[0]:%H:%M}-{self.window[1]:%H:%M}"
+        return ""
+
+    @property
+    def key_heading(self) -> str:
+        return "Main push" if self.push is not None else "Key packages"
+
+    @property
+    def around_push(self) -> str:
+        parts = [p for p in (self.before, self.after) if p]
+        return " · ".join(parts)
 
     def as_text(self) -> str:
         """Plain text, for the DCS mission briefing."""
-        when = (
-            f", mission {self.window[0]:%H:%M}-{self.window[1]:%H:%M}"
-            if self.window
-            else ""
-        )
-        lines = [f"Turn {self.turn}: {self.phase}{when}"]
+        lines = [f"Turn {self.turn}: {self.phase}{self.period_text}"]
         if self.intent:
             lines.append(self.intent)
         if self.key:
-            lines.append("Key packages:")
+            lines.append(f"{self.key_heading}:")
             for package in self.key:
                 you = " (you)" if package.players else ""
                 lines.append(
@@ -59,10 +81,12 @@ class TurnSummary:
                 )
             if self.more_key:
                 lines.append(f"  and {self.more_key} more")
+        if self.around_push:
+            lines.append(self.around_push)
         if self.routine:
             lines.append("Also: " + ", ".join(self.routine) + ".")
         if self.threats:
-            lines.append("Threats (our intelligence): " + ", ".join(self.threats) + ".")
+            lines.append("Enemy expected (our intelligence): " + ", ".join(self.threats) + ".")
         return "\n".join(lines)
 
 
@@ -94,6 +118,8 @@ def turn_summary(
     coalition = game.blue if blue else game.red
     window = atoperiod.window(game) if atoperiod.is_focused(game) else None
     summary = TurnSummary(game.turn, side.phase_title, window, side.intent)
+    push = getattr(side, "push", None)
+    summary.push = push
 
     packages = list(coalition.ato.packages)
     counted = [p for p in packages if counts_toward_target(p)]
@@ -103,7 +129,20 @@ def turn_summary(
         if p.has_players
         or any(f.flight_type is not FlightType.BARCAP for f in p.flights)
     ]
-    key.sort(key=lambda p: (not p.has_players, p.time_over_target))
+
+    def in_push(package: Package) -> bool:
+        return push is not None and push[0] <= package.time_over_target < push[1]
+
+    # Your flight first, then the main push, then the rest in TOT order.
+    key.sort(key=lambda p: (not p.has_players, not in_push(p), p.time_over_target))
+    if push is not None:
+        summary.before = _around_push(
+            "Before it", [p for p in key if p.time_over_target < push[0]]
+        )
+        summary.after = _around_push(
+            "after it", [p for p in key if p.time_over_target >= push[1]]
+        )
+        key = [p for p in key if p.has_players or in_push(p)]
     for package in key[:KEY_PACKAGES]:
         info = package.planning_info or {}
         summary.key.append(
@@ -138,18 +177,55 @@ def turn_summary(
         if n:
             summary.routine.append(f"{n} {name}{'' if n == 1 else 's'}")
 
+    summary.threats = expected_enemy(game, blue, side)
+    return summary
+
+
+def _around_push(label: str, packages: list[Package]) -> str:
+    """ "Before it: 3 strike, 2 SEAD from 06:43"."""
+    if not packages:
+        return ""
+    counts: dict[str, int] = {}
+    for package in packages:
+        task = package.primary_task
+        name = task.value if task is not None else "package"
+        counts[name] = counts.get(name, 0) + 1
+    parts = ", ".join(f"{n} {name}" for name, n in counts.items())
+    first = min(p.time_over_target for p in packages)
+    return f"{label}: {parts} from {first:%H:%M}"
+
+
+def expected_enemy(game: Game, blue: bool, side: Any) -> list[str]:
+    """What the enemy is expected to do, from the side's own intelligence
+    only: its fighter and SAM estimates, the sorties it saw last turn and
+    the axes they came from. Never the enemy's real plan."""
+    found: list[str] = []
     moes = side.moes or {}
     if moes.get("enemy_fighters"):
-        summary.threats.append(f"about {moes['enemy_fighters']:.0f} enemy fighters")
+        found.append(f"about {moes['enemy_fighters']:.0f} enemy fighters")
     if moes.get("battle_area_sams"):
-        summary.threats.append(
-            f"{moes['battle_area_sams']:.0f} SAM sites near the front"
-        )
+        found.append(f"{moes['battle_area_sams']:.0f} SAM sites near the front")
     if side.enemy_sorties_seen:
-        summary.threats.append(
-            f"{side.enemy_sorties_seen} enemy sorties seen last turn"
-        )
-    return summary
+        found.append(f"{side.enemy_sorties_seen} enemy sorties seen last turn")
+    try:
+        from game.theater.player import Player
+
+        from .observations import ObservationLog
+
+        log = ObservationLog(side)
+        player = Player.BLUE if blue else Player.RED
+        axes = []
+        for cp in game.theater.control_points_for(player):
+            for axis in log.axes(cp, max_axes=1):
+                axes.append((axis.mass, f"{axis.heading:03.0f} at {cp.name}"))
+        axes.sort(key=lambda a: -a[0])
+        if axes:
+            found.append(
+                "air activity from " + ", ".join(text for _, text in axes[:2])
+            )
+    except Exception:
+        pass
+    return found
 
 
 # ====================================================================== debrief

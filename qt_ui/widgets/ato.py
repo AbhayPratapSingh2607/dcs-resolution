@@ -267,12 +267,26 @@ class QPackageList(QListView):
         self.proxy.setSourceModel(model)
         self.proxy.sort(0)
         self.setModel(self.proxy)
-        self.setItemDelegate(PackageRowDelegate(game_model))
+        self.row_delegate = PackageRowDelegate(game_model)
+        self.setItemDelegate(self.row_delegate)
         self.setIconSize(QSize(0, 0))
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.setMouseTracking(True)
         self.model().rowsInserted.connect(self.on_new_packages)
         self.doubleClicked.connect(self.on_double_click)
+
+    def mousePressEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        # A click on a row's fold badge opens or closes the fold.
+        index = self.indexAt(event.pos())
+        if index.isValid() and event.button() == Qt.MouseButton.LeftButton:
+            package = self.ato_model.package_at_index(self.source(index))
+            badge = self.row_delegate.fold_badges.get(id(package))
+            fold = self.proxy.fold_of(package)
+            if badge is not None and fold is not None and badge.contains(event.pos()):
+                self.proxy.toggle_fold(fold)
+                event.accept()
+                return
+        super().mousePressEvent(event)
 
     def set_ato_model(self, model: AtoModel) -> None:
         self.ato_model = model
@@ -292,6 +306,7 @@ class QPackageList(QListView):
         key = ap.package_group(package).key
         if key in self.proxy.hidden:
             self.proxy.set_hidden(key, False)
+        self.proxy.open_fold_for(package)
         return self.proxy.mapFromSource(self.ato_model.index(packages.index(package), 0))
 
     def select_package(self, package: Package) -> None:
@@ -409,7 +424,10 @@ class QPackagePanel(QGroupBox):
             "map. To target airbase objectives, use the attack button in the "
             "airbase view.\n\nPackages are grouped by mission category and "
             "sorted by TOT. Click a category chip to hide or show its packages. "
-            "Hover a package for its purpose, risk and flight times."
+            "Routine lines and the waves outside the main push are folded to "
+            "one row each: click a row's badge to open it, or the Fold chip to "
+            "show everything. Hover a package for its purpose, risk and flight "
+            "times."
         )
         self.vbox.addWidget(self.tip)
 
@@ -466,17 +484,38 @@ class QPackagePanel(QGroupBox):
             signal.connect(self.update_chips)
 
     def update_chips(self, *_args: object) -> None:
-        """One checkable chip per category present in the ATO, with counts."""
+        """One checkable chip per category present in the ATO, with counts,
+        and the Fold chip."""
         counts: dict[str, int] = {}
-        for package in self.ato_model.ato.packages:
+        packages = list(self.ato_model.ato.packages)
+        for package in packages:
             key = ap.package_group(package).key
             counts[key] = counts.get(key, 0) + 1
-        hidden = self.package_list.proxy.hidden
+        proxy = self.package_list.proxy
+        game = self.ato_model.game_model.game
+        blue = getattr(self.ato_model.game_model, "is_ownfor", True)
+        proxy.refold(game, packages, blue)
+        hidden = proxy.hidden
         for chip in self.chips.values():
             self.chip_grid.removeWidget(chip)
             chip.deleteLater()
         self.chips = {}
         position = 0
+        if proxy.folds:
+            folded = proxy.folding
+            rows = ap.folded_rows(packages, ap.main_push(game, blue) if game else None)
+            chip = QPushButton(f"Fold {rows}/{len(packages)}" if folded else "Fold off")
+            chip.setCheckable(True)
+            chip.setChecked(folded)
+            chip.setToolTip(
+                "Routine lines and the waves outside the main push are one row "
+                "each. Click to show every package."
+            )
+            chip.setStyleSheet(self.chip_style("#4f5f6f"))
+            chip.toggled.connect(self.on_fold_toggled)
+            self.chip_grid.addWidget(chip, 0, 0)
+            self.chips["__fold__"] = chip
+            position = 1
         for group in ap.GROUPS:
             if group.key not in counts and group.key not in hidden:
                 continue
@@ -504,6 +543,10 @@ class QPackagePanel(QGroupBox):
 
     def on_chip_toggled(self, key: str, shown: bool) -> None:
         self.package_list.proxy.set_hidden(key, not shown)
+
+    def on_fold_toggled(self, folded: bool) -> None:
+        self.package_list.proxy.set_folding(folded)
+        self.update_chips()
 
     @property
     def current_changed(self):

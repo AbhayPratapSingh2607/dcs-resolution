@@ -530,6 +530,9 @@ export type Flight = {
   position?: LatLng;
   sidc: string;
   waypoints?: Waypoint[];
+  routine?: boolean;
+  station?: LatLng;
+  label?: string;
 };
 export type FrontLine = {
   id: string;

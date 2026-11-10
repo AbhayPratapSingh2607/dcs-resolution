@@ -6,7 +6,7 @@ import {
 import WaypointMarker from "../waypointmarker";
 import { Polyline as LPolyline } from "leaflet";
 import { ReactElement, useEffect, useRef } from "react";
-import { Polyline } from "react-leaflet";
+import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
 
 const BLUE_PATH = "#0084ff";
 const RED_PATH = "#c85050";
@@ -27,6 +27,47 @@ const pathColor = (props: FlightPlanProps) => {
     return RED_PATH;
   }
 };
+
+// A routine line (CAP station, AWACS or tanker track, ground alert) is a
+// compact station symbol until it is selected: a 6 hour plan has dozens of
+// them, and their full racetracks would cover the map.
+function StationSymbol(props: FlightPlanProps) {
+  const [selectFlight] = useSelectFlightMutation();
+  const station = props.flight.station;
+  if (station == null) {
+    return <></>;
+  }
+  const color = pathColor(props);
+  const interactive = props.flight.blue;
+  return (
+    <CircleMarker
+      center={station}
+      radius={5}
+      pathOptions={{
+        color: color,
+        weight: 2,
+        dashArray: "3 3",
+        fillOpacity: 0.15,
+        interactive: interactive,
+      }}
+      eventHandlers={
+        interactive
+          ? {
+              click: () => {
+                selectFlight({ flightId: props.flight.id });
+              },
+            }
+          : undefined
+      }
+    >
+      {props.flight.label ? (
+        <Tooltip direction="top" offset={[0, -6]}>
+          {props.flight.label}
+        </Tooltip>
+      ) : null}
+    </CircleMarker>
+  );
+}
 
 function FlightPlanPath(props: FlightPlanProps) {
   const color = pathColor(props);
@@ -60,6 +101,9 @@ function FlightPlanPath(props: FlightPlanProps) {
 
   if (waypoints == null) {
     return <></>;
+  }
+  if (props.flight.routine && !props.selected) {
+    return <StationSymbol {...props} />;
   }
   const points = waypoints
     .filter((waypoint) => waypoint.include_in_path)

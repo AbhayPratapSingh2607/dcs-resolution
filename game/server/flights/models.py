@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel
 
+from game.ato.flighttype import FlightType
 from game.ato.flightstate import InFlight
 from game.ato.flightstate.killed import Killed
 from game.server.leaflet import LeafletPoint
@@ -16,12 +17,57 @@ if TYPE_CHECKING:
     from game.ato import Flight
 
 
+#: Tasks flown as routine lines (W4): on the map they are a station symbol,
+#: not a route, unless selected.
+ROUTINE_TASKS = {
+    FlightType.BARCAP,
+    FlightType.AEWC,
+    FlightType.REFUELING,
+    FlightType.RECOVERY,
+}
+
+
+def routine_station(flight: Flight) -> Optional[tuple[str, Any]]:
+    """(label, position) of the station a routine flight holds, or None for
+    a flight that isn't a routine line: a package with players, a strike,
+    or a support flight inside a strike package."""
+    package = flight.package
+    if package is None or package.has_players:
+        return None
+    alert = bool(getattr(flight, "alert", False))
+    if not alert and flight.flight_type not in ROUTINE_TASKS:
+        return None
+    if not alert and any(
+        f.flight_type not in ROUTINE_TASKS and not getattr(f, "alert", False)
+        for f in package.flights
+    ):
+        return None
+    position = None
+    try:
+        position = flight.flight_plan.layout.patrol_start.position
+    except Exception:
+        position = None
+    if position is None:
+        position = package.target.position
+    label = (
+        f"Ground alert {flight.departure.name}"
+        if alert
+        else f"{flight.flight_type.value} {package.target.name}"
+    )
+    return label, position
+
+
 class FlightJs(BaseModel):
     id: UUID
     blue: bool
     position: LeafletPoint | None
     sidc: str
     waypoints: list[FlightWaypointJs] | None
+    #: A routine line (CAP, AWACS, tanker, ground alert): drawn as a station
+    #: symbol instead of a route until selected.
+    routine: bool = False
+    station: LeafletPoint | None = None
+    label: str | None = None
 
     class Config:
         title = "Flight"
@@ -43,8 +89,19 @@ class FlightJs(BaseModel):
             if flight_visible(game, flight):
                 position = flight.position().latlng()
         waypoints = None
+        routine = False
+        station = None
+        label = None
         if with_waypoints and show_flight_routes(game, flight):
             waypoints = waypoints_for_flight(flight)
+            found = routine_station(flight)
+            if found is not None:
+                routine = True
+                label, point = found
+                try:
+                    station = LeafletPoint.from_latlng(point.latlng())
+                except Exception:
+                    station = None
         if flight.blue.is_blue:
             blue = True
         else:
@@ -55,6 +112,9 @@ class FlightJs(BaseModel):
             position=position,
             sidc=str(flight.sidc()),
             waypoints=waypoints,
+            routine=routine,
+            station=station,
+            label=label,
         )
 
     @staticmethod

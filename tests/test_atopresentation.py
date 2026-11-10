@@ -301,6 +301,47 @@ def test_turn_briefing_lists_key_packages_and_routine_lines() -> None:
     assert "CAP Kutaisi 320:" not in text
 
 
+def test_turn_briefing_describes_the_main_push() -> None:
+    from game.commander.jfacc.campaignstate import PhaseChange
+
+    def strike(name: str, tot: int) -> Any:
+        package = _Package(
+            FlightType.STRIKE,
+            name,
+            _flight(FlightType.STRIKE, 2, "F-15E", _Plan(tot - 50, tot - 40, tot, tot + 40)),
+            tot=tot,
+        )
+        package.planning_info = {"reason": f"Hit {name}"}
+        package.has_players = False  # type: ignore[attr-defined]
+        for flight in package.flights:
+            flight.client_count = 0
+        return package
+
+    early = [strike("Early A", 45), strike("Early B", 50)]
+    push = [strike("Push A", 125), strike("Push B", 135)]
+    late = [strike("Late A", 250)]
+    game = _game(*(early + push + late))
+    side = game.air_campaign.side(True)
+    side.history.append(PhaseChange(1, side.phase, "start"))
+    side.push_start = START + timedelta(hours=2)
+    side.push_end = START + timedelta(hours=3)
+    side.moes = {"enemy_fighters": 12.0}
+
+    text = ap.turn_briefing(game)  # type: ignore[arg-type]
+    assert text is not None
+    assert "main push 08:00–09:00" in text or "main push 08:00-09:00" in text
+    assert "<b>Main push</b>" in text
+    assert "Hit Push A" in text and "Hit Push B" in text
+    # The other waves are one line, not key packages.
+    assert "Hit Early A" not in text and "Hit Late A" not in text
+    assert "Before it: 2 Strike from 06:45" in text
+    assert "after it: 1 Strike from 10:10" in text
+    assert "Enemy expected (our intelligence): about 12 enemy fighters" in text
+    # No longer than a mission only briefing: header, intent, heading, 2
+    # packages, the waves line, the enemy line.
+    assert text.count("<br>") <= 7
+
+
 def test_no_briefing_without_the_air_campaign_planner() -> None:
     game = _game()
     assert ap.turn_briefing(game) is None  # type: ignore[arg-type]

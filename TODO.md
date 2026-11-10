@@ -61,14 +61,20 @@ and no player assignment yet: the window picker stays until P4.
   - The DCS window picker opens on blue's main push.
   - Done when: about half of a turn's offensive TOTs fall in the main push (a first
     value), at least one wave comes before it, and a test covers both.
-- [ ] **W3. Red plans the same way** (was F11).
+- [x] **W3. Red plans the same way** (was F11). Done 2026-11-10 with W2: red's routine
+  lines run all period, its raids strike in its push, client and irregular profiles spread
+  their packages (`main_push_share` 0.3 and 0). Checked: Iraq 1991 flies homeland air defense
+  CAPs across the 6 hours; Russia 2010's push sits at +100 min.
   - Routine lines for the whole period: CAPs under GCI, and ground alerts, which are
     already held all period.
   - Raids are red's main push. Their echelons are already minutes apart.
   - Client and irregular air forces keep their small packages, spread over the period.
   - Done when: in each of the four test scenarios red's plan covers the period the way its
     doctrine says, and its raids sit in its main push.
-- [ ] **W4. Fold the plan in the list and on the map** (was F14).
+- [x] **W4. Fold the plan in the list and on the map** (was F14). Done 2026-11-10:
+  `atopresentation.folds`, `AtoGroupProxy` folding with a badge click, the Fold chip, station
+  symbols for routine lines on the map (`FlightJs.routine/station`), the main push shaded in the
+  timeline. The e2e report prints the folded row count.
   - List: each routine line (a CAP station, an AWACS or tanker track, an alert sector) is
     one row with its reliefs inside. The main push is open. Every other wave is one row
     that opens on a click.

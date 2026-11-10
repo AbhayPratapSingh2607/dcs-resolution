@@ -94,6 +94,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[UI]** The ATO list folds a 6 hour plan to one screen: each routine line is one row with
+  its reliefs inside, the main push is open, and the other waves are one row per category. A
+  click on the row's badge opens it; the **Fold** chip shows everything. On the map, routine
+  lines are a station symbol until selected, and the timeline shades the main push.
 * **[Auto Planner]** The focused turn is now the **Mission only** option (same setting, renamed).
   It is kept as it is and gets no new features; the 6 hour turn is where new work goes.
   `campaign_e2e.py` and `campaign_matrix.py` take `--turn-model {full,mission-only}`.

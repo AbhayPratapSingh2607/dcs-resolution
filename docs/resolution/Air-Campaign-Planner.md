@@ -298,6 +298,24 @@ Each package's dialog shows the reason it was planned and its estimated attritio
 
 ## Reading the ATO
 
+A 6 hour plan has dozens of packages, so the list folds it (the **Fold** chip, on by default):
+
+* each routine line (a CAP station, an AWACS or tanker track, a base's ground alert) is one row
+  with its reliefs inside: "BARCAP — CAP 040", with the number of packages, sorties and the span
+  of their times on target;
+* the main push is open: every package in it has its own row;
+* the other waves are one row per category: "Strike before the main push", "SEAD / DEAD after
+  the main push".
+
+Click a folded row's badge (▸ 4) to open it and the ▾ badge on its first row to close it again.
+Hovering a folded row lists what is inside. Selecting a package from the timeline or the map
+opens its fold. The **Fold** chip shows every package.
+
+On the map, routine lines are drawn as a small dashed circle at their station with the line's
+name on hover, instead of their full racetrack. Click one, or select the package in the list, to
+see its route. Packages with players and strike packages keep their routes. The timeline shades
+the main push in amber and the DCS window in blue.
+
 The package list on the left groups packages by mission category, in the order DCA, support,
 OCA, SEAD/DEAD, strike, interdiction, CAS, personnel recovery and lift. Within each category they
 are sorted by TOT. Each category has a coloured header with its package and sortie counts.

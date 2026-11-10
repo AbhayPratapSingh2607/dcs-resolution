@@ -221,6 +221,14 @@ def push_metrics(side: Any, packages: list[Any]) -> dict[str, Any]:
     }
 
 
+def folded_rows(side: Any, packages: list[Any]) -> int:
+    """Rows the ATO list shows with its folds closed (W4), from the Qt-free
+    presentation helpers."""
+    from qt_ui.atopresentation import folded_rows as rows
+
+    return rows(packages, getattr(side, "push", None))
+
+
 def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
     """What the JFACC planner tasked this turn, per side using it."""
     from collections import Counter
@@ -274,6 +282,7 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "iads_moves": list(getattr(side, "iads_moves", [])),
             "qra": list(side.qra),
             "push": push_metrics(side, list(coalition.ato.packages)),
+            "list_rows_folded": folded_rows(side, list(coalition.ato.packages)),
             "iads_orders": dict(
                 __import__("collections").Counter(
                     getattr(side, "iads_orders", {}).values()
@@ -300,6 +309,18 @@ def period_metrics(game: Any) -> dict[str, Any]:
         "window_start": window[0].isoformat() if window else None,
         "window_end": window[1].isoformat() if window else None,
     }
+
+
+def blue_briefing(game: Any) -> str:
+    """Blue's turn briefing as the DCS briefing shows it ("" without the
+    air campaign planner)."""
+    from game.commander.jfacc.briefing import turn_summary
+
+    try:
+        summary = turn_summary(game, blue=True)
+    except Exception as ex:  # noqa: BLE001
+        return f"(briefing failed: {ex})"
+    return summary.as_text() if summary is not None else ""
 
 
 def describe_period(info: dict[str, Any]) -> str:
@@ -404,6 +425,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     jfacc_limits = {name: jfacc_limit(game, name == "blue") for name in jfacc}
     period_info = period_metrics(game)
     period_text = describe_period(period_info)
+    briefing_text = blue_briefing(game)
 
     game.settings.fast_forward_stop_condition = FastForwardStopCondition.END_OF_TURN
     started = time.time()
@@ -496,6 +518,10 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     print(f"\n=== Turn {turn} ({simulated_s:.0f}s to simulate) ===")
     if period_text:
         print(period_text)
+    if briefing_text:
+        print("Briefing:")
+        for line in briefing_text.splitlines():
+            print("  " + line)
     print(f"Aircraft flown: blue {flown[True]}, red {flown[False]}")
     print(report.to_text())
     if captured:
@@ -548,6 +574,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
             print(
                 f"  ground alert: {len(m.get('qra', []))} pairs held, {m.get('scrambles', 0)} scrambled"
             )
+        if m.get("list_rows_folded") is not None:
+            print(f"  ATO list: {m['list_rows_folded']} rows folded, {m['packages']} open")
         push = m.get("push") or {}
         if push.get("start"):
             ps = datetime.fromisoformat(push["start"])
