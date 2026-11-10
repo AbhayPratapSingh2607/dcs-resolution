@@ -984,45 +984,47 @@ class Settings:
         choices={v.value: v for v in PlannerEngine},
     )
     focused_turns: bool = boolean_option(
-        "Focused turns",
+        "Mission only (plan one mission instead of the 6 hour turn)",
         CAMPAIGN_MANAGEMENT_PAGE,
         HQ_AUTOMATION_SECTION,
         default=True,
         detail=(
-            "Doctrine-driven planner only. Each turn plans the air war of one "
-            "mission: the desired mission duration plus a short lead-in, with "
-            "every time on target inside the mission. Flights that took off "
-            "during the lead-in are already in the air when the mission starts. "
-            "Turns still advance 6 hours, so day and night cycle; nothing flies "
-            "between missions. Turn off to plan a whole air tasking order period "
-            "instead."
+            "Doctrine-driven planner only. Off: each turn is a full 6 hour air "
+            "war for both sides. The commander plans routine lines, strike "
+            "waves and a main push; you fly a window of it in DCS and the "
+            "combat model fights the rest. On: the turn plans only one mission "
+            "(the desired mission duration plus a short lead-in), with every "
+            "time on target inside it and nothing flying between missions. "
+            "Turns advance 6 hours either way. The mission only model gets no "
+            "new features."
         ),
     )
     focused_lead_in_min: int = bounded_int_option(
-        "Focused turns: lead-in (minutes)",
+        "Mission only: lead-in (minutes)",
         CAMPAIGN_MANAGEMENT_PAGE,
         HQ_AUTOMATION_SECTION,
         default=30,
         min=0,
         max=90,
         detail=(
-            "How long before the mission starts flights may take off. Their "
-            "flight up to mission start is fought by the combat model, and they "
-            "appear in the mission where they are by then."
+            "Mission only model. How long before the mission starts flights may "
+            "take off. Their flight up to mission start is fought by the combat "
+            "model, and they appear in the mission where they are by then."
         ),
     )
     focused_package_target: int = bounded_int_option(
-        "Focused turns: packages per side (guidance)",
+        "Mission only: packages per side (guidance)",
         CAMPAIGN_MANAGEMENT_PAGE,
         HQ_AUTOMATION_SECTION,
         default=10,
         min=4,
         max=40,
         detail=(
-            "Roughly how many packages each side plans per turn. Once a side "
-            "reaches it, the planner stops adding further strike, interdiction, "
-            "SEAD and CAS packages. Personnel recovery, AEW&C, tankers, CAPs, "
-            "ground alerts and raids can still take a side past it."
+            "Mission only model. Roughly how many packages each side plans per "
+            "turn. Once a side reaches it, the planner stops adding further "
+            "strike, interdiction, SEAD and CAS packages. Personnel recovery, "
+            "AEW&C, tankers, CAPs, ground alerts and raids can still take a side "
+            "past it."
         ),
     )
     ato_period_hours: int = bounded_int_option(
@@ -1033,7 +1035,7 @@ class Settings:
         min=1,
         max=6,
         detail=(
-            "Doctrine-driven planner with focused turns off. Each turn plans this "
+            "Doctrine-driven planner with mission only off. Each turn plans this "
             "many hours of air operations. The DCS mission covers a window of it "
             "(chosen before take off); everything outside that window is resolved "
             "by the combat model."

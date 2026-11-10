@@ -157,7 +157,9 @@ SCENARIOS = {
 }
 
 
-def run_one(scenario: Scenario, seed: int, out: Path) -> RunResult:
+def run_one(
+    scenario: Scenario, seed: int, out: Path, turn_model: Optional[str] = None
+) -> RunResult:
     stem = f"{scenario.name}_{seed}"
     json_path = out / f"{stem}.json"
     log_path = out / f"{stem}.log"
@@ -180,6 +182,8 @@ def run_one(scenario: Scenario, seed: int, out: Path) -> RunResult:
     ]
     if scenario.campaign:
         command += ["--campaign", scenario.campaign]
+    if turn_model:
+        command += ["--turn-model", turn_model]
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
     if not json_path.exists():
@@ -209,6 +213,12 @@ def main() -> int:
     parser.add_argument("--turns", type=int, default=None, help="override every scenario's turns")
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--out", default=str(ROOT / "matrix_out"))
+    parser.add_argument(
+        "--turn-model",
+        choices=["full", "mission-only"],
+        default=None,
+        help="passed to campaign_e2e.py (default: the settings default)",
+    )
     args = parser.parse_args()
 
     out = Path(args.out)
@@ -221,9 +231,14 @@ def main() -> int:
         for seed in range(args.first_seed, args.first_seed + args.seeds):
             jobs.append((scenario, seed))
     started = time.time()
-    print(f"{len(jobs)} runs on {args.workers} workers, output in {out}")
+    print(
+        f"{len(jobs)} runs on {args.workers} workers, output in {out}"
+        + (f", turn model {args.turn_model}" if args.turn_model else "")
+    )
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        results = list(pool.map(lambda job: run_one(job[0], job[1], out), jobs))
+        results = list(
+            pool.map(lambda job: run_one(job[0], job[1], out, args.turn_model), jobs)
+        )
 
     summary: dict[str, Any] = {}
     passed = 0

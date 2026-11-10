@@ -37,8 +37,9 @@ and no player assignment yet: the window picker stays until P4.
   - Check that what was built for focused turns works over 6 hours: fuel for flights
     already in the air (F4), the turn briefing, the debrief, SEAD corridors, pulled-back
     CAP stations and the loss experience. Go through every place that branches on
-    `atoperiod.is_focused` or `planner.focused_lead_in` (`briefing.py`, `threat.py`,
-    `scheduler.py`, `planner.py`, `qt_ui/atopresentation.py`).
+    `atoperiod.is_focused` or `planner.focused_lead_in` (`atoperiod.py`, `briefing.py`,
+    `threat.py`, `campaignstate.py`, `planner.py`, `qt_ui/atopresentation.py`; the
+    scheduler takes its window from the planner and has no check of its own).
   - Done when: the tests pass, and a 3-turn e2e run finishes in each model.
 - [ ] **W2. The main push.** Each commander puts the turn's main effort into one block as
   long as "Desired mission duration", with smaller waves before and after it.

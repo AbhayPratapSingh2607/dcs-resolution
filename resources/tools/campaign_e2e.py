@@ -85,6 +85,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json", default=None, help="write per-turn metrics here")
     parser.add_argument("--no-csar", action="store_true", help="turn CSAR off")
     parser.add_argument(
+        "--turn-model",
+        choices=["full", "mission-only"],
+        default=None,
+        help="'full': every turn is a 6 hour air war (settings: Mission only "
+        "off); 'mission-only': each turn plans one mission plus a lead-in. "
+        "Default: whatever the settings default is",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="also print the full combat log"
     )
     return parser.parse_args()
@@ -250,6 +258,38 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
     return metrics
 
 
+def period_metrics(game: Any) -> dict[str, Any]:
+    """The turn's ATO period and DCS window (game.sim.atoperiod), or {} for
+    a legacy turn."""
+    from game.sim import atoperiod
+
+    bounds = atoperiod.period(game)
+    if bounds is None:
+        return {}
+    window = atoperiod.window(game)
+    return {
+        "model": "mission-only" if atoperiod.is_focused(game) else "full",
+        "start": bounds[0].isoformat(),
+        "end": bounds[1].isoformat(),
+        "hours": round((bounds[1] - bounds[0]).total_seconds() / 3600, 2),
+        "window_start": window[0].isoformat() if window else None,
+        "window_end": window[1].isoformat() if window else None,
+    }
+
+
+def describe_period(info: dict[str, Any]) -> str:
+    if not info:
+        return ""
+    start = datetime.fromisoformat(info["start"])
+    end = datetime.fromisoformat(info["end"])
+    text = f"Period ({info['model']}): {start:%H:%M}-{end:%H:%M} ({info['hours']} h)"
+    if info.get("window_start"):
+        ws = datetime.fromisoformat(info["window_start"])
+        we = datetime.fromisoformat(info["window_end"])
+        text += f"; DCS window {ws:%H:%M}-{we:%H:%M}"
+    return text
+
+
 def _learned_axes(game: Any, player: Any, side: Any) -> list[str]:
     from game.commander.jfacc.observations import ObservationLog
 
@@ -337,6 +377,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     errors_before = len(errors.records)
     jfacc = jfacc_plan_metrics(game)
     jfacc_limits = {name: jfacc_limit(game, name == "blue") for name in jfacc}
+    period_info = period_metrics(game)
+    period_text = describe_period(period_info)
 
     game.settings.fast_forward_stop_condition = FastForwardStopCondition.END_OF_TURN
     started = time.time()
@@ -427,6 +469,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     ]
 
     print(f"\n=== Turn {turn} ({simulated_s:.0f}s to simulate) ===")
+    if period_text:
+        print(period_text)
     print(f"Aircraft flown: blue {flown[True]}, red {flown[False]}")
     print(report.to_text())
     if captured:
@@ -499,6 +543,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     return {
         "turn": turn,
         "simulated_seconds": round(simulated_s, 1),
+        "period": period_info,
         "aircraft_flown": {"blue": flown[True], "red": flown[False]},
         "aircraft_lost": {
             "blue": report.blue.aircraft_lost,
@@ -550,6 +595,12 @@ def main() -> int:
     if args.no_csar:
         game.settings.csar_enabled = False
         game.settings.csar_enabled_red = False
+    if args.turn_model is not None:
+        game.settings.focused_turns = args.turn_model == "mission-only"
+    print(
+        "Turn model:",
+        "mission only" if game.settings.focused_turns else "full 6 hour turn",
+    )
     if game.turn == 0:
         game.pass_turn(no_action=True)
     print(

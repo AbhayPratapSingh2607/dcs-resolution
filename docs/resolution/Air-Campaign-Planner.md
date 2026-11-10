@@ -11,11 +11,13 @@ defense, or an irregular force's handful of aircraft. It works from the top down
 5. build packages sized to the threat,
 6. lay them out on a deconflicted timeline.
 
-By default each turn is a **focused turn**: the planner plans the air war of one mission, the
-desired mission duration plus a short lead-in, with about 10 combat packages per side (see
-[Focused turns](#focused-turns)). Turns still advance 6 hours, so day and night cycle. With
-focused turns off, each turn is one 6 hour air tasking order (ATO) period; you choose which part
-of it to fly in DCS, and the fast-forward combat model fights the rest.
+There are two turn models. With **Mission only** off, each turn is one 6 hour air tasking order
+(ATO) period for both sides: routine lines all period, strike waves, and a main push; you choose
+which part of it to fly in DCS, and the fast-forward combat model fights the rest. With
+**Mission only** on (today's default; see [Mission only](#mission-only)), the planner plans the
+air war of one mission, the desired mission duration plus a short lead-in, with about 10 combat
+packages per side. Turns advance 6 hours either way, so day and night cycle. The mission only
+model is kept as an option and gets no new features.
 
 Every doctrine except WWII uses it by default, each with its own planning profile (see
 [Doctrines](#doctrines)). WWII factions keep the legacy planner. Both can be changed per side.
@@ -31,10 +33,10 @@ Settings > Campaign Management > HQ Automation:
 | Setting | What it does |
 |---|---|
 | Air campaign planner (OWNFOR / OPFOR) | **By faction doctrine** (Western doctrine uses the new planner), **Doctrine-driven air campaign (JFACC)**, or **Legacy priority planner**. |
-| Focused turns | On by default. Each turn plans one mission window plus a lead-in (see [Focused turns](#focused-turns)). |
-| Focused turns: lead-in (minutes) | How long before the mission starts flights may take off, 0–90. The default is 30. |
-| Focused turns: packages per side (guidance) | Roughly how many combat packages each side plans, 4–40. The default is 10. |
-| Air tasking order period (hours) | With focused turns off: how much of the day one turn plans, 1–6 hours. The default is 6. |
+| Mission only | On by default for now. Each turn plans one mission window plus a lead-in (see [Mission only](#mission-only)). Off: the full 6 hour turn. |
+| Mission only: lead-in (minutes) | How long before the mission starts flights may take off, 0–90. The default is 30. |
+| Mission only: packages per side (guidance) | Roughly how many combat packages each side plans, 4–40. The default is 10. |
+| Air tasking order period (hours) | With mission only off: how much of the day one turn plans, 1–6 hours. The default is 6. |
 | Acceptable attrition per sortie override | Replaces the doctrine's loss limits (see [Risk](#risk-and-scrubbing)). 0 keeps the doctrine's limits. |
 
 Which planning profile a doctrine uses is set by `planning_profile:` in
@@ -268,8 +270,8 @@ near there and the site's position may be off. If a station is still over the li
 pulled back along its threat axis (half the distance, then over the defended base) before
 the CAP line is dropped.
 
-**Focused turns and enemy fighters.** The share of enemy fighters able to engage
-(`enemy_fighter_availability`) describes a 6 hour ATO. In a focused turn both air forces fly the
+**Mission only and enemy fighters.** The share of enemy fighters able to engage
+(`enemy_fighter_availability`) describes a 6 hour ATO. In a mission only turn both air forces fly the
 turn's sorties within the mission window, so the share is scaled by 6 hours over the window,
 up to 1.
 
@@ -319,9 +321,10 @@ Gantt chart.
   * Double-click a bar to edit the package.
   * Hold Ctrl and use the mouse wheel to zoom. **Fit** shows the whole period.
 
-## Focused turns
+## Mission only
 
-A focused turn plans only what the mission needs:
+The mission only model (the "focused turn" of the changelog) plans only what the mission needs.
+It is kept as an option and gets no new features:
 
 * **The period is the lead-in plus the mission.** With a 60 minute mission and a 30 minute
   lead-in, the turn plans 90 minutes. The mission starts when the lead-in ends.
@@ -354,7 +357,7 @@ instead of 25, red 15 instead of 29. Against Iraq 1991, blue planned 12 instead 
 
 ## Flying a window of the period
 
-With focused turns off:
+With mission only off:
 
 When the ATO covers more than one mission's worth of time, **Take off** first asks which window
 to fly. The slider moves in 15 minute steps. A compact timeline shows the window against the
