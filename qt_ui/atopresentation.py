@@ -441,3 +441,33 @@ def turn_briefing(game: Game, blue: bool = True) -> Optional[str]:
     if summary.threats:
         lines.append("Threats (our intelligence): " + ", ".join(summary.threats) + ".")
     return "<br>".join(lines)
+
+
+# ------------------------------------------------------------------ debrief (F16)
+
+
+def plan_debrief_html(debriefing: object, blue: bool = True) -> Optional[str]:
+    """How the side's plan went (game.commander.jfacc.briefing.plan_debrief)
+    as HTML for the debriefing window, or None when there's nothing to say."""
+    from html import escape as e
+
+    from game.commander.jfacc.briefing import plan_debrief
+
+    debrief = plan_debrief(debriefing, blue, name_of=title)
+    if debrief.empty:
+        return None
+    lines = []
+    for result in debrief.key:
+        you = " (you)" if result.players else ""
+        colour = "#c0392b" if result.lost else ("#7f8c8d" if not result.flown else "")
+        outcome = e(result.result)
+        if colour:
+            outcome = f'<span style="color:{colour}">{outcome}</span>'
+        lines.append(
+            f"<b>{e(result.name)}</b>{you}<br>"
+            f"&nbsp;&nbsp;Goal: {e(result.goal)}<br>"
+            f"&nbsp;&nbsp;Result: {outcome}"
+        )
+    if debrief.routine:
+        lines.append("Also: " + "; ".join(e(r) for r in debrief.routine) + ".")
+    return "<br>".join(lines)

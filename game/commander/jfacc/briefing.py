@@ -150,3 +150,195 @@ def turn_summary(
             f"{side.enemy_sorties_seen} enemy sorties seen last turn"
         )
     return summary
+
+
+# ====================================================================== debrief
+
+
+@dataclass
+class PackageResult:
+    """How one key package went (F16)."""
+
+    name: str
+    goal: str
+    players: bool
+    flown: bool
+    aircraft: int
+    lost: int
+    #: Enemy units destroyed at the package's target.
+    target_hits: int
+    target_destroyed: bool
+    successes: int
+    air_kills: int
+    aborts: int
+
+    @property
+    def result(self) -> str:
+        if not self.flown:
+            return "not flown"
+        parts = []
+        if self.target_destroyed:
+            parts.append("target destroyed")
+        elif self.target_hits:
+            parts.append(f"{self.target_hits} units hit at the target")
+        elif self.successes:
+            n = self.successes
+            parts.append(f"{n} successful attack{'' if n == 1 else 's'}")
+        if self.air_kills:
+            n = self.air_kills
+            parts.append(f"{n} air kill{'' if n == 1 else 's'}")
+        if self.aborts and not parts:
+            parts.append("aborted")
+        if not parts:
+            parts.append("no effect reported")
+        if self.lost:
+            parts.append(f"{self.lost} of {self.aircraft} aircraft lost")
+        else:
+            parts.append("all aircraft back")
+        return ", ".join(parts)
+
+
+@dataclass
+class PlanDebrief:
+    key: list[PackageResult] = field(default_factory=list)
+    #: Routine lines (CAP stations, support), summed: "4 CAP stations: ...".
+    routine: list[str] = field(default_factory=list)
+
+    @property
+    def empty(self) -> bool:
+        return not self.key and not self.routine
+
+
+def _is_routine(package: Package) -> bool:
+    from .planner import counts_toward_target
+
+    if package.has_players:
+        return False
+    return not counts_toward_target(package) or all(
+        f.flight_type in (FlightType.BARCAP, FlightType.TARCAP) for f in package.flights
+    )
+
+
+def plan_debrief(
+    debriefing: object,
+    blue: bool = True,
+    name_of: Callable[[Package], str] = _default_name,
+) -> PlanDebrief:
+    """The side's packages this turn, key packages first, with what each
+    achieved and lost, from the debriefing."""
+    game = getattr(debriefing, "game")
+    coalition = game.blue if blue else game.red
+
+    # Packages: those still in the ATO plus any flown or lost whose flights
+    # finished and were removed from it.
+    packages: list[Package] = list(coalition.ato.packages)
+    seen = {id(p) for p in packages}
+    flown_flights = list(getattr(debriefing, "flights_flown", None) or [])
+    air_losses = getattr(debriefing, "air_losses")
+    losses = list(air_losses.player if blue else air_losses.enemy)
+    credits = list(getattr(debriefing, "combat_credits", None) or [])
+    for flight in (
+        flown_flights + [l.flight for l in losses] + [c.flight for c in credits]
+    ):
+        package = getattr(flight, "package", None)
+        if package is None or id(package) in seen:
+            continue
+        if flight.squadron.player.is_blue != blue:
+            continue
+        packages.append(package)
+        seen.add(id(package))
+
+    simulated = bool(getattr(debriefing, "simulated", False))
+    flown = {id(getattr(f, "package", None)) for f in flown_flights}
+    lost: dict[int, int] = {}
+    for loss in losses:
+        key = id(loss.flight.package)
+        lost[key] = lost.get(key, 0) + 1
+    credit: dict[tuple[int, str], int] = {}
+    for c in credits:
+        package = getattr(c.flight, "package", None)
+        if package is None:
+            continue
+        k = (id(package), c.kind)
+        credit[k] = credit.get(k, 0) + 1
+    ground = getattr(debriefing, "ground_losses", None)
+    enemy_objects = (
+        (ground.enemy_ground_objects if blue else ground.player_ground_objects)
+        if ground is not None
+        else []
+    )
+    hits: dict[int, int] = {}
+    for mapping in enemy_objects:
+        unit = getattr(mapping, "theater_unit", None)
+        tgo = getattr(unit, "ground_object", None)
+        if tgo is not None:
+            hits[id(tgo)] = hits.get(id(tgo), 0) + 1
+
+    def result_of(package: Package) -> PackageResult:
+        key = id(package)
+        # A DCS mission flies everything; a simulated turn lists what flew.
+        was_flown = (
+            not simulated
+            or key in flown
+            or key in lost
+            or any(k[0] == key for k in credit)
+        )
+        target = package.target
+        aircraft = sum(
+            f.count
+            for f in package.flights
+            if not (
+                getattr(f, "alert", False) and not getattr(f, "alert_released", False)
+            )
+        )
+        info = package.planning_info or {}
+        return PackageResult(
+            name=name_of(package),
+            goal=str(info.get("reason") or name_of(package)),
+            players=bool(package.has_players),
+            flown=was_flown,
+            aircraft=aircraft,
+            lost=lost.get(key, 0),
+            target_hits=hits.get(id(target), 0),
+            target_destroyed=bool(hits.get(id(target)))
+            and bool(getattr(target, "is_dead", False)),
+            successes=credit.get((key, "strike_success"), 0)
+            + credit.get((key, "cas_kill"), 0)
+            + credit.get((key, "arm_attack"), 0),
+            air_kills=credit.get((key, "air_kill"), 0),
+            aborts=credit.get((key, "abort"), 0),
+        )
+
+    debrief = PlanDebrief()
+    key_packages = [p for p in packages if not _is_routine(p)]
+    key_packages.sort(key=lambda p: (not p.has_players, p.time_over_target))
+    debrief.key = [result_of(p) for p in key_packages]
+
+    groups: dict[str, list[PackageResult]] = {}
+    for package in packages:
+        if not _is_routine(package):
+            continue
+        if all(
+            getattr(f, "alert", False) and not getattr(f, "alert_released", False)
+            for f in package.flights
+        ):
+            continue  # Alerts never scrambled didn't fly.
+        task = package.primary_task
+        labels = {
+            FlightType.BARCAP: "CAP station",
+            FlightType.TARCAP: "CAP station",
+            FlightType.AEWC: "AWACS",
+            FlightType.REFUELING: "tanker",
+        }
+        label = "other" if task is None else labels.get(task, task.value)
+        groups.setdefault(label, []).append(result_of(package))
+    for label, results in groups.items():
+        n = len(results)
+        lost_total = sum(r.lost for r in results)
+        kills = sum(r.air_kills for r in results)
+        text = f"{n} {label}{'' if n == 1 else 's'}: "
+        text += f"{lost_total} aircraft lost" if lost_total else "no losses"
+        if kills:
+            text += f", {kills} air kill{'' if kills == 1 else 's'}"
+        debrief.routine.append(text)
+    return debrief

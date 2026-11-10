@@ -96,6 +96,24 @@ class AfterActionReportBox(QGroupBox):
         self.setLayout(layout)
 
 
+class PlanReport(QGroupBox):
+    """Each key package of the turn's plan: its goal, what it achieved and
+    what it lost (F16), before the full loss lists."""
+
+    def __init__(self, html: str) -> None:
+        super().__init__("How the plan went:")
+        label = QLabel(html)
+        label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(label)
+        scroll.setMinimumHeight(180)
+        layout = QVBoxLayout()
+        layout.addWidget(scroll)
+        self.setLayout(layout)
+
+
 class RescueReport(QGroupBox):
     """Lists the downed pilots CSAR recovered this mission, per coalition.
 
@@ -182,6 +200,16 @@ class QDebriefingWindow(QDialog):
         pixmap = QPixmap("./resources/ui/debriefing.png")
         header.setPixmap(pixmap)
         layout.addWidget(header)
+
+        try:
+            from qt_ui.atopresentation import plan_debrief_html
+
+            plan = plan_debrief_html(debriefing, blue=True)
+        except Exception:
+            logging.exception("Could not summarize the plan's results")
+            plan = None
+        if plan:
+            layout.addWidget(PlanReport(plan))
 
         title = QLabel("<b>Casualty report</b>")
         layout.addWidget(title)
