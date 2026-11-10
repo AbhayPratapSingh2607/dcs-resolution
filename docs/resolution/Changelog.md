@@ -94,6 +94,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Auto Planner]** The turn briefing describes the whole period: the main push with its
+  time and key packages, one line for what flies before and after it, the routine lines, and
+  what the enemy is expected to do from your own intelligence.
+* **[Debriefing]** **How the plan went** is split by part of the turn: the mission (DCS),
+  then before and after it (combat model), each with its key packages and routine lines.
 * **[UI]** The ATO list folds a 6 hour plan to one screen: each routine line is one row with
   its reliefs inside, the main push is open, and the other waves are one row per category. A
   click on the row's badge opens it; the **Fold** chip shows everything. On the map, routine

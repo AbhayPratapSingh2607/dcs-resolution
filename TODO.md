@@ -83,7 +83,8 @@ and no player assignment yet: the window picker stays until P4.
   - Timeline window: it already draws a relief chain in one lane. Shade the main push.
   - Done when: the first view of a 6 hour plan fits one screen at the default window size,
     and everything else is one click away.
-- [ ] **W5. Briefing** (was F13). The turn briefing (`briefing.turn_summary`, shown in the
+- [x] **W5. Briefing** (was F13). Done 2026-11-10: `TurnSummary.push/before/after`,
+  "Enemy expected" from the side's own intelligence, the e2e report prints blue's briefing. The turn briefing (`briefing.turn_summary`, shown in the
   ATO panel and in the DCS mission briefing) describes the period:
   - the phase and intent;
   - the main push, with its time and key packages;
@@ -91,7 +92,9 @@ and no player assignment yet: the window picker stays until P4.
   - the routine lines in one line, and the threats;
   - what the enemy is expected to do, from blue's intel only (F13's leftover).
   - Done when: the box for a 6 hour plan is no longer than today's.
-- [ ] **W6. Debrief by part of the turn** (extends F16). "How the plan went" gets three
+- [x] **W6. Debrief by part of the turn** (extends F16). Done 2026-11-10:
+  `PlanDebrief.parts` (before the mission, the mission, after it; one part for a
+  fast-forwarded turn), results merged from `debriefing.remainder`. "How the plan went" gets three
   parts: before the mission, the mission, and after it. Each lists its key packages and
   sums its routine lines. B6 later adds "elsewhere".
   - Done when: a turn flown through a window shows the three parts, with the combat

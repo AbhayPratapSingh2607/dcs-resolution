@@ -563,18 +563,34 @@ def plan_debrief_html(debriefing: object, blue: bool = True) -> Optional[str]:
     debrief = plan_debrief(debriefing, blue, name_of=title)
     if debrief.empty:
         return None
-    lines = []
-    for result in debrief.key:
-        you = " (you)" if result.players else ""
-        colour = "#c0392b" if result.lost else ("#7f8c8d" if not result.flown else "")
-        outcome = e(result.result)
-        if colour:
-            outcome = f'<span style="color:{colour}">{outcome}</span>'
-        lines.append(
-            f"<b>{e(result.name)}</b>{you}<br>"
-            f"&nbsp;&nbsp;Goal: {e(result.goal)}<br>"
-            f"&nbsp;&nbsp;Result: {outcome}"
-        )
-    if debrief.routine:
-        lines.append("Also: " + "; ".join(e(r) for r in debrief.routine) + ".")
+
+    def package_lines(results: list[Any]) -> list[str]:
+        found = []
+        for result in results:
+            you = " (you)" if result.players else ""
+            colour = "#c0392b" if result.lost else ("#7f8c8d" if not result.flown else "")
+            outcome = e(result.result)
+            if colour:
+                outcome = f'<span style="color:{colour}">{outcome}</span>'
+            found.append(
+                f"<b>{e(result.name)}</b>{you}<br>"
+                f"&nbsp;&nbsp;Goal: {e(result.goal)}<br>"
+                f"&nbsp;&nbsp;Result: {outcome}"
+            )
+        return found
+
+    lines: list[str] = []
+    parts = [p for p in debrief.parts if not p.empty]
+    if len(parts) <= 1:
+        lines += package_lines(debrief.key)
+        if debrief.routine:
+            lines.append("Also: " + "; ".join(e(r) for r in debrief.routine) + ".")
+        return "<br>".join(lines)
+    # The turn by part (W6): the mission first, then before and after it.
+    ordered = sorted(parts, key=lambda p: (p.simulated, p.span[0] if p.span else datetime.min))
+    for part in ordered:
+        lines.append(f"<b><u>{e(part.title)}</u></b>")
+        lines += package_lines(part.key)
+        if part.routine:
+            lines.append("Also: " + "; ".join(e(r) for r in part.routine) + ".")
     return "<br>".join(lines)

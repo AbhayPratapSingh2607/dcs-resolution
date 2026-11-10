@@ -275,10 +275,36 @@ class PackageResult:
 
 
 @dataclass
+class DebriefPart:
+    """One part of the turn (W6): before the mission, the mission, after it,
+    or the whole turn when nothing was flown in DCS."""
+
+    name: str
+    span: Optional[tuple[datetime, datetime]]
+    #: Fought by the combat model (True) or flown in DCS (False).
+    simulated: bool
+    key: list[PackageResult] = field(default_factory=list)
+    routine: list[str] = field(default_factory=list)
+
+    @property
+    def empty(self) -> bool:
+        return not self.key and not self.routine
+
+    @property
+    def title(self) -> str:
+        how = "combat model" if self.simulated else "DCS"
+        when = f", {self.span[0]:%H:%M}–{self.span[1]:%H:%M}" if self.span else ""
+        return f"{self.name} ({how}{when})"
+
+
+@dataclass
 class PlanDebrief:
     key: list[PackageResult] = field(default_factory=list)
     #: Routine lines (CAP stations, support), summed: "4 CAP stations: ...".
     routine: list[str] = field(default_factory=list)
+    #: The turn by part (W6), in time order. One part when the turn had no
+    #: DCS window; otherwise before the mission, the mission and after it.
+    parts: list[DebriefPart] = field(default_factory=list)
 
     @property
     def empty(self) -> bool:
@@ -295,20 +321,41 @@ def _is_routine(package: Package) -> bool:
     )
 
 
-def plan_debrief(
-    debriefing: object,
-    blue: bool = True,
-    name_of: Callable[[Package], str] = _default_name,
-) -> PlanDebrief:
-    """The side's packages this turn, key packages first, with what each
-    achieved and lost, from the debriefing."""
+@dataclass
+class _Outcome:
+    """What one debriefing (the DCS mission, or a combat model run) knows
+    about the packages: which flew, what they lost and achieved."""
+
+    packages: list[Package] = field(default_factory=list)
+    flown: set[int] = field(default_factory=set)
+    lost: dict[int, int] = field(default_factory=dict)
+    credit: dict[tuple[int, str], int] = field(default_factory=dict)
+    hits: dict[int, int] = field(default_factory=dict)
+    simulated: bool = False
+
+    def merge(self, other: _Outcome) -> None:
+        seen = {id(p) for p in self.packages}
+        for package in other.packages:
+            if id(package) not in seen:
+                self.packages.append(package)
+                seen.add(id(package))
+        self.flown |= other.flown
+        for key, n in other.lost.items():
+            self.lost[key] = self.lost.get(key, 0) + n
+        for ck, n in other.credit.items():
+            self.credit[ck] = self.credit.get(ck, 0) + n
+        for hk, n in other.hits.items():
+            self.hits[hk] = self.hits.get(hk, 0) + n
+
+
+def _outcome(debriefing: object, blue: bool) -> _Outcome:
     game = getattr(debriefing, "game")
     coalition = game.blue if blue else game.red
-
+    out = _Outcome(simulated=bool(getattr(debriefing, "simulated", False)))
     # Packages: those still in the ATO plus any flown or lost whose flights
     # finished and were removed from it.
-    packages: list[Package] = list(coalition.ato.packages)
-    seen = {id(p) for p in packages}
+    out.packages = list(coalition.ato.packages)
+    seen = {id(p) for p in out.packages}
     flown_flights = list(getattr(debriefing, "flights_flown", None) or [])
     air_losses = getattr(debriefing, "air_losses")
     losses = list(air_losses.player if blue else air_losses.enemy)
@@ -321,43 +368,75 @@ def plan_debrief(
             continue
         if flight.squadron.player.is_blue != blue:
             continue
-        packages.append(package)
+        out.packages.append(package)
         seen.add(id(package))
-
-    simulated = bool(getattr(debriefing, "simulated", False))
-    flown = {id(getattr(f, "package", None)) for f in flown_flights}
-    lost: dict[int, int] = {}
+    out.flown = {id(getattr(f, "package", None)) for f in flown_flights}
     for loss in losses:
         key = id(loss.flight.package)
-        lost[key] = lost.get(key, 0) + 1
-    credit: dict[tuple[int, str], int] = {}
+        out.lost[key] = out.lost.get(key, 0) + 1
     for c in credits:
         package = getattr(c.flight, "package", None)
         if package is None:
             continue
         k = (id(package), c.kind)
-        credit[k] = credit.get(k, 0) + 1
+        out.credit[k] = out.credit.get(k, 0) + 1
     ground = getattr(debriefing, "ground_losses", None)
     enemy_objects = (
         (ground.enemy_ground_objects if blue else ground.player_ground_objects)
         if ground is not None
         else []
     )
-    hits: dict[int, int] = {}
     for mapping in enemy_objects:
         unit = getattr(mapping, "theater_unit", None)
         tgo = getattr(unit, "ground_object", None)
         if tgo is not None:
-            hits[id(tgo)] = hits.get(id(tgo), 0) + 1
+            out.hits[id(tgo)] = out.hits.get(id(tgo), 0) + 1
+    return out
 
-    def result_of(package: Package) -> PackageResult:
+
+def _window_parts(game: object, simulated: bool) -> list[DebriefPart]:
+    """The parts of the turn: three around the DCS window, or one when the
+    whole turn was fought by the combat model (or there is no period)."""
+    from game.sim import atoperiod
+
+    period = atoperiod.period(game)  # type: ignore[arg-type]
+    window = atoperiod.window(game) if period is not None else None  # type: ignore[arg-type]
+    if simulated or window is None or period is None:
+        return [DebriefPart("The turn", period, simulated)]
+    start, end = period
+    w0, w1 = window
+    parts = []
+    if w0 > start:
+        parts.append(DebriefPart("Before the mission", (start, w0), True))
+    parts.append(DebriefPart("The mission", (w0, w1), False))
+    if w1 < end:
+        parts.append(DebriefPart("After the mission", (w1, end), True))
+    return parts
+
+
+def plan_debrief(
+    debriefing: object,
+    blue: bool = True,
+    name_of: Callable[[Package], str] = _default_name,
+) -> PlanDebrief:
+    """The side's packages this turn, key packages first, with what each
+    achieved and lost, from the debriefing; and the same by part of the
+    turn (W6). Packages the combat model fought after the DCS window come
+    from ``debriefing.remainder`` (game.sim.atoperiod.resolve_remainder)."""
+    game = getattr(debriefing, "game")
+    outcome = _outcome(debriefing, blue)
+    remainder = getattr(debriefing, "remainder", None)
+    if remainder is not None:
+        outcome.merge(_outcome(remainder, blue))
+
+    def result_of(package: Package, simulated: bool) -> PackageResult:
         key = id(package)
-        # A DCS mission flies everything; a simulated turn lists what flew.
+        # A DCS mission flies everything; a simulated part lists what flew.
         was_flown = (
             not simulated
-            or key in flown
-            or key in lost
-            or any(k[0] == key for k in credit)
+            or key in outcome.flown
+            or key in outcome.lost
+            or any(k[0] == key for k in outcome.credit)
         )
         target = package.target
         aircraft = sum(
@@ -374,24 +453,58 @@ def plan_debrief(
             players=bool(package.has_players),
             flown=was_flown,
             aircraft=aircraft,
-            lost=lost.get(key, 0),
-            target_hits=hits.get(id(target), 0),
-            target_destroyed=bool(hits.get(id(target)))
+            lost=outcome.lost.get(key, 0),
+            target_hits=outcome.hits.get(id(target), 0),
+            target_destroyed=bool(outcome.hits.get(id(target)))
             and bool(getattr(target, "is_dead", False)),
-            successes=credit.get((key, "strike_success"), 0)
-            + credit.get((key, "cas_kill"), 0)
-            + credit.get((key, "arm_attack"), 0),
-            air_kills=credit.get((key, "air_kill"), 0),
-            aborts=credit.get((key, "abort"), 0),
+            successes=outcome.credit.get((key, "strike_success"), 0)
+            + outcome.credit.get((key, "cas_kill"), 0)
+            + outcome.credit.get((key, "arm_attack"), 0),
+            air_kills=outcome.credit.get((key, "air_kill"), 0),
+            aborts=outcome.credit.get((key, "abort"), 0),
         )
 
-    debrief = PlanDebrief()
-    key_packages = [p for p in packages if not _is_routine(p)]
-    key_packages.sort(key=lambda p: (not p.has_players, p.time_over_target))
-    debrief.key = [result_of(p) for p in key_packages]
+    def routine_lines(results: dict[str, list[PackageResult]]) -> list[str]:
+        lines = []
+        for label, group in results.items():
+            n = len(group)
+            lost_total = sum(r.lost for r in group)
+            kills = sum(r.air_kills for r in group)
+            text = f"{n} {label}{'' if n == 1 else 's'}: "
+            text += f"{lost_total} aircraft lost" if lost_total else "no losses"
+            if kills:
+                text += f", {kills} air kill{'' if kills == 1 else 's'}"
+            lines.append(text)
+        return lines
 
-    groups: dict[str, list[PackageResult]] = {}
-    for package in packages:
+    labels = {
+        FlightType.BARCAP: "CAP station",
+        FlightType.TARCAP: "CAP station",
+        FlightType.AEWC: "AWACS",
+        FlightType.REFUELING: "tanker",
+    }
+    parts = _window_parts(game, outcome.simulated)
+
+    def part_of(package: Package) -> DebriefPart:
+        tot = package.time_over_target
+        for part in parts:
+            if part.span is None:
+                return part
+            if part.span[0] <= tot < part.span[1]:
+                return part
+        return parts[-1] if tot >= (parts[-1].span or (tot, tot))[0] else parts[0]
+
+    debrief = PlanDebrief(parts=parts)
+    key_packages = [p for p in outcome.packages if not _is_routine(p)]
+    key_packages.sort(key=lambda p: (not p.has_players, p.time_over_target))
+    groups_by_part: dict[int, dict[str, list[PackageResult]]] = {}
+    for package in key_packages:
+        part = part_of(package)
+        result = result_of(package, part.simulated)
+        part.key.append(result)
+        debrief.key.append(result)
+    all_groups: dict[str, list[PackageResult]] = {}
+    for package in outcome.packages:
         if not _is_routine(package):
             continue
         if all(
@@ -400,21 +513,12 @@ def plan_debrief(
         ):
             continue  # Alerts never scrambled didn't fly.
         task = package.primary_task
-        labels = {
-            FlightType.BARCAP: "CAP station",
-            FlightType.TARCAP: "CAP station",
-            FlightType.AEWC: "AWACS",
-            FlightType.REFUELING: "tanker",
-        }
         label = "other" if task is None else labels.get(task, task.value)
-        groups.setdefault(label, []).append(result_of(package))
-    for label, results in groups.items():
-        n = len(results)
-        lost_total = sum(r.lost for r in results)
-        kills = sum(r.air_kills for r in results)
-        text = f"{n} {label}{'' if n == 1 else 's'}: "
-        text += f"{lost_total} aircraft lost" if lost_total else "no losses"
-        if kills:
-            text += f", {kills} air kill{'' if kills == 1 else 's'}"
-        debrief.routine.append(text)
+        part = part_of(package)
+        result = result_of(package, part.simulated)
+        groups_by_part.setdefault(id(part), {}).setdefault(label, []).append(result)
+        all_groups.setdefault(label, []).append(result)
+    for part in parts:
+        part.routine = routine_lines(groups_by_part.get(id(part), {}))
+    debrief.routine = routine_lines(all_groups)
     return debrief
