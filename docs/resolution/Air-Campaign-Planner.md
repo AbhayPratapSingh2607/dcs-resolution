@@ -14,7 +14,7 @@ defense, or an irregular force's handful of aircraft. It works from the top down
 There are two turn models. With **Mission only** off, each turn is one 6 hour air tasking order
 (ATO) period for both sides: routine lines all period, strike waves, and a main push; you choose
 which part of it to fly in DCS, and the fast-forward combat model fights the rest. With
-**Mission only** on (today's default; see [Mission only](#mission-only)), the planner plans the
+**Mission only** on (see [Mission only](#mission-only)), the planner plans the
 air war of one mission, the desired mission duration plus a short lead-in, with about 10 combat
 packages per side. Turns advance 6 hours either way, so day and night cycle. The mission only
 model is kept as an option and gets no new features.
@@ -33,7 +33,7 @@ Settings > Campaign Management > HQ Automation:
 | Setting | What it does |
 |---|---|
 | Air campaign planner (OWNFOR / OPFOR) | **By faction doctrine** (Western doctrine uses the new planner), **Doctrine-driven air campaign (JFACC)**, or **Legacy priority planner**. |
-| Mission only | On by default for now. Each turn plans one mission window plus a lead-in (see [Mission only](#mission-only)). Off: the full 6 hour turn. |
+| Mission only | Off by default: the full 6 hour turn. On: each turn plans one mission window plus a lead-in (see [Mission only](#mission-only)). A change applies from the next turn. |
 | Mission only: lead-in (minutes) | How long before the mission starts flights may take off, 0–90. The default is 30. |
 | Mission only: packages per side (guidance) | Roughly how many combat packages each side plans, 4–40. The default is 10. |
 | Air tasking order period (hours) | With mission only off: how much of the day one turn plans, 1–6 hours. The default is 6. |

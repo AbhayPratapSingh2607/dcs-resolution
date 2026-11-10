@@ -103,8 +103,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   its reliefs inside, the main push is open, and the other waves are one row per category. A
   click on the row's badge opens it; the **Fold** chip shows everything. On the map, routine
   lines are a station symbol until selected, and the timeline shades the main push.
-* **[Auto Planner]** The focused turn is now the **Mission only** option (same setting, renamed).
-  It is kept as it is and gets no new features; the 6 hour turn is where new work goes.
+* **[Auto Planner]** The focused turn is now the **Mission only** option (same setting, renamed),
+  off by default: new campaigns plan the full 6 hour turn. A campaign saved in either model loads
+  and keeps its model; changing the setting applies from the next turn. The option gets no new
+  features; the 6 hour turn is where new work goes.
   `campaign_e2e.py` and `campaign_matrix.py` take `--turn-model {full,mission-only}`.
 * **[Auto Planner]** **Focused turns**, on by default. Each turn plans the air war of one mission,
   the desired mission duration plus a 30 minute lead-in, instead of a 6 hour ATO:

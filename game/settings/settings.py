@@ -987,16 +987,16 @@ class Settings:
         "Mission only (plan one mission instead of the 6 hour turn)",
         CAMPAIGN_MANAGEMENT_PAGE,
         HQ_AUTOMATION_SECTION,
-        default=True,
+        default=False,
         detail=(
-            "Doctrine-driven planner only. Off: each turn is a full 6 hour air "
-            "war for both sides. The commander plans routine lines, strike "
-            "waves and a main push; you fly a window of it in DCS and the "
-            "combat model fights the rest. On: the turn plans only one mission "
-            "(the desired mission duration plus a short lead-in), with every "
-            "time on target inside it and nothing flying between missions. "
-            "Turns advance 6 hours either way. The mission only model gets no "
-            "new features."
+            "Doctrine-driven planner only. Off (the default): each turn is a "
+            "full 6 hour air war for both sides. The commander plans routine "
+            "lines, strike waves and a main push; you fly a window of it in DCS "
+            "and the combat model fights the rest. On: the turn plans only one "
+            "mission (the desired mission duration plus a short lead-in), with "
+            "every time on target inside it and nothing flying between "
+            "missions. Turns advance 6 hours either way. A change applies from "
+            "the next turn. The mission only model gets no new features."
         ),
     )
     focused_lead_in_min: int = bounded_int_option(

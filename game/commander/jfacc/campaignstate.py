@@ -181,6 +181,10 @@ class AirCampaignState:
     focused: bool = False
 
     def __setstate__(self, state: dict[str, Any]) -> None:
+        # A save from before the turn model was a choice (and from before
+        # the main push) loads as it was planned: ``focused`` defaults to
+        # False, so a period saved without the field is a full turn, and
+        # the next turn plans under the setting as it stands.
         self.__dict__.update({**AirCampaignState().__dict__, **state})
 
     def period_for(self, turn: int) -> Optional[tuple[datetime, datetime]]:

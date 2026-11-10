@@ -4,7 +4,8 @@ Read `VISION.md` first. It gives the goal, what is out of scope, the decisions a
 of the work. Before starting an item, apply its scope test (section 8). If this file and
 `VISION.md` disagree, `VISION.md` is right.
 
-**Current milestone: M1, the 6 hour war. Next item: W1.**
+**Current milestone: M1, the 6 hour war. W1–W6 and W8 done 2026-11-10; W7 (bands) recorded
+below. Next: M2, P1.**
 
 How this file is laid out:
 
@@ -107,7 +108,10 @@ and no player assignment yet: the window picker stays until P4.
   - The loss rates per sortie measured in focused turns (peer: blue 7–10%, red 18–25%)
     belong to that model. Measure again before judging them.
   - Done when: the results are recorded here.
-- [ ] **W8. Saves, switching and the default** (was F36).
+- [x] **W8. Saves, switching and the default** (was F36). Done 2026-11-10: the turn model
+  is kept per period in `AirCampaignState.focused`, so a save loads in the model it was
+  planned in and a changed setting applies when the next turn is planned; **Mission only** is
+  off by default. Tests in `tests/sim/test_turn_model_switch.py`.
   - Campaigns saved in either model load and keep their model.
   - Switching applies at the next turn boundary. It touches `period_for`, the held-back
     packages, the window offset and the ATO already planned.
@@ -347,8 +351,8 @@ generated mission lands, and tick items once they're flown. Report problems with
 milestone. So every item that changes the mission also gets a test on the generated
 mission.
 
-D7's two returning CAPs and all of D9 describe the focused turn, which is today's default.
-After W8 they are checks of the "Mission only" option, and the 6 hour turn gets its own.
+D7's two returning CAPs and all of D9 describe the **Mission only** option (off by
+default since W8). D11 checks the 6 hour turn.
 
 **Setup:**
 - A campaign with blue against a modern Russian faction. Russia's planner profile uses
@@ -412,8 +416,22 @@ After W8 they are checks of the "Mission only" option, and the 6 hour turn gets 
   - ground starts on free parking;
   - RTB flights land;
   - tankers and AWACS start their orbit task.
-- [ ] **D9. Focused turn (default for new and loaded games).** Generate a turn-1 mission.
-  **Expect:**
+- [ ] **D11. The 6 hour turn (default).** Settings → Campaign management: **Mission only** is
+  off. Pass a turn, then press **Take off**. **Expect:**
+  - the window picker opens with the slider already on blue's main push (the briefing above
+    the package list names the push's time, and the timeline shades it in amber);
+  - the ATO list is folded: CAP, AWACS, tanker and ground alert lines are one row each with a
+    ▸ badge, strike packages before and after the push are one row per category, and the push's
+    packages are open; the Fold chip shows the count;
+  - on the map, CAP stations and tanker and AWACS tracks are small dashed circles; selecting one
+    in the list draws its route;
+  - in DCS, flights that took off before the window are in the air on their routes, later
+    flights are on the ramp at their time, and the mission briefing reads "Turn N: ..., main push
+    HH:MM-HH:MM";
+  - after the mission, the debriefing's **How the plan went** has three parts: the mission,
+    before it and after it.
+- [ ] **D9. Mission only (Settings → Campaign management, off by default).** Turn it on, pass
+  a turn and generate the mission. **Expect:**
   - **Take off** goes straight to the mission, with no window picker;
   - the mission starts 30 minutes after the turn's start time (the lead-in), and the
     combat model fights those 30 minutes first;
@@ -448,9 +466,11 @@ After W8 they are checks of the "Mission only" option, and the 6 hour turn gets 
   debriefing window starts with **How the plan went**. Each key package shows its goal and
   result, with losses in red and unflown packages in grey, then one line for the CAP
   stations and support. Check that a SAM site you destroyed shows "target destroyed".
-- [ ] **A4. Focused turn settings.** Settings → Campaign management shows **Focused turns**,
-  its lead-in and packages-per-side guidance. Turn it off and replan (or start a new turn):
-  the 6 h period and the window picker come back.
+- [ ] **A4. Turn model settings.** Settings → Campaign management shows **Mission only**
+  (off), its lead-in and packages-per-side guidance. Turn it on and pass a turn: the next turn
+  plans 1.5 hours, with no window picker. Turn it off again and pass a turn: the 6 h period,
+  the main push and the window picker come back. A save made in either model loads and shows
+  the model it was planned in until the next turn.
 - [ ] **A2. Pre-war note.** Create a new campaign: above the package list, an amber note
   says the pre-war posture plan is never flown. It disappears after Begin Campaign.
 - [ ] **A3. Fast forward speed.** Fast-forwarding a turn with CAPs near an enemy AWACS
