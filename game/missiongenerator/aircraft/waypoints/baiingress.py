@@ -1,11 +1,15 @@
 import logging
 
 from dcs.point import MovingPoint
-from dcs.task import AttackGroup, OptFormation, WeaponType
+from dcs.task import AttackGroup, Expend, OptFormation, WeaponType
 
+from game.missiongenerator.aircraft.defendedtarget import target_area_defended
 from game.theater import TheaterGroundObject
 from game.transfers import MultiGroupTransport
 from .pydcswaypointbuilder import PydcsWaypointBuilder
+
+# Rockets and bombs: the unguided weapons minus the cannon.
+UNGUIDED_NO_GUN = WeaponType.Unguided.value & ~WeaponType.Cannon.value
 
 
 class BaiIngressBuilder(PydcsWaypointBuilder):
@@ -28,11 +32,37 @@ class BaiIngressBuilder(PydcsWaypointBuilder):
             )
             return
 
+        defended = target_area_defended(self.flight)
         for group_name in group_names:
             miz_group = self.mission.find_group(group_name)
             if miz_group is None:
                 logging.error("Could not find group for BAI mission %s", group_name)
                 continue
 
-            task = AttackGroup(miz_group.id, weapon_type=WeaponType.Auto)
-            waypoint.tasks.append(task)
+            if defended:
+                self.add_defended_target_attack(waypoint, miz_group.id)
+            else:
+                task = AttackGroup(miz_group.id, weapon_type=WeaponType.Auto)
+                waypoint.tasks.append(task)
+
+    def add_defended_target_attack(self, waypoint: MovingPoint, group_id: int) -> None:
+        """Attacks with primary munitions only, then lets the flight egress.
+
+        WeaponType.Auto lets the AI keep re-attacking with whatever is left, which ends
+        in low altitude gun runs through the target's air defenses. Instead, release
+        guided weapons from the ingress altitude, then make a single pass with any
+        rockets and bombs. Neither task permits the cannon, so once they complete the
+        flight moves on to its egress waypoint.
+        """
+        waypoint.tasks.append(
+            AttackGroup(
+                group_id,
+                weapon_type=WeaponType.Guided,
+                expend=Expend.All,
+                altitude=waypoint.alt,
+                group_attack=True,
+            )
+        )
+        unguided = AttackGroup(group_id, attack_limit=1, expend=Expend.All)
+        unguided.params["weaponType"] = UNGUIDED_NO_GUN
+        waypoint.tasks.append(unguided)
