@@ -197,6 +197,30 @@ def _near_misses(scrubbed: list[tuple[str, str]], count: int = 3) -> list[str]:
     return [text for _, text in found[:count]]
 
 
+def push_metrics(side: Any, packages: list[Any]) -> dict[str, Any]:
+    """The side's main push and how much of its offensive effort is in it."""
+    from game.commander.jfacc.planner import is_offensive_package
+
+    push = getattr(side, "push", None)
+    offensive = [p for p in packages if is_offensive_package(p)]
+    in_push = (
+        [p for p in offensive if push[0] <= p.time_over_target < push[1]]
+        if push
+        else []
+    )
+    before = (
+        [p for p in offensive if p.time_over_target < push[0]] if push else []
+    )
+    return {
+        "start": push[0].isoformat() if push else None,
+        "end": push[1].isoformat() if push else None,
+        "offensive_packages": len(offensive),
+        "in_push": len(in_push),
+        "before_push": len(before),
+        "share": round(len(in_push) / len(offensive), 2) if offensive else 0.0,
+    }
+
+
 def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
     """What the JFACC planner tasked this turn, per side using it."""
     from collections import Counter
@@ -249,6 +273,7 @@ def jfacc_plan_metrics(game: Any) -> dict[str, Any]:
             "learned_axes": _learned_axes(game, coalition.player, side),
             "iads_moves": list(getattr(side, "iads_moves", [])),
             "qra": list(side.qra),
+            "push": push_metrics(side, list(coalition.ato.packages)),
             "iads_orders": dict(
                 __import__("collections").Counter(
                     getattr(side, "iads_orders", {}).values()
@@ -523,6 +548,20 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
             print(
                 f"  ground alert: {len(m.get('qra', []))} pairs held, {m.get('scrambles', 0)} scrambled"
             )
+        push = m.get("push") or {}
+        if push.get("start"):
+            ps = datetime.fromisoformat(push["start"])
+            pe = datetime.fromisoformat(push["end"])
+            print(
+                f"  main push {ps:%H:%M}-{pe:%H:%M}: {push['in_push']}/"
+                f"{push['offensive_packages']} offensive packages in it "
+                f"({push['share']:.0%}), {push['before_push']} before it"
+            )
+        elif push:
+            print(
+                f"  no main push: {push['offensive_packages']} offensive packages "
+                "spread over the period"
+            )
         if m["iads_moves"] or m["iads_orders"]:
             orders = ", ".join(f"{n} {o}" for o, n in m["iads_orders"].items()) or "-"
             print(f"  IADS: {orders}; moves: {'; '.join(m['iads_moves']) or '-'}")
@@ -531,6 +570,19 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
                 f"  learned axes (saw {m['enemy_sorties_seen']} enemy aircraft): "
                 + ", ".join(m["learned_axes"][:6])
             )
+    pushes = {
+        name: m.get("push") or {} for name, m in jfacc.items() if m.get("push", {}).get("start")
+    }
+    if len(pushes) == 2:
+        b, r = pushes["blue"], pushes["red"]
+        overlap = min(
+            datetime.fromisoformat(b["end"]), datetime.fromisoformat(r["end"])
+        ) - max(datetime.fromisoformat(b["start"]), datetime.fromisoformat(r["start"]))
+        minutes = int(overlap.total_seconds() // 60)
+        print(
+            "Main pushes overlap by "
+            + (f"{minutes} minutes" if minutes > 0 else "nothing")
+        )
     if verbose:
         print("Combat log:")
         for entry in debriefing.simulation_log:

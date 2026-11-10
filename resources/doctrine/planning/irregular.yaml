@@ -12,6 +12,10 @@
 extends: client
 name: irregular
 
+period:
+  # A handful of aircraft: no main push, packages spread over the period.
+  main_push_share: 0
+
 sorties:
   mission_capable_rate: 0.5
 

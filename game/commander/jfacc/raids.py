@@ -111,9 +111,19 @@ class RaidPlanner:
     def _main_tot(self, nomination: TargetNomination) -> Optional[datetime]:
         p = self.p
         lead = min((e.offset_min for e in self.echelons.values()), default=0.0)
-        tot = p.timeline.strike_tot(
-            nomination.target.position, p._wave_preference(nomination.category)
-        )
+        # Raids are the side's main push: the main group strikes in it when
+        # there is one, and the echelons fall around that.
+        tot = None
+        if p.timeline.push is not None:
+            tot = p.timeline.strike_tot(
+                nomination.target.position,
+                p._wave_preference(nomination.category, push=True),
+                push=True,
+            )
+        if tot is None:
+            tot = p.timeline.strike_tot(
+                nomination.target.position, p._wave_preference(nomination.category)
+            )
         if tot is None:
             return None
         # The first echelon must still be after the earliest TOT.
@@ -245,6 +255,7 @@ class RaidPlanner:
             logging.info(f"JFACC: {raid_name} scrubbed, releasing its echelons")
             self._release(raid)
             return None
+        p._note_push_spend(nomination.category, composed)
         self._tag(raid, composed, "main")
         raid.committed.append((composed, nomination.category, "main"))
         p._mark_planned(nomination)

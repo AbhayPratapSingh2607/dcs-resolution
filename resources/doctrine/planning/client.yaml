@@ -20,6 +20,12 @@
 extends: russian_modern
 name: client
 
+period:
+  # A client air force flies small packages spread over the period; only a
+  # modest share is massed into a push.
+  main_push_start_min: 120
+  main_push_share: 0.3
+
 sorties:
   mission_capable_rate: 0.55
   turnaround_hours:

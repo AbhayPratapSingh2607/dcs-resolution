@@ -216,8 +216,19 @@ Aircraft can only be bought for existing squadrons with room, pilots and parking
 * An airframe can fly a second sortie in the period after its turnaround (2 hours for fighters,
   4 for bombers, 1.5 for helicopters). A second sortie doesn't take more aircraft from the
   squadron.
-* Strike packages are placed in four waves through the period. SEAD and DEAD open each wave.
+* Strike packages are placed in waves through the period. SEAD and DEAD open each wave.
   Packages whose targets are within 15 nm of each other are kept at least 6 minutes apart.
+* **The main push.** In a full turn each commander puts the turn's main effort into one block as
+  long as the desired mission duration. SEAD and DEAD open it at H-hour (5 minutes in), the
+  strikes follow 8 minutes later through the corridors they open, then a follow-up wave. About
+  half of each offensive category's sorties go into the push (`main_push_share`); the rest fly in
+  the smaller waves before and after it, and at least one wave always comes before it. Where the
+  push sits is the commander's choice from its own doctrine (`main_push_start_min`): about
+  2 hours in for a Western air force, 100 minutes for a modern Russian one and 90 for a Soviet
+  one, whose massed raids are its push. A client air force masses only 30% of its packages; an
+  irregular one spreads everything over the period. Each side picks its own time from its own
+  picture, so the two pushes may or may not overlap. The DCS window picker opens on blue's push.
+  Air assaults go in the push, ahead of the main effort.
 
 ## Risk and scrubbing
 

@@ -195,6 +195,24 @@ def counts_toward_target(package: Any) -> bool:
 #: Support lines that don't count toward the package guidance.
 UNCOUNTED_TASKS = {FlightType.AEWC, FlightType.REFUELING, FlightType.RECOVERY}
 
+#: Categories whose packages are offensive strikes: the main push takes its
+#: share of each.
+OFFENSIVE_CATEGORIES = {
+    Category.OCA,
+    Category.SEAD,
+    Category.STRIKE,
+    Category.INTERDICTION,
+}
+
+
+def is_offensive_package(package: Any) -> bool:
+    """Whether a package is an offensive strike (OCA, SEAD, strike or
+    interdiction), as opposed to a line, an alert or support."""
+    task = package.primary_task
+    if task is None or not counts_toward_target(package):
+        return False
+    return category_for_task(task) in OFFENSIVE_CATEGORIES
+
 
 def focused_lead_in(game: Game) -> Optional[timedelta]:
     """The lead-in of a focused turn (settings.focused_turns), or None when
@@ -275,6 +293,15 @@ class JfaccPlanner:
             end,
             window=None if lead_in is None else (now + lead_in, end),
         )
+        self.timeline.push = self._main_push(now, end) if lead_in is None else None
+        self.side.push_start, self.side.push_end = self.timeline.push or (None, None)
+        if blue and self.timeline.push is not None:
+            # The DCS window picker opens on blue's main push.
+            from game.sim import atoperiod
+
+            atoperiod.set_window_offset(
+                game, int((self.timeline.push[0] - now).total_seconds() // 60)
+            )
         self.conditions = weaponeering.conditions_for(game, self.profile)
 
         from game.commander.theaterstate import TheaterState
@@ -325,6 +352,7 @@ class JfaccPlanner:
         total = self._sortie_capacity()
         self.apportionment = Apportionment.for_phase(self.profile, self.spec, total)
         self._apply_category_scaling()
+        self._set_push_quota()
         self.planned_keys: set[str] = set()
         #: SAM site id -> TOT of the DEAD package tasked against it.
         self.suppressed: dict[object, datetime] = {}
@@ -424,6 +452,82 @@ class JfaccPlanner:
             )
             self.apportionment.ceiling[category] = round(
                 self.apportionment.ceiling[category] * scale
+            )
+
+    # ========================================================= main push
+
+    def _main_push(
+        self, now: datetime, end: datetime
+    ) -> Optional[tuple[datetime, datetime]]:
+        """Where this side's main push sits in the period: the commander's
+        choice from its own doctrine (``period.main_push_start_min``), as
+        long as the desired mission duration. None when the profile spreads
+        its packages over the period instead."""
+        period = self.profile.section("period")
+        share = float(period.get("main_push_share", 0.5))
+        if share <= 0:
+            return None
+        length = max(
+            self.game.settings.desired_player_mission_duration, timedelta(minutes=30)
+        )
+        scale = float(self.effect("push_start_scale", 1.0))  # type: ignore[arg-type]
+        start = now + timedelta(
+            minutes=scale * float(period.get("main_push_start_min", 120))
+        )
+        earliest = now + timedelta(minutes=float(period.get("earliest_tot_min", 20)))
+        if start + length > end:
+            start = end - length
+        start = max(start, earliest - self.timeline.h_hour)
+        if start + length > end:
+            return None
+        return start, start + length
+
+    def _set_push_quota(self) -> None:
+        """About ``main_push_share`` of each offensive category's sorties go
+        into the main push, so the push holds the phase's main effort in a
+        representative mix (SEAD and DEAD first, then the strikes)."""
+        self.push_quota: dict[Category, int] = {}
+        self.push_used: dict[Category, int] = {}
+        if self.timeline.push is None:
+            return
+        share = float(self.profile.get("period", "main_push_share", 0.5))
+        for category, quota in self.apportionment.quota.items():
+            if category in OFFENSIVE_CATEGORIES:
+                self.push_quota[category] = int(round(quota * share))
+
+    def _push_first(self, category: Optional[Category]) -> Optional[bool]:
+        """Whether the next package of this category belongs in the main
+        push (True), outside it (False), or anywhere (None: no push)."""
+        if self.timeline.push is None or category is None:
+            return None
+        return self.push_used.get(category, 0) < self.push_quota.get(category, 0)
+
+    def _strike_tot(
+        self, position: Any, category: Optional[Category]
+    ) -> Optional[datetime]:
+        """A TOT in the main push or outside it, by the push quota, with the
+        other as the fallback."""
+        first = self._push_first(category)
+        if first is None:
+            return self.timeline.strike_tot(
+                position, self._wave_preference(category) if category else None
+            )
+        for push in (first, not first):
+            tot = self.timeline.strike_tot(
+                position,
+                self._wave_preference(category, push) if category else None,
+                push=push,
+            )
+            if tot is not None:
+                return tot
+        return None
+
+    def _note_push_spend(self, category: Optional[Category], composed: Any) -> None:
+        if category is None or composed is None:
+            return
+        if self.timeline.in_push(composed.package.time_over_target):
+            self.push_used[category] = (
+                self.push_used.get(category, 0) + composed.sorties
             )
 
     # ============================================================ stances
@@ -1081,10 +1185,12 @@ class JfaccPlanner:
                 f"{box.name} interdiction: {len(box.nominations)} known target(s), "
                 f"lead {lead.name}"
             )
-            tot = self.timeline.strike_tot(lead.target.position)
+            tot = self._strike_tot(lead.target.position, Category.INTERDICTION)
             if tot is None:
                 continue
-            if self._commit(request, tot, Category.INTERDICTION) is not None:
+            composed = self._commit(request, tot, Category.INTERDICTION)
+            if composed is not None:
+                self._note_push_spend(Category.INTERDICTION, composed)
                 for nomination in box.nominations:
                     self._mark_planned(nomination)
 
@@ -1227,7 +1333,10 @@ class JfaccPlanner:
                     (cp.name, f"air assault: landing zone threat {threat.level}")
                 )
                 continue
-            tot = self.timeline.strike_tot(cp.position, preferred_wave=1)
+            # Ahead of the main effort: in the main push when there is one.
+            tot = self.timeline.strike_tot(cp.position, preferred_wave=1, push=True)
+            if tot is None:
+                tot = self.timeline.strike_tot(cp.position, preferred_wave=1)
             if tot is None:
                 continue
             request = PackageRequest(
@@ -1271,7 +1380,21 @@ class JfaccPlanner:
         Category.INTERDICTION: 2,
     }
 
-    def _wave_preference(self, category: Category) -> Optional[int]:
+    #: Preferred wave inside the main push: suppression at H-hour, the
+    #: strikes minutes later through the corridors it opens, then the
+    #: follow-up.
+    PUSH_WAVE_PREFERENCE = {
+        Category.SEAD: 0,
+        Category.OCA: 1,
+        Category.STRIKE: 1,
+        Category.INTERDICTION: 2,
+    }
+
+    def _wave_preference(
+        self, category: Category, push: Optional[bool] = None
+    ) -> Optional[int]:
+        if push:
+            return self.PUSH_WAVE_PREFERENCE.get(category)
         table = self.spec.flag("wave_preference")
         if isinstance(table, dict):
             value = table.get(category.value)
@@ -1337,9 +1460,7 @@ class JfaccPlanner:
                 continue
             if not self.coalition.air_wing.can_auto_plan(nomination.mission):
                 continue
-            tot = self.timeline.strike_tot(
-                nomination.target.position, self._wave_preference(category)
-            )
+            tot = self._strike_tot(nomination.target.position, category)
             if tot is None:
                 continue
             request = self._offensive_request(nomination, tot=tot)
@@ -1348,6 +1469,7 @@ class JfaccPlanner:
                 continue
             composed = self._commit(request, tot, category)
             if composed is not None:
+                self._note_push_spend(category, composed)
                 self._mark_planned(nomination)
                 if isinstance(nomination.target, SamGroundObject):
                     self.suppressed[nomination.target.id] = (

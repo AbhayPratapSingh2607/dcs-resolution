@@ -25,6 +25,22 @@ period:
   corridor_radius_nm: 15
   # Earliest TOT after the period starts, minutes (aircraft need to launch).
   earliest_tot_min: 20
+  # The main push: the turn's main effort in one block as long as the desired
+  # mission duration. SEAD and DEAD open it at H-hour, the strikes follow
+  # minutes later through the corridors they open, then the follow-up. The
+  # waves of wave_fractions that fall inside it are dropped; the others are
+  # the smaller waves before and after it.
+  # Where the push opens, minutes after the period starts. The commander's
+  # choice: about 2 hours in, so there is a war before it.
+  main_push_start_min: 120
+  # Share of each offensive category's sorties aimed into the push. 0 plans
+  # no push and spreads the packages over the period.
+  main_push_share: 0.5
+  # Minutes from H-hour (h_hour_min after the push opens) to the strike wave,
+  # and again to the follow-up wave.
+  push_strike_delay_min: 8
+  # First TOT after the push (or a mission only window) opens, minutes.
+  h_hour_min: 5
 
 # ------------------------------------------------------------ sortie generation
 sorties:

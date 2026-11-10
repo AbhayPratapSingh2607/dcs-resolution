@@ -28,7 +28,9 @@ Every turn plans and fights 6 hours for both sides, with the main effort in a ma
 long as the mission. The app stays as easy to read as a focused turn is today. No culling
 and no player assignment yet: the window picker stays until P4.
 
-- [ ] **W1. One turn model.** All new work targets the 6 hour turn. Today's focused turn
+- [x] **W1. One turn model.** Done 2026-11-10: the setting reads "Mission only",
+  `campaign_e2e.py` and `campaign_matrix.py` take `--turn-model`, 3-turn runs pass in each
+  model. All new work targets the 6 hour turn. Today's focused turn
   stays as an option named "Mission only" and gets no new features.
   - Rename the setting in the UI (`focused_turns` in `game/settings/settings.py`). The
     default changes in W8, once the 6 hour plan is readable.
@@ -41,7 +43,10 @@ and no player assignment yet: the window picker stays until P4.
     `threat.py`, `campaignstate.py`, `planner.py`, `qt_ui/atopresentation.py`; the
     scheduler takes its window from the planner and has no check of its own).
   - Done when: the tests pass, and a 3-turn e2e run finishes in each model.
-- [ ] **W2. The main push.** Each commander puts the turn's main effort into one block as
+- [x] **W2. The main push.** Done 2026-11-10: `Timeline.push`, `period.main_push_*` in the
+  profiles, push quota per offensive category, the e2e report prints each side's push and
+  their overlap. Peer, turn 1: blue 12:00–13:00 with 3 of 5 offensive packages, red 11:40–12:40
+  with 2 of 3. Each commander puts the turn's main effort into one block as
   long as "Desired mission duration", with smaller waves before and after it.
   - Today `scheduler.Timeline.wave_times` spreads equal waves over the period
     (`period.wave_fractions`, four for the Western profile). New: one of them is the main

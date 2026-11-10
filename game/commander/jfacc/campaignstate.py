@@ -118,6 +118,16 @@ class SideCampaign:
     #: the plan about to fly.
     experience: dict[str, tuple[float, float]] = field(default_factory=dict)
     expected_losses: dict[str, float] = field(default_factory=dict)
+    #: The main push planned this period (full turns): the turn's main
+    #: effort in one block as long as the mission. None without one.
+    push_start: Optional[datetime] = None
+    push_end: Optional[datetime] = None
+
+    @property
+    def push(self) -> Optional[tuple[datetime, datetime]]:
+        if self.push_start is None or self.push_end is None:
+            return None
+        return self.push_start, self.push_end
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update({**SideCampaign().__dict__, **state})

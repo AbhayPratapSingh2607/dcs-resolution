@@ -22,6 +22,12 @@
 extends: western
 name: russian_modern
 
+period:
+  # The air operation's massed raids open earlier in the period than a
+  # Western push: the raids are the main push.
+  main_push_start_min: 100
+  main_push_share: 0.5
+
 sorties:
   # VKS serviceability is lower than USAF; surge pushes towards 75%.
   mission_capable_rate: 0.72

@@ -88,6 +88,15 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   chart, with relief chains in one lane and the DCS window shaded. The DCS window picker shows the
   same timeline. [Guide](Air-Campaign-Planner.md#reading-the-ato)
 
+* **[Auto Planner]** **The main push.** With **Mission only** off, each commander puts the
+  turn's main effort into one block as long as the desired mission duration: SEAD and DEAD at
+  H-hour, strikes minutes later through their corridors, then a follow-up. About half of the
+  offensive sorties go into it; the other waves are smaller and come before and after it. Where
+  it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
+  blue's push. Red's massed raids are its push.
+* **[Auto Planner]** The focused turn is now the **Mission only** option (same setting, renamed).
+  It is kept as it is and gets no new features; the 6 hour turn is where new work goes.
+  `campaign_e2e.py` and `campaign_matrix.py` take `--turn-model {full,mission-only}`.
 * **[Auto Planner]** **Focused turns**, on by default. Each turn plans the air war of one mission,
   the desired mission duration plus a 30 minute lead-in, instead of a 6 hour ATO:
   * flights that took off during the lead-in are already in the air when the mission starts;

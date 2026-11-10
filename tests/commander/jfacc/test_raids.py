@@ -93,8 +93,13 @@ class FakePlanner:
     def raid_style(self) -> str:
         return str(self.spec.flag("raid_style", "none"))
 
-    def _wave_preference(self, category: Category) -> Optional[int]:
+    def _wave_preference(
+        self, category: Category, push: Optional[bool] = None
+    ) -> Optional[int]:
         return 0
+
+    def _note_push_spend(self, category: Any, composed: Any) -> None:
+        pass
 
     def _offensive_request(self, nomination: Any, tot: Any = None) -> PackageRequest:
         return PackageRequest(

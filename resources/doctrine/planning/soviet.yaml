@@ -19,6 +19,11 @@
 extends: russian_modern
 name: soviet
 
+period:
+  # The initial air operation goes in early and massed.
+  main_push_start_min: 90
+  main_push_share: 0.6
+
 sorties:
   mission_capable_rate: 0.65
   turnaround_hours:
