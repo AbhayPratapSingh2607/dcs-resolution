@@ -362,11 +362,12 @@ class Settings:
         section=GENERAL_SECTION,
         default=True,
         detail=(
-            "When the target of an AI strike or BAI flight is covered by enemy SAMs "
-            "or AAA, the AI will only use its primary munitions (guided weapons, "
-            "bombs and rockets) in a single attack and then egress, instead of "
-            "pressing home low altitude gun runs. Flights with players keep their "
-            "guns."
+            "When the target of an AI strike, BAI, CAS, armed recon or OCA/Aircraft "
+            "flight is covered by enemy SAMs or AAA, the AI has its bullets removed "
+            "and heads home once its air-to-ground ordnance (missiles, bombs and "
+            "rockets) is spent, instead of pressing home low altitude gun runs. BAI "
+            "flights make a single attack and egress. Helicopters and flights with "
+            "players keep their guns."
         ),
     )
     ai_vertical_takoff_landing: bool = boolean_option(

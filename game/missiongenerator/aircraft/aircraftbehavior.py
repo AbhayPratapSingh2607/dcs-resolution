@@ -48,6 +48,24 @@ from game.missiongenerator.aircraft.defendedtarget import target_area_defended
 from game.missiongenerator.missiondata import MissionData
 from game.utils import nautical_miles, knots, feet
 
+# Missions whose AI will make gun runs on the target if allowed to.
+GUN_RUN_MISSIONS = (
+    FlightType.CAS,
+    FlightType.BAI,
+    FlightType.STRIKE,
+    FlightType.ARMED_RECON,
+    FlightType.OCA_AIRCRAFT,
+)
+
+# Every air-to-ground weapon except the cannon: missiles (ASM covers ATGMs, ARMs and
+# anti-ship), guided bombs, rockets and bombs.
+GROUND_ATTACK_ORDNANCE = (
+    OptRTBOnOutOfAmmo.Values.ASM
+    | OptRTBOnOutOfAmmo.Values.GuidedBombs
+    | OptRTBOnOutOfAmmo.Values.Rockets
+    | OptRTBOnOutOfAmmo.Values.Bombs
+)
+
 
 class AircraftBehavior:
     def __init__(self, task: FlightType, mission_data: MissionData) -> None:
@@ -113,7 +131,7 @@ class AircraftBehavior:
         group: FlyingGroup[Any],
         react_on_threat: OptReactOnThreat.Values = OptReactOnThreat.Values.EvadeFire,
         roe: Optional[int] = None,
-        rtb_winchester: Optional[OptRTBOnOutOfAmmo.Values] = None,
+        rtb_winchester: Optional[int] = None,
         restrict_jettison: Optional[bool] = None,
         mission_uses_gun: bool = True,
         rtb_on_bingo: bool = True,
@@ -158,7 +176,11 @@ class AircraftBehavior:
         if restrict_jettison is not None:
             group.points[0].tasks.append(OptRestrictJettison(restrict_jettison))
         if rtb_winchester is not None:
-            group.points[0].tasks.append(OptRTBOnOutOfAmmo(rtb_winchester))
+            # pydcs only accepts its predefined values, but DCS takes any combination
+            # of weapon flags.
+            rtb_option = OptRTBOnOutOfAmmo()
+            rtb_option.params["action"]["params"]["value"] = int(rtb_winchester)
+            group.points[0].tasks.append(rtb_option)
 
         if ai_vertical_takoff_landing and flight.is_helo:
             group.points[0].tasks.append(OptVerticalTakeoffLanding(True))
@@ -222,43 +244,48 @@ class AircraftBehavior:
 
     def configure_cas(self, group: FlyingGroup[Any], flight: Flight) -> None:
         self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
+        self.configure_ground_attack_behavior(
+            flight, group, rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided
+        )
+
+    def configure_bai(self, group: FlyingGroup[Any], flight: Flight) -> None:
+        self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
+        self.configure_ground_attack_behavior(
+            flight, group, rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided
+        )
+
+    def configure_ground_attack_behavior(
+        self,
+        flight: Flight,
+        group: FlyingGroup[Any],
+        rtb_winchester: Optional[int],
+    ) -> None:
+        """Behavior for CAS, BAI, armed recon and OCA aircraft.
+
+        These missions normally keep the gun and stay until it is empty. Against a
+        defended target the bullets are taken away and the flight heads home once
+        its air-to-ground ordnance is gone. The winchester mask leaves out the cannon
+        and air-to-air missiles, either of which would keep the flight loitering in
+        the threat area.
+        """
+        if self.must_avoid_gun_runs(flight):
+            rtb_winchester = GROUND_ATTACK_ORDNANCE
+            mission_uses_gun = False
+        else:
+            mission_uses_gun = True
         self.configure_behavior(
             flight,
             group,
             react_on_threat=OptReactOnThreat.Values.EvadeFire,
             roe=OptROE.Values.OpenFire,
-            rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided,
+            rtb_winchester=rtb_winchester,
             restrict_jettison=True,
+            mission_uses_gun=mission_uses_gun,
         )
 
-    def configure_bai(self, group: FlyingGroup[Any], flight: Flight) -> None:
-        self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
-        if self.must_avoid_gun_runs(flight):
-            # The ingress waypoint limits the attack to primary munitions and a single
-            # unguided pass, after which the flight continues to egress. No winchester
-            # RTB here: "Unguided" includes the cannon, and with the bullets taken away
-            # a flight carrying only guided weapons could RTB before attacking.
-            self.configure_behavior(
-                flight,
-                group,
-                react_on_threat=OptReactOnThreat.Values.EvadeFire,
-                roe=OptROE.Values.OpenFire,
-                restrict_jettison=True,
-                mission_uses_gun=False,
-            )
-        else:
-            self.configure_behavior(
-                flight,
-                group,
-                react_on_threat=OptReactOnThreat.Values.EvadeFire,
-                roe=OptROE.Values.OpenFire,
-                rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided,
-                restrict_jettison=True,
-            )
-
     def must_avoid_gun_runs(self, flight: Flight) -> bool:
-        """True for AI-only strike/BAI flights attacking a defended target."""
-        if self.task not in (FlightType.BAI, FlightType.STRIKE):
+        """True for AI-only ground attack flights attacking a defended target."""
+        if self.task not in GUN_RUN_MISSIONS:
             return False
         if flight.client_count > 0:
             return False
@@ -266,13 +293,8 @@ class AircraftBehavior:
 
     def configure_armed_recon(self, group: FlyingGroup[Any], flight: Flight) -> None:
         self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
-        self.configure_behavior(
-            flight,
-            group,
-            react_on_threat=OptReactOnThreat.Values.EvadeFire,
-            roe=OptROE.Values.OpenFire,
-            rtb_winchester=OptRTBOnOutOfAmmo.Values.All,
-            restrict_jettison=True,
+        self.configure_ground_attack_behavior(
+            flight, group, rtb_winchester=OptRTBOnOutOfAmmo.Values.All
         )
 
     def configure_dead(self, group: FlyingGroup[Any], flight: Flight) -> None:
@@ -347,13 +369,7 @@ class AircraftBehavior:
 
     def configure_oca_strike(self, group: FlyingGroup[Any], flight: Flight) -> None:
         self.configure_task(flight, group, CAS, [AFAC, SEAD, AntishipStrike])
-        self.configure_behavior(
-            flight,
-            group,
-            react_on_threat=OptReactOnThreat.Values.EvadeFire,
-            roe=OptROE.Values.OpenFire,
-            restrict_jettison=True,
-        )
+        self.configure_ground_attack_behavior(flight, group, rtb_winchester=None)
 
     def configure_awacs(self, group: FlyingGroup[Any], flight: Flight) -> None:
         self.configure_task(flight, group, AWACS)
