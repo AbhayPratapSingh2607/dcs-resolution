@@ -302,6 +302,10 @@ packages:
   air_threat_thresholds: {medium: 2, high: 6, extreme: 14}
   # Share of the enemy's fighters airborne or on alert at any one time.
   enemy_fighter_availability: 0.25
+  # ...over a period this long. In a focused turn both air forces fly the
+  # turn's sorties within the mission window, so availability is scaled by
+  # this over the window (lead-in included), up to 1.
+  availability_period_hours: 6
   # Packages route around SAM coverage to the IP; exposure is counted on the
   # final ingress leg of this length plus the target area.
   ingress_exposure_nm: 40

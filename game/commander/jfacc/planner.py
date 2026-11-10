@@ -304,6 +304,8 @@ class JfaccPlanner:
         self.package_target: Optional[int] = None
         #: Set while planning packages that may exceed the guidance (raids).
         self.budget_exempt = False
+        #: Why the last _commit failed ("" when it didn't).
+        self.last_scrub_reason = ""
         self.budget_reached = False
         self.dca_stations: list[Any] = []
         if self.timeline.window is not None:
@@ -627,6 +629,7 @@ class JfaccPlanner:
                 )
             return None
         composed, why = self.composer.compose(request, tot, self.now)
+        self.last_scrub_reason = why if composed is None else ""
         if composed is None:
             if not quiet:
                 self.side.scrubbed.append((request.target.name, why))
@@ -900,20 +903,22 @@ class JfaccPlanner:
                 self.profile.get("adaptation", "learned_axis_weight", 0.0)
             ),
         )
-        stations = [
-            station_for(
+
+        def place(axis: Any, scale: float = 1.0) -> Any:
+            return station_for(
                 self.game,
                 self.player,
                 axis,
-                (float(forward[0]), float(forward[1])),
+                (float(forward[0]) * scale, float(forward[1]) * scale),
                 under_own_sams=under_own_sams,
             )
-            for axis in axes
-        ]
+
+        stations = [place(axis) for axis in axes]
+        axis_of = {id(station): axis for station, axis in zip(stations, axes)}
         if dca.get("point_defense", True):
             for cp in threatened_bases(self.game, self.player, reach):
                 if cp.is_fleet:
-                    stations.append(cp)  # type: ignore[arg-type]
+                    stations.append(cp)
         # Two axes can end up at the same station (a learned axis next to a
         # geometric one): one CAP covers both.
         merge_m = float(dca.get("station_merge_nm", 10)) * 1852
@@ -937,6 +942,11 @@ class JfaccPlanner:
         }
         open_lines = set(range(len(stations)))
         station_threats: dict[int, RouteThreat] = {}
+        # A station whose estimate is over the limit (the enemy moved SAMs up
+        # the axis) is pulled back along it before the line is given up:
+        # half the forward distance, then over the defended asset.
+        pullbacks = [float(s) for s in dca.get("pullback_scales", [0.5, 0.0])]
+        pulled: dict[int, int] = {}
         while open_lines:
             index = min(open_lines, key=lambda i: next_tot[i])
             tot = next_tot[index]
@@ -965,6 +975,18 @@ class JfaccPlanner:
                 request, max(tot, self.now), Category.DCA, quiet=True
             )
             if composed is None:
+                axis = axis_of.get(id(station))
+                level = pulled.get(index, 0)
+                if (
+                    axis is not None
+                    and level < len(pullbacks)
+                    and "attrition" in self.last_scrub_reason
+                ):
+                    stations[index] = place(axis, pullbacks[level])
+                    axis_of[id(stations[index])] = axis
+                    pulled[index] = level + 1
+                    station_threats.pop(index, None)
+                    continue
                 next_tot[index] = tot + timedelta(minutes=30)
                 continue
             end = patrol_end(composed.package) or tot + timedelta(hours=1)

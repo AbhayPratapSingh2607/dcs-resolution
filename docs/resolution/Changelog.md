@@ -126,6 +126,18 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   the phase and intent, the key packages and what each is for, the routine lines in one line, and
   the threats as the side's own intelligence sees them.
 
+* **[Auto Planner]** Risk estimates in focused turns:
+  * enemy fighter availability is scaled to the mission window, since both air forces fly the
+    turn's sorties in it;
+  * a CAP station's SAM exposure grows linearly with the SAM weight on its route;
+  * a CAP station over the risk limit is pulled back along its axis instead of dropped.
+
+  Before, against Iran's IADS blue could end up flying no CAP at all once red's SAMs moved up.
+
+* **[Debriefing]** The debriefing opens with **How the plan went**. Each key package shows its
+  goal, what it achieved (target destroyed, hits, air kills, aborted, not flown) and what it
+  lost. CAP stations and support get one summed line each. The full loss lists follow.
+
 ## Fixes
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs

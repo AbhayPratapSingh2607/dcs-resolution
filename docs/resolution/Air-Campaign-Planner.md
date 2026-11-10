@@ -261,9 +261,17 @@ estimate. SEAD and DEAD are planned first, in the first wave, so the strikes of 
 use their corridors.
 
 CAPs are estimated too, with the defense limit. A CAP orbits near the edge of SAM coverage and
-turns away rather than pressing through it to a target, so its SAM exposure is a fraction (4%)
-of a strike package's on the same route. SAM sites within 15 nm of its station count at reduced
-weight, since the CAP turns and chases near there and the site's position may be off.
+turns away rather than pressing through it to a target. Overlapping sites don't compound against
+it, so its SAM exposure grows linearly with the route's SAM weight rather than with its square.
+SAM sites within 15 nm of its station count at reduced weight, since the CAP turns and chases
+near there and the site's position may be off. If a station is still over the limit, it's
+pulled back along its threat axis (half the distance, then over the defended base) before
+the CAP line is dropped.
+
+**Focused turns and enemy fighters.** The share of enemy fighters able to engage
+(`enemy_fighter_availability`) describes a 6 hour ATO. In a focused turn both air forces fly the
+turn's sorties within the mission window, so the share is scaled by 6 hours over the window,
+up to 1.
 
 The **Air campaign** page of the Intelligence window shows:
 
@@ -373,7 +381,15 @@ planner, it prints per turn:
 * estimated against actual loss rate.
 
 It also prints active modifiers, raids, ground alerts held and scrambled, IADS orders and
-moves, and the learned threat axes.
+moves, and the learned threat axes. It then lists:
+
+* losses by task, with the estimate for each;
+* why packages were scrubbed;
+* the scrubbed packages that came closest to their risk limit.
+
+The tool runs under a fixed `PYTHONHASHSEED` (`--hash-seed`, default 0). Python randomizes string
+hashing per process, which changes set order and with it the plan, so without this two runs with
+the same `--seed` can differ (for example, Iran turn 1 in "strategic" or in "defense").
 
 `resources/tools/jfacc_report.py` prints one turn's plan, the JIPTL and the reasons packages were
 scrubbed.

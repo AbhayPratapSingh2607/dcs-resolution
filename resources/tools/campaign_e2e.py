@@ -75,6 +75,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--load", default=None, help="save game to start from")
     parser.add_argument("--turns", type=int, default=3)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--hash-seed",
+        default="0",
+        help="PYTHONHASHSEED to run under, so set iteration order (and the plan) "
+        "repeats between runs; 'random' leaves it to Python",
+    )
     parser.add_argument("--save", default=None, help="write the final game here")
     parser.add_argument("--json", default=None, help="write per-turn metrics here")
     parser.add_argument("--no-csar", action="store_true", help="turn CSAR off")
@@ -526,6 +532,13 @@ def main() -> int:
         except (AttributeError, ValueError):
             pass
     args = parse_args()
+    if args.hash_seed != "random" and os.environ.get("PYTHONHASHSEED") != args.hash_seed:
+        # String hashing is randomized per process, which changes set order
+        # and with it the plan. Re-run with a fixed seed so runs repeat.
+        import subprocess
+
+        env = dict(os.environ, PYTHONHASHSEED=args.hash_seed)
+        return subprocess.call([sys.executable, *sys.argv], env=env)
     if args.seed is not None:
         random.seed(args.seed)
     setup()

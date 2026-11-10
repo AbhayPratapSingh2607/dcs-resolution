@@ -8,7 +8,7 @@ can reach the route.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from shapely.geometry import LineString, Point as ShapelyPoint
 
@@ -232,6 +232,25 @@ def analyse_path(
     return threat
 
 
+def fighter_concentration(game: Any, packages_cfg: Any) -> float:
+    """How much denser the enemy's air activity is than over the period
+    ``enemy_fighter_availability`` describes (``availability_period_hours``,
+    a 6 h ATO). A focused turn packs both air forces' sorties for the turn
+    into the mission window, so more of the enemy's fighters are up at once."""
+    try:
+        from .planner import focused_lead_in
+
+        lead_in = focused_lead_in(game)
+        if lead_in is None:
+            return 1.0
+        span = lead_in + game.settings.desired_player_mission_duration
+        hours = span.total_seconds() / 3600
+    except Exception:
+        return 1.0
+    reference = float(packages_cfg.get("availability_period_hours", 6))
+    return max(1.0, reference / max(hours, 0.5))
+
+
 def analyse_route(
     game: Game,
     player: Player,
@@ -289,6 +308,7 @@ def analyse_route(
     from .intelview import enemy_squadrons
 
     availability = float(packages_cfg.get("enemy_fighter_availability", 0.25))  # type: ignore[arg-type]
+    availability = min(1.0, availability * fighter_concentration(game, packages_cfg))
     for squadron, estimated in enemy_squadrons(game, player):
         base = squadron.location
         radius_m = fuel_profile(squadron.aircraft).radius_km * 1000

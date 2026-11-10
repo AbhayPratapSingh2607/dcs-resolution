@@ -47,13 +47,15 @@ LOW_RADAR_FACTOR = 0.35
 #: Low-level ingress: exposure per short-range air defense site (guns,
 #: MANPADS, IR and radar SHORAD) near the track or the target.
 SHORAD_EXPOSURE = 0.012
-#: CAP stations: share of the SAM exposure of a strike package with the same
-#: route weight. A CAP orbits at altitude near the edge of coverage and turns
-#: away; it doesn't press through the engagement zone to a target. Fitted to
-#: the combat model (USA 2005 vs Iran 2015, Caucasus): blue CAPs whose routes
-#: crossed SAM weight ~14 (no SEAD) lost 2.9% per sortie (2-4.3% over four
-#: runs), where the strike fit gives about 60%.
-STATION_EXPOSURE = 0.04
+#: CAP stations: SAM exposure per unit of route SAM weight. A CAP orbits at
+#: altitude near the edge of coverage and turns away; it doesn't press
+#: through the engagement zone to a target, so overlapping sites don't
+#: compound against it the way they do against a strike package: the term
+#: is linear in the weight, not quadratic. Fitted to the combat model (USA
+#: 2005 vs Iran 2015, Caucasus): blue CAPs whose routes crossed SAM weight
+#: ~14 lost 2-4.3% per sortie over four runs, later 0 of ~30 sorties at
+#: weights 12-21.
+STATION_EXPOSURE = 0.0018
 
 
 @dataclass(frozen=True)
@@ -156,12 +158,9 @@ def estimate(
         suppression *= model.transit_only
     if front_line:
         suppression *= model.front_line
-    if station:
-        suppression *= model.station_exposure
     exposure = (
-        model.sam_exposure
+        (model.station_exposure if station else model.sam_exposure * (1 + w))
         * w
-        * (1 + w)
         * threat.enemy_sam_crew
         * suppression
         / max(own_aircrew, 0.3)

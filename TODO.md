@@ -198,8 +198,12 @@ something.
   ground units) a mission should hold, for performance. Like the package target (F6), it's
   guidance: the planner prefers fewer, better-placed flights near the budget, and the
   mission generator warns when it goes well over.
-- [ ] **F16. A debrief that follows the plan.** Report each key package (goal, result,
-  losses) before the full loss list.
+- [x] **F16. A debrief that follows the plan.** Done 2026-11-09: the debriefing window opens
+  with "How the plan went". Each key package (player packages first) shows its goal and
+  result: target destroyed, units hit or successful attacks, air kills, aborted or not
+  flown, and aircraft lost. Routine lines are summed ("4 CAP stations: no losses"). The
+  data comes from `briefing.plan_debrief`, which also finds packages whose flights finished
+  and left the ATO.
 
 ### Living battlefield
 
@@ -482,8 +486,13 @@ only a short run (3 seeds, 4 turns).
     (`risk.model.station_exposure` 0.04): Iran CAPs now estimate 3.6–3.8% against 2–4.3%
     actual. The strike fit gave ~60%.
   - CAPs no longer get SEAD escorts added by the "one more try" step.
-  - Not done: pulling stations back from suspected coverage (the estimate now allows
-    them), and enemy sweeps in the CAP estimate (item 8). In the iran runs, blue reports "est. risk
+  - Later the same day: a station over the limit is pulled back along its axis (half the
+    distance, then over the defended base) before the line is dropped. The station SAM term
+    is now linear in the route weight (`station_exposure` 0.0018 per unit of weight). With
+    the old quadratic term and red's SAMs moved up the axis, an Iran run (hash seed 2) ended
+    up with no blue CAP at all: estimate 7.4% against a 4% limit at weight 21, where CAPs
+    had lost 0 of ~30 sorties.
+  - Enemy sweeps in the CAP estimate: see item 8. In the iran runs, blue reports "est. risk
   0.0%" from turn 2 on while its actual losses are 2–4.3% per sortie.
   - **Cause (2026-11-09):** from turn 2 blue only plans DCA, about 46 BARCAP sorties a
     turn (item 6). A CAP's risk is estimated for its route, against the SAMs blue knows
@@ -508,6 +517,10 @@ only a short run (3 seeds, 4 turns).
     estimates when its packages lose more than estimated, up to ×3. In a peer run (Russia
     2010, 3 turns, focused) red's estimate rose from 2.9% to 7.8% after turn 1. Its actual
     losses stayed at 11–31% per sortie (fighter sweeps 3/8 and 4/6, BARCAP 2–3/8).
+  - **Also 2026-11-09:** in a focused turn, enemy fighter availability is scaled by 6 h over
+    the window (lead-in included), up to 1 (`packages.availability_period_hours`). Both air
+    forces fly the turn's sorties in the window. Peer estimates went from blue 0.4% / red
+    3.6% air per sortie to 1.4% / 9.6%.
   - **Still to do:** the air term itself. A station's estimate should count the enemy
     sweeps and escorts that can reach it (from the enemy sorties the side's radars saw
     last turn), not just the enemy fighter count.
@@ -632,6 +645,10 @@ generated mission lands, and tick items once they're flown. Report problems with
 - [ ] **A5. Turn briefing.** From turn 1, a box above the package list summarizes the turn:
   phase, mission time, intent, key packages with their purpose, routine lines, threats.
   Assign yourself to a package: it moves to the top marked "(you)" after the next update.
+- [ ] **A6. Debrief that follows the plan.** After a turn (fast forward or DCS), the
+  debriefing window starts with **How the plan went**. Each key package shows its goal and
+  result, with losses in red and unflown packages in grey, then one line for the CAP
+  stations and support. Check that a SAM site you destroyed shows "target destroyed".
 - [ ] **A4. Focused turn settings.** Settings → Campaign management shows **Focused turns**,
   its lead-in and packages-per-side guidance. Turn it off and replan (or start a new turn):
   the 6 h period and the window picker come back.

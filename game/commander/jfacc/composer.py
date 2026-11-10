@@ -656,6 +656,8 @@ class PackageComposer:
                 "sead": float(sead_aircraft),
                 "estimate": risk.expected_loss_rate,
                 "model_estimate": risk.model_estimate,
+                "sam_part": risk.sam_component,
+                "air_part": risk.air_component,
                 "limit": limit,
                 "target_defended": float(route_threat.target_defended),
             }
