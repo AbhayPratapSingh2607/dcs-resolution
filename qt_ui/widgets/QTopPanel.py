@@ -342,16 +342,24 @@ class QTopPanel(QFrame):
             self.simulate_turn()
             return
 
-        if not self.game.ato_has_clients() and not self.confirm_no_client_launch():
+        from game.sim import atoperiod
+
+        full_turn = atoperiod.period(self.game) is not None and not atoperiod.is_focused(
+            self.game
+        )
+        if full_turn:
+            # P4: the mission starts when your flight starts up. Without a
+            # player flight, pick one, fast-forward, or fly an AI-only window.
+            if not self.place_mission_window():
+                return
+        elif not self.game.ato_has_clients() and not self.confirm_no_client_launch():
             return
 
         if self.check_no_missing_pilots():
             return
 
-        from game.sim import atoperiod
-
         if atoperiod.period(self.game) is not None:
-            if atoperiod.max_window_offset_min(self.game) > 0:
+            if not full_turn and atoperiod.max_window_offset_min(self.game) > 0:
                 from qt_ui.windows.QDcsWindowDialog import QDcsWindowDialog
 
                 if not QDcsWindowDialog(self.game, self).exec():
@@ -378,6 +386,59 @@ class QTopPanel(QFrame):
 
         waiting = QWaitingForMissionResultWindow(self.game, self.sim_controller, self)
         waiting.exec_()
+
+    def place_mission_window(self) -> bool:
+        """Full turns: the DCS window follows the player's flight. Returns
+        False when the launch should stop here."""
+        from game.sim import atoperiod
+
+        if atoperiod.align_window_to_players(self.game):
+            late = atoperiod.late_player_flights(self.game)
+            if late:
+                bounds = atoperiod.window(self.game)
+                names = "<br />".join(
+                    f"{f.squadron.name} {f.flight_type.value} {f.package.target.name} "
+                    f"(startup {f.flight_plan.startup_time():%H:%M})"
+                    for f in late[:6]
+                )
+                result = QMessageBox.question(
+                    self,
+                    "A player flight starts late",
+                    (
+                        f"The mission starts at {bounds[0]:%H:%M}, when the first "  # type: ignore[index]
+                        f"player flight starts up, and the planned mission window "
+                        f"ends at {bounds[1]:%H:%M}. These player flights start "  # type: ignore[index]
+                        f"after that, so they will be a long wait in DCS:<br /><br />"
+                        f"{names}<br /><br />Fly anyway?"
+                    ),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                return result == QMessageBox.StandardButton.Yes
+            return True
+
+        box = QMessageBox(self)
+        box.setWindowTitle("No player flight")
+        box.setText(
+            "You are not in any flight. Take one from the <b>Your flight</b> card "
+            "or the Flights panel, fast-forward the whole turn with the combat "
+            "model, or fly an AI-only mission in a window of your choice."
+        )
+        fast_forward = box.addButton("Fast-forward the turn", QMessageBox.ButtonRole.AcceptRole)
+        ai_only = box.addButton("Fly AI-only, pick a window", QMessageBox.ButtonRole.ActionRole)
+        box.addButton("Back", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is fast_forward:
+            self.simulate_turn()
+            return False
+        if clicked is ai_only:
+            if atoperiod.max_window_offset_min(self.game) > 0:
+                from qt_ui.windows.QDcsWindowDialog import QDcsWindowDialog
+
+                return bool(QDcsWindowDialog(self.game, self).exec())
+            return True
+        return False
 
     def simulate_turn(self) -> None:
         """Fights the whole turn with the combat model instead of DCS."""

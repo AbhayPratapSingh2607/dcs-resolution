@@ -141,6 +141,10 @@ class Game:
 
         #: Each side's air campaign: phase, target list and BDA (JFACC planner).
         self.air_campaign = AirCampaignState()
+        from game.commander.jfacc.seat import PlayerPreference
+
+        #: What the player would like to fly (game.commander.jfacc.seat).
+        self.player_preference = PlayerPreference()
 
         self.db = GameDb()
 
@@ -203,6 +207,10 @@ class Game:
             from game.commander.jfacc.campaignstate import AirCampaignState
 
             self.air_campaign = AirCampaignState()
+        if not hasattr(self, "player_preference"):
+            from game.commander.jfacc.seat import PlayerPreference
+
+            self.player_preference = PlayerPreference()
         if not hasattr(self, "laser_code_registry"):
             self.laser_code_registry = LaserCodeRegistry()
             for front_line in self.theater.conflicts():

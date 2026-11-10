@@ -224,8 +224,14 @@ class Squadron:
 
         preference = self.settings.auto_ato_behavior
 
-        # No preference, so the first pilot is fine.
+        # No preference: AI pilots first, so the player pilots are left for
+        # the flight the commander frags the player to (seat.auto_frag); a
+        # player flies only when no AI pilot is left.
         if preference is AutoAtoBehavior.Default:
+            for pilot in self.available_pilots:
+                if not pilot.player:
+                    self.available_pilots.remove(pilot)
+                    return pilot
             return self.available_pilots.pop()
 
         prefer_players = preference is AutoAtoBehavior.Prefer

@@ -44,13 +44,25 @@ class PackagePlanningTask(TheaterCommanderTask, Generic[MissionTargetT]):
     def __post_init__(self) -> None:
         self.flights = []
 
+    #: Tasks the commander still plans when the player plans the rest (P7).
+    ROUTINE_TASKS = {
+        FlightType.BARCAP,
+        FlightType.AEWC,
+        FlightType.REFUELING,
+        FlightType.RECOVERY,
+    }
+
     def preconditions_met(self, state: TheaterState) -> bool:
-        if (
-            state.context.coalition.player.is_blue
-            and state.context.settings.auto_ato_behavior is AutoAtoBehavior.Disabled
-        ):
+        blue = state.context.coalition.player.is_blue
+        behavior = state.context.settings.auto_ato_behavior
+        if blue and behavior is AutoAtoBehavior.Disabled:
             return False
-        return self.fulfill_mission(state)
+        if not self.fulfill_mission(state):
+            return False
+        if blue and behavior is AutoAtoBehavior.RoutineOnly:
+            # The commander flies the routine lines; the player plans the rest.
+            return all(f.task in self.ROUTINE_TASKS for f in self.flights)
+        return True
 
     def apply_effects(self, state: TheaterState) -> None:
         seen: set[ControlPoint] = set()

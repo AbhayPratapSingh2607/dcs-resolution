@@ -311,6 +311,32 @@ def period_metrics(game: Any) -> dict[str, Any]:
     }
 
 
+def your_flight(game: Any) -> str:
+    """The flight the plan fragged the player to, and the next offers."""
+    from game.commander.jfacc.seat import fragged_flight, rank_offers, why_no_match
+
+    try:
+        flight = fragged_flight(game)
+        offers = rank_offers(game)
+    except Exception as ex:  # noqa: BLE001
+        return f"(offers failed: {ex})"
+    lines = []
+    if flight is not None:
+        lines.append(
+            f"Your flight: {flight.squadron.name} {flight.count}x "
+            f"{flight.unit_type.display_name} {flight.flight_type.value} "
+            f"{flight.package.target.name} TOT {flight.package.time_over_target:%H:%M}"
+        )
+    else:
+        lines.append("Your flight: none fragged")
+    reason = why_no_match(game)
+    if reason:
+        lines.append(f"  ({reason})")
+    for offer in offers[:3]:
+        lines.append("  offer: " + offer.describe())
+    return "\n".join(lines)
+
+
 def blue_briefing(game: Any) -> str:
     """Blue's turn briefing as the DCS briefing shows it ("" without the
     air campaign planner)."""
@@ -426,6 +452,7 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
     period_info = period_metrics(game)
     period_text = describe_period(period_info)
     briefing_text = blue_briefing(game)
+    seat_text = your_flight(game)
 
     game.settings.fast_forward_stop_condition = FastForwardStopCondition.END_OF_TURN
     started = time.time()
@@ -522,6 +549,8 @@ def run_turn(game: Any, errors: ErrorCounter, verbose: bool) -> dict[str, Any]:
         print("Briefing:")
         for line in briefing_text.splitlines():
             print("  " + line)
+    if seat_text:
+        print(seat_text)
     print(f"Aircraft flown: blue {flown[True]}, red {flown[False]}")
     print(report.to_text())
     if captured:

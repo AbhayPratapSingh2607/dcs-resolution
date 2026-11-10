@@ -94,6 +94,20 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Your seat]** Name a squadron or a mission type (the air wing step of a new campaign, or
+  **Preference…** on the **Your flight** card). Each turn the commander frags you the best
+  match from its plan and the card lists the next offers; **Take** moves you. The plan never
+  changes for your preference. With "No preference" only your flight has a player slot.
+* **[Your seat]** In a full turn the mission starts when your flight starts up; there is no
+  window picker. Without a player flight, **Take off** asks whether to fast-forward the turn,
+  fly an AI-only window, or go back.
+* **[Mission]** AI flights past their time on target appear heading home without the
+  air-to-ground weapons they dropped, with their missiles, pods and tanks.
+* **[Mission]** After you quit, the flights that hadn't finished are carried on by the combat
+  model from where their plans put them, then the packages planned later; the debriefing
+  shows their results instead of "not flown". The plugin writes `elapsed_seconds`.
+* **[Auto Planner]** New planning behaviour: **Commander flies routine lines, you plan the
+  rest**. Packages can be pinned ("Keep in my mission") for the bubble.
 * **[Auto Planner]** The turn briefing describes the whole period: the main push with its
   time and key packages, one line for what flies before and after it, the routine lines, and
   what the enemy is expected to do from your own intelligence.

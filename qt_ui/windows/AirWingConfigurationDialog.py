@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from typing import Iterable, Iterator, Optional, Any
 
@@ -804,6 +805,25 @@ class AirWingConfigurationDialog(QDialog):
 
         layout.addWidget(doc_label)
 
+        # Your seat (P1): the squadron or mission type the player would like
+        # to fly. It never changes the plan; it picks which flights are
+        # offered first.
+        from qt_ui.windows.QPlayerSeatDialog import PlayerSeatControls
+
+        seat_box = QGroupBox("Your seat")
+        seat_layout = QVBoxLayout()
+        seat_box.setLayout(seat_layout)
+        seat_note = QLabel(
+            "Which squadron, or which kind of mission, would you like to fly? Each "
+            "turn the commander frags you the best match from its plan. You can "
+            "change this later from the Your flight card."
+        )
+        seat_note.setWordWrap(True)
+        seat_layout.addWidget(seat_note)
+        self.seat_controls = PlayerSeatControls(game)
+        seat_layout.addLayout(self.seat_controls)
+        layout.addWidget(seat_box)
+
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
 
@@ -828,13 +848,28 @@ class AirWingConfigurationDialog(QDialog):
         buttons_layout = QHBoxLayout()
         apply_button = QPushButton("Accept Changes")
         apply_button.setProperty("style", "btn-accept")
-        apply_button.clicked.connect(lambda state: self.accept())
+        apply_button.clicked.connect(lambda state: self.accept_with_seat())
         discard_button = QPushButton("Reset Changes")
         discard_button.setProperty("style", "btn-danger")
         discard_button.clicked.connect(lambda state: self.revert())
         buttons_layout.addWidget(discard_button)
         buttons_layout.addWidget(apply_button)
         layout.addLayout(buttons_layout)
+
+    def accept_with_seat(self) -> None:
+        self.accept()
+
+    def accept(self) -> None:
+        # The squadrons may have changed in the tabs; apply them first so the
+        # chosen squadron exists, then keep the seat.
+        for tab in self.tabs:
+            tab.apply()
+        try:
+            self.seat_controls.refresh_squadrons()
+            self.seat_controls.apply()
+        except Exception:
+            logging.exception("Could not keep the player's seat")
+        super().accept()
 
     def save_config(self) -> None:
         result = QMessageBox.information(

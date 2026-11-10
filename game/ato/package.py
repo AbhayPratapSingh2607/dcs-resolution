@@ -66,6 +66,10 @@ class Package(RadioFrequencyContainer):
         # the old behavior?
         self.time_over_target: datetime = datetime.min
         self.waypoints: PackageWaypoints | None = None
+        #: "Keep in my mission": the package is always in the DCS mission,
+        #: whatever the bubble decides (P7, B3). Read with getattr: old saves
+        #: have no such field.
+        self.pinned: bool = False
 
     @property
     def has_players(self) -> bool:

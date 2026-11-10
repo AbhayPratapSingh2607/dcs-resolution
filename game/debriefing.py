@@ -125,6 +125,13 @@ class RescuedPilot:
     player: Player
 
 
+def _elapsed(value: Any) -> Optional[float]:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass(frozen=True)
 class StateData:
     #: True if the mission ended. If False, the mission exited abnormally.
@@ -152,6 +159,11 @@ class StateData:
 
     #: Ids of player FARPs whose equipment was flown in during the mission.
     farp_setup_events: List[str]
+
+    #: Mission time elapsed when the state was written, in seconds, or None
+    #: for a state from before it was exported (or none at all): the mission
+    #: then counts as flown to the end of its window.
+    elapsed_seconds: Optional[float] = None
 
     @classmethod
     def from_json(cls, data: Dict[str, Any], unit_map: UnitMap) -> StateData:
@@ -202,6 +214,7 @@ class StateData:
             ejections=ejections,
             rescued_pilot_ids=[str(x) for x in data.get("csar_rescued", [])],
             farp_setup_events=[str(e) for e in data.get("farp_setup_events", [])],
+            elapsed_seconds=_elapsed(data.get("elapsed_seconds")),
         )
 
 

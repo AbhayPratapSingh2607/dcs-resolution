@@ -4,8 +4,7 @@ Read `VISION.md` first. It gives the goal, what is out of scope, the decisions a
 of the work. Before starting an item, apply its scope test (section 8). If this file and
 `VISION.md` disagree, `VISION.md` is right.
 
-**Current milestone: M1, the 6 hour war. W1–W6 and W8 done 2026-11-10; W7 (bands) recorded
-below. Next: M2, P1.**
+**M1 and M2 done 2026-11-10 (W1–W8, P1–P7). Current milestone: M3, the bubble. Next: B1.**
 
 How this file is laid out:
 
@@ -139,12 +138,16 @@ and no player assignment yet: the window picker stays until P4.
 You state a preference, get a flight from the real plan, and the mission is the slice
 around it, before and after included.
 
-- [ ] **P1. Preference.** The player names a squadron, a mission type, or both. One per
+- [x] **P1. Preference.** Done 2026-11-10: `Game.player_preference`
+  (`game/commander/jfacc/seat.py`), set at the air wing step and from the Your flight card.
+  The player names a squadron, a mission type, or both. One per
   campaign, and it can be changed any turn.
   - Stored with the campaign, not in the settings, because it names a squadron.
   - Set at the air wing step of a new campaign and from the "Your flight" card (P3).
   - Done when: it is saved and loaded with the campaign.
-- [ ] **P2. Ranked offers.** After blue's plan is made, rank its flights for the player.
+- [x] **P2. Ranked offers.** Done 2026-11-10: `seat.rank_offers`, `seat.why_no_match`;
+  the e2e report prints the fragged flight and the top offers. After blue's plan is made,
+  rank its flights for the player.
   Nothing in the plan changes (decision 4).
   - Order: the preferred squadron's flights, then flights of the preferred mission type,
     then any other flight the player can fly. Within each, the main push first, then key
@@ -153,7 +156,11 @@ around it, before and after included.
   - When nothing matches, say why from the plan's own records, for example "VFA-103 isn't
     tasked this turn: its aircraft are in turnaround".
   - A pure function with unit tests.
-- [ ] **P3. "Your flight" card and switching.** At the top of the ATO panel: the fragged
+- [x] **P3. "Your flight" card and switching.** Done 2026-11-10: `qt_ui/widgets/yourflight.py`,
+  `Coalition.frag_player` after blue plans, "Take this flight" in the package context menu.
+  The old setting maps so: **No preference** frags you one flight and the planner fills the
+  rest with AI pilots; **Prefer player pilots** keeps spreading players over many flights;
+  **Never** frags nobody. At the top of the ATO panel: the fragged
   flight (the top offer) with a player pilot in it, its package, target and TOT, and
   "Other flights" with the next offers. Picking one moves the player there. Putting
   yourself in any flight by hand still works and updates the card.
@@ -162,7 +169,10 @@ around it, before and after included.
     this item how the old setting maps.
   - Done when: turn 1 shows a fragged flight that matches the preference when the plan has
     one, and a reason line when it doesn't.
-- [ ] **P4. The mission follows your flight.** The mission starts when the earliest flight
+- [x] **P4. The mission follows your flight.** Done 2026-11-10: `atoperiod.player_window_start`,
+  `align_window_to_players`, `late_player_flights`; `QTopPanel.place_mission_window` replaces
+  the picker in the full turn (without a player flight it offers fast-forward, an AI-only
+  window, or back). The mission starts when the earliest flight
   with a player in it starts up. This replaces the window picker (`QDcsWindowDialog`) and
   the package move (`atoperiod.align_player_packages`, was F30) in the 6 hour model.
   - `atoperiod.window` takes its start from the player flights. With no player flight,
@@ -172,14 +182,19 @@ around it, before and after included.
   - Several players: the earliest startup wins, and later player flights start at their
     own time. Warn about a player flight that starts after the window.
   - Done when: picking another flight moves the mission start, and a test covers it.
-- [ ] **P5. Earlier strikers heading home** (F3's leftovers). Start stages follow the
+- [x] **P5. Earlier strikers heading home** (F3's leftovers). Done 2026-11-10:
+  `game/ato/flightstate/expended.py`, applied in `FlightGroupConfigurator.setup_payload`;
+  tests cover the three stages. Start stages follow the
   timeline for every flight of both sides:
   - not yet started: on the ground, at its time;
   - in the air before its TOT: on its route, where the combat model put it (exists);
   - past its TOT: on its way home with its weapons expended and the fuel it would have
     left. Today it spawns with a full loadout.
   - Done when: a test on the generated mission covers the three cases.
-- [ ] **P6. The fight goes on after you quit.**
+- [x] **P6. The fight goes on after you quit.** Done 2026-11-10: `elapsed_seconds` in the
+  state file (`StateData.elapsed_seconds`), `atoperiod.quit_time`, `unfinished_packages`,
+  `resolve_remainder(game, events, debriefing)` moves the unfinished flights along their
+  plans without fighting until the quit, then fights on; `AircraftSimulation.combat_enabled`.
   - Export the elapsed mission time: `write_state` in
     `resources/plugins/base/dcs_retribution.lua` writes it and `game/debriefing.py` reads
     it. Today only `mission_ended` is exported.
@@ -192,7 +207,9 @@ around it, before and after included.
     the window.
   - Done when: after quitting 20 minutes in, the debrief gives later packages results from
     the combat model instead of "not flown". Test with a made-up state file.
-- [ ] **P7. Planning by hand.** The second way to play.
+- [x] **P7. Planning by hand.** Done 2026-11-10: `AutoAtoBehavior.RoutineOnly` ("Commander
+  flies routine lines, you plan the rest"), honoured by both planners; `Package.pinned` with
+  "Keep in my mission" in the package context menu and a badge. The second way to play.
   - A new value between "commander plans everything" and "commander plans nothing": the
     commander flies the routine lines and you plan the rest. Today `auto_ato_behavior`
     set to Disabled stops all of blue's planning. Red is always planned by its commander.
@@ -467,6 +484,31 @@ default since W8). D11 checks the 6 hour turn.
   - your own aircraft and helicopters stay;
   - after the mission, the debriefing does **not** list those aircraft as lost, and the
     squadron still has them.
+- [ ] **D12. Your seat (M2).** Settings → Campaign management: **Automatic package planning
+  behavior** is "No preference". Pass a turn. **Expect:**
+  - the **Your flight** card above the package list names a flight from the plan with you in
+    it (your preferred squadron's first, else your mission type, else the best of the rest),
+    its target and TOT, and up to 8 other offers; the reason line explains a preference the
+    plan couldn't meet;
+  - only that flight has a player slot; the rest of the plan is AI;
+  - **Take** on another offer, or **Take this flight** in a package's context menu, moves you;
+    the list and the map follow;
+  - **Take off** opens no window picker: the mission starts at your flight's startup, you are
+    on the ramp with your chosen start type, flights that took off earlier are on their routes
+    and flights past their TOT are heading home **without their bombs or ARMs** (F10 or the
+    unit's payload in the mission editor) but with their missiles and tanks;
+  - with no player flight, **Take off** asks: fast-forward, AI-only window, or back.
+- [ ] **D13. The fight goes on after you quit (P6).** Fly the mission for about 20 minutes and
+  quit. **Expect:**
+  - the debriefing's **How the plan went** shows the mission part with the DCS results, and
+    the after part with results for packages that hadn't finished and packages planned later
+    (losses, kills, "target destroyed"), not "not flown";
+  - `Saved Games\DCS\Logs\dcs.log` has no plugin errors, and the state file contains
+    `elapsed_seconds`.
+- [ ] **D14. Planning by hand (P7).** Set the behaviour to "Commander flies routine lines, you
+  plan the rest" and pass a turn. **Expect:** CAPs, AWACS, tankers and ground alerts in the
+  plan, no strikes; your own package shows in the briefing and the debrief; "Keep in my
+  mission" shows a "pinned" badge.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

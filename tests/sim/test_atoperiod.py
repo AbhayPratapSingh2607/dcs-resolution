@@ -53,6 +53,46 @@ def _game(*packages: SimpleNamespace) -> SimpleNamespace:
     )
 
 
+def _player_flight(startup_min: int, clients: int = 1) -> SimpleNamespace:
+    return SimpleNamespace(
+        client_count=clients,
+        flight_plan=_Plan(START + timedelta(minutes=startup_min), START + timedelta(minutes=startup_min + 90)),
+    )
+
+
+def test_mission_starts_at_the_first_player_startup() -> None:
+    game = _game()
+    assert atoperiod.player_window_start(game) is None  # type: ignore[arg-type]
+    assert not atoperiod.align_window_to_players(game)  # type: ignore[arg-type]
+    late = _player_flight(200)
+    early = _player_flight(130)
+    ai = _player_flight(10, clients=0)
+    game.blue.ato.packages = [
+        SimpleNamespace(flights=[late, ai], has_players=True),
+        SimpleNamespace(flights=[early], has_players=True),
+    ]
+    assert atoperiod.player_window_start(game) == START + timedelta(minutes=130)  # type: ignore[arg-type]
+    assert atoperiod.align_window_to_players(game)  # type: ignore[arg-type]
+    assert atoperiod.window(game) == (  # type: ignore[arg-type]
+        START + timedelta(minutes=130),
+        START + timedelta(minutes=190),
+    )
+    # The late flight starts after the window: a warning, not a move.
+    assert atoperiod.late_player_flights(game) == [late]  # type: ignore[arg-type]
+    # A startup near the end of the period keeps a whole window inside it.
+    game.blue.ato.packages = [SimpleNamespace(flights=[_player_flight(350)], has_players=True)]
+    assert atoperiod.player_window_start(game) == START + timedelta(minutes=300)  # type: ignore[arg-type]
+
+
+def test_mission_only_turns_keep_their_fixed_window() -> None:
+    game = _game()
+    game.air_campaign.note_period(2, START, START + timedelta(minutes=90), 30)
+    game.turn = 2
+    game.blue.ato.packages = [SimpleNamespace(flights=[_player_flight(60)], has_players=True)]
+    assert atoperiod.player_window_start(game) is None  # type: ignore[arg-type]
+    assert atoperiod.window(game)[0] == START + timedelta(minutes=30)  # type: ignore[arg-type,index]
+
+
 def test_package_span_covers_all_flights() -> None:
     package = _package((10, 100), (5, 90), (20, 140))
     first, last = atoperiod.package_span(package)  # type: ignore[arg-type]

@@ -30,7 +30,7 @@ from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from game import Game
-    from game.ato import Package
+    from game.ato import Flight, Package
     from game.debriefing import Debriefing
     from game.sim.gameupdateevents import GameUpdateEvents
 
@@ -85,6 +85,65 @@ def set_window_offset(game: Game, minutes: int) -> None:
     game.air_campaign.window_offset_min = max(
         0, min(int(minutes), max_window_offset_min(game))
     )
+
+
+def player_flights(game: Game) -> list[Flight]:
+    """Blue's flights with a player in them."""
+    return [
+        flight
+        for package in game.blue.ato.packages
+        for flight in package.flights
+        if flight.client_count
+    ]
+
+
+def player_window_start(game: Game) -> Optional[datetime]:
+    """Full turns (P4): the mission starts when the earliest flight with a
+    player in it starts up, kept inside the period. None in a mission only
+    turn, without a period, or without a player flight."""
+    bounds = period(game)
+    if bounds is None or is_focused(game):
+        return None
+    starts: list[datetime] = []
+    for flight in player_flights(game):
+        try:
+            starts.append(flight.flight_plan.startup_time())
+        except Exception:
+            continue
+    if not starts:
+        return None
+    start, end = bounds
+    latest = max(start, end - window_length(game))
+    return max(start, min(min(starts), latest))
+
+
+def align_window_to_players(game: Game) -> bool:
+    """Move the DCS window to the player's flight (P4). Returns False when
+    there is no player flight, in which case the window stays where it was
+    (blue's main push, or the player's pick)."""
+    when = player_window_start(game)
+    if when is None:
+        return False
+    bounds = period(game)
+    assert bounds is not None
+    set_window_offset(game, int((when - bounds[0]).total_seconds() // 60))
+    return True
+
+
+def late_player_flights(game: Game) -> list[Flight]:
+    """Player flights that start up after the mission window ends: they are
+    in the mission, but a long wait from the earliest player's startup."""
+    bounds = window(game)
+    if bounds is None:
+        return []
+    late = []
+    for flight in player_flights(game):
+        try:
+            if flight.flight_plan.startup_time() >= bounds[1]:
+                late.append(flight)
+        except Exception:
+            continue
+    return late
 
 
 def ground_window(game: Game) -> Optional[tuple[datetime, datetime]]:
@@ -215,15 +274,68 @@ def has_deferred(game: Game) -> bool:
     return any(state.deferred_packages.values())
 
 
-def resolve_remainder(game: Game, events: GameUpdateEvents) -> Optional[Debriefing]:
-    """Fight the packages held back from the DCS mission with the combat
-    model and commit their results."""
-    if not has_deferred(game):
+def quit_time(game: Game, debriefing: Optional[Debriefing]) -> Optional[datetime]:
+    """When the player quit DCS (P6): the window start plus the mission time
+    the state file reports. None without a window; the window end when the
+    state has no elapsed time (a crash, a manually submitted result or an
+    old plugin), in which case the mission counts as flown to the end of
+    its window."""
+    bounds = window(game)
+    if bounds is None:
         return None
+    elapsed = None
+    if debriefing is not None:
+        state = getattr(debriefing, "state_data", None)
+        elapsed = getattr(state, "elapsed_seconds", None)
+    if elapsed is None:
+        return bounds[1]
+    when = bounds[0] + timedelta(seconds=float(elapsed))
+    return max(bounds[0], min(when, bounds[1]))
+
+
+def unfinished_packages(
+    game: Game, debriefing: Optional[Debriefing], when: datetime
+) -> list[Package]:
+    """Packages in the mission whose flights hadn't finished when the player
+    quit at ``when``: no players (their flights are only ever flown), at
+    least one flight still airborne or yet to fly by its plan, and not
+    every aircraft lost in DCS."""
+    lost: dict[int, int] = {}
+    air_losses = getattr(debriefing, "air_losses", None)
+    for loss in list(getattr(air_losses, "losses", []) or []):
+        key = id(loss.flight)
+        lost[key] = lost.get(key, 0) + 1
+    found: list[Package] = []
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            if package.has_players:
+                continue
+            alive = [f for f in package.flights if lost.get(id(f), 0) < f.count]
+            if not alive:
+                continue
+            _, last = package_span(package)
+            if last is None or last <= when:
+                continue
+            found.append(package)
+    return found
+
+
+def resolve_remainder(
+    game: Game, events: GameUpdateEvents, debriefing: Optional[Debriefing] = None
+) -> Optional[Debriefing]:
+    """Fight what DCS didn't with the combat model and commit the results:
+    the flights in the mission that hadn't finished when the player quit
+    (P6), from where their plans put them at that time, and then the
+    packages held back for after the window. ``debriefing`` is the DCS
+    result; None fights only the held-back packages from the window end."""
     bounds = window(game)
     period_bounds = period(game)
+    if bounds is None or period_bounds is None:
+        return None
+    when = quit_time(game, debriefing) if debriefing is not None else bounds[1]
+    continued = unfinished_packages(game, debriefing, when) if when < bounds[1] else []
     restored = restore_deferred(game)
-    if bounds is None or period_bounds is None or not restored:
+    if not restored and not continued:
         return None
     from game.debriefing import Debriefing
     from game.sim.aircraftsimulation import AircraftSimulation
@@ -231,36 +343,45 @@ def resolve_remainder(game: Game, events: GameUpdateEvents) -> Optional[Debriefi
     from game.settings.settings import CombatResolutionMethod
     from game.unitmap import UnitMap
 
-    # Only the held-back packages fly: everything else already did.
-    restored_ids = {id(p) for p in restored}
+    # Only the held-back and the unfinished packages fly: everything else
+    # already did.
+    flying = {id(p) for p in restored} | {id(p) for p in continued}
     others: dict[bool, list[Package]] = {}
     for coalition in (game.blue, game.red):
-        keep = [p for p in coalition.ato.packages if id(p) not in restored_ids]
+        keep = [p for p in coalition.ato.packages if id(p) not in flying]
         others[coalition.player.is_blue] = keep
         for package in keep:
             coalition.ato.packages.remove(package)
 
-    start = bounds[1]
+    # The unfinished flights were flown in DCS up to the quit: move them
+    # along their plans without fighting until then, then fight on.
+    start = bounds[0] if continued else bounds[1]
     end = period_bounds[1] + RECOVERY
     simulation = AircraftSimulation(game)
     simulation.ground_war_enabled = False
     simulation.begin_simulation(start)
+    simulation.combat_enabled = not continued
     time = start
     with_events = events
     try:
         while time < end:
             time += TICK
+            if not simulation.combat_enabled and time >= when:
+                simulation.combat_enabled = True
             simulation.on_game_tick(
                 with_events, time, TICK, CombatResolutionMethod.RESOLVE, True
             )
-            if not simulation.has_activity():
+            if simulation.combat_enabled and not simulation.has_activity():
                 break
-        debriefing = Debriefing({"mission_ended": True}, game, UnitMap())
-        debriefing.merge_simulation_results(simulation.results)
-        MissionResultsProcessor(game).commit_resolved_period(debriefing, events)
+        debriefing_out = Debriefing({"mission_ended": True}, game, UnitMap())
+        debriefing_out.merge_simulation_results(simulation.results)
+        MissionResultsProcessor(game).commit_resolved_period(debriefing_out, events)
         simulation.results.forget_undo()
     finally:
         for coalition in (game.blue, game.red):
             coalition.ato.packages.extend(others[coalition.player.is_blue])
-    logging.info(f"Resolved {len(restored)} packages after the DCS window")
-    return debriefing
+    logging.info(
+        f"Resolved {len(continued)} packages from {when:%H:%M} and {len(restored)} "
+        "held back after the DCS window"
+    )
+    return debriefing_out

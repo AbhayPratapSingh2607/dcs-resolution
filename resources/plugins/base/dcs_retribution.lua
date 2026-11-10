@@ -51,6 +51,9 @@ function write_state()
 		["unit_lost_events"] = unit_lost_events,
 		["kill_events"] = kill_events,
         ["mission_ended"] = mission_ended,
+        -- Mission time elapsed when the state was written (seconds), so the
+        -- combat model can carry on from where the player quit.
+        ["elapsed_seconds"] = timer.getTime(),
         ["destroyed_objects_positions"] = destroyed_objects_positions,
         ["ejection_events"] = ejection_events,
         ["csar_rescued"] = csar_rescued,

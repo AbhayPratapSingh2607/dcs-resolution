@@ -380,7 +380,43 @@ class QPackageList(QListView):
         delete_action.triggered.connect(lambda: self.delete_package(index))
         menu.addAction(delete_action)
 
+        package = self.ato_model.package_at_index(self.source(index))
+        pin_action = QAction("Keep in my mission")
+        pin_action.setCheckable(True)
+        pin_action.setChecked(bool(getattr(package, "pinned", False)))
+        pin_action.setToolTip(
+            "A pinned package is always in the DCS mission, whatever is left out "
+            "around your flight."
+        )
+        pin_action.toggled.connect(lambda on: self.set_pinned(package, on))
+        menu.addAction(pin_action)
+
+        flights = [f for f in package.flights if f.unit_type.flyable]
+        if flights:
+            take_action = QAction("Take this flight")
+            take_action.setToolTip("Put yourself in this package's first flight")
+            take_action.triggered.connect(lambda: self.take_flight(flights[0]))
+            menu.addAction(take_action)
+
         menu.exec_(event.globalPos())
+
+    def set_pinned(self, package: Package, pinned: bool) -> None:
+        package.pinned = pinned
+        self.viewport().update()
+
+    def take_flight(self, flight: Flight) -> None:
+        from game.commander.jfacc.seat import frag
+        from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
+
+        game = self.ato_model.game
+        if game is None:
+            return
+        if not frag(game, flight):
+            QMessageBox.warning(self, "No pilot", "That flight has no pilot to give you.")
+            return
+        EventStream.put_nowait(GameUpdateEvents().update_flight(flight))
+        GameUpdateSignal.get_instance().updateGame(game)
+        self.select_package(flight.package)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         # Delete/Supr cancels (deletes) the selected package, so several can be
@@ -638,9 +674,16 @@ class QAirTaskingOrderPanel(QSplitter):
         self.turn_briefing.setStyleSheet(
             "QLabel { padding: 4px; border: 1px solid #3a4a5a; border-radius: 3px; }"
         )
+        # Your flight (P3): the flight the plan fragged you to, and the other
+        # offers.
+        from .yourflight import YourFlightCard
+
+        self.your_flight = YourFlightCard(game_model)
+        self.your_flight.package_selected.connect(self.select_package)
         ato_layout = QVBoxLayout()
         ato_layout.addLayout(self.red_ato_labeled)
         ato_layout.addWidget(self.pre_war_note)
+        ato_layout.addWidget(self.your_flight)
         ato_layout.addWidget(self.turn_briefing)
 
         self.ato_group_box = QGroupBox("ATO")
@@ -671,6 +714,10 @@ class QAirTaskingOrderPanel(QSplitter):
             game = self.game_model.game
         self.pre_war_note.setVisible(getattr(game, "turn", None) == 0)
         self._update_turn_briefing(game)
+        try:
+            self.your_flight.refresh(game)
+        except Exception:
+            logging.exception("Could not refresh the Your flight card")
 
     def _update_turn_briefing(self, game: object) -> None:
         from qt_ui import atopresentation as ap

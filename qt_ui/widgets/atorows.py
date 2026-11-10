@@ -302,6 +302,8 @@ class PackageRowDelegate(QStyledItemDelegate):
             clients = sum(f.client_count for f in package.flights)
             if clients:
                 right = _badge(painter, right, top, badge_height, f"{clients} player", QColor("#82a466"), small_metrics)
+            if getattr(package, "pinned", False):
+                right = _badge(painter, right, top, badge_height, "pinned", QColor("#7a6a3c"), small_metrics)
             painter.setFont(body_font)
             painter.setPen(QPen(DIM))
             painter.drawText(

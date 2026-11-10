@@ -313,6 +313,11 @@ class JfaccPlanner:
         planning_allowed = not (
             blue and settings.auto_ato_behavior is AutoAtoBehavior.Disabled
         )
+        # P7: the commander flies the routine lines and the player plans the
+        # rest. Red is always planned by its commander.
+        offensive_allowed = planning_allowed and not (
+            blue and settings.auto_ato_behavior is AutoAtoBehavior.RoutineOnly
+        )
 
         with tracer.trace("JFACC target nomination"):
             self.nominations = TargetNominator(
@@ -377,6 +382,7 @@ class JfaccPlanner:
             with tracer.trace("JFACC counter-air"):
                 self._plan_dca()
                 self._plan_returning()
+        if offensive_allowed:
             with tracer.trace("JFACC ground support"):
                 self._plan_kill_boxes()
                 self._plan_cas()
@@ -395,6 +401,7 @@ class JfaccPlanner:
             with tracer.trace("JFACC overflow"):
                 self._plan_cas()
                 self._plan_jiptl()
+        if planning_allowed:
             with tracer.trace("JFACC recovery tankers"):
                 self._plan_recovery()
         # Aircraft purchases follow the "automate aircraft reinforcements"

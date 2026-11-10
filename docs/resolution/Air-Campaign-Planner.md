@@ -296,6 +296,31 @@ The **Air campaign** page of the Intelligence window shows:
 
 Each package's dialog shows the reason it was planned and its estimated attrition.
 
+## Your seat
+
+Set a preference at the air wing step of a new campaign, or with **Preference…** on the
+**Your flight** card above the package list: a squadron, a mission type, or both. It never
+changes the plan. After the commander has planned the turn, its flights are ranked for you:
+your squadron's flights first, then your mission type, then anything else you can fly; in each,
+the main push first, then key packages, then by time on target. With the planning behaviour
+**No preference** the top offer is yours: one of its pilots becomes the player, and the rest of
+the plan flies with AI pilots. The card lists the next offers; **Take** moves you, and so does
+**Take this flight** in a package's context menu, or putting yourself in any flight by hand.
+When the plan has nothing for your preference the card says why, from the plan's own records.
+
+In a full turn the mission starts when your flight starts up. Everything earlier is fought by
+the combat model first; flights that took off before are on their routes, and flights past
+their time on target are heading home without the weapons they dropped. Without a player
+flight, **Take off** asks whether to fast-forward the turn, fly an AI-only window, or go back.
+When you quit DCS, the flights that hadn't finished are carried on by the combat model from
+where their plans put them, then the packages planned for after the mission; the debriefing
+shows the mission, then before and after it.
+
+**Planning by hand.** The behaviour **Commander flies routine lines, you plan the rest** keeps
+the CAPs, AWACS, tankers and ground alerts planned for you and leaves the strikes to you. Your
+packages are key packages in the briefing and the debrief. **Keep in my mission** on a package
+pins it for the DCS mission.
+
 ## Reading the ATO
 
 A 6 hour plan has dozens of packages, so the list folds it (the **Fold** chip, on by default):

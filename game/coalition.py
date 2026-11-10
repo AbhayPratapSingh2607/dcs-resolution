@@ -219,7 +219,19 @@ class Coalition:
 
         if not is_turn_0:
             self.plan_missions(self.game.conditions.start_time)
+            if self.player.is_blue:
+                self.frag_player()
         self.plan_procurement()
+
+    def frag_player(self) -> None:
+        """Offer the player a flight from the plan just made: the top offer
+        gets a player pilot (game.commander.jfacc.seat)."""
+        from game.commander.jfacc.seat import auto_frag
+
+        try:
+            auto_frag(self.game)
+        except Exception:
+            logging.exception("Could not frag the player's flight")
 
     def refund_outstanding_orders(self) -> None:
         # TODO: Split orders between air and ground units.

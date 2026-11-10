@@ -100,8 +100,9 @@ class GameLoop:
 
         self.pause()
         self.sim.process_results(debriefing, self.events)
-        # Packages held back past the DCS window are fought now.
-        remainder = resolve_remainder(self.game, self.events)
+        # The flights that hadn't finished when the player quit, and the
+        # packages held back past the DCS window, are fought now.
+        remainder = resolve_remainder(self.game, self.events, debriefing)
         if remainder is not None:
             debriefing.remainder = remainder  # type: ignore[attr-defined]
         self.completed = True

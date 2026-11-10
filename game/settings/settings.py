@@ -28,6 +28,9 @@ class AutoAtoBehavior(Enum):
     Never = "Never assign player pilots"
     Default = "No preference"
     Prefer = "Prefer player pilots"
+    #: The commander flies the routine lines (CAP, AWACS, tankers, ground
+    #: alert); the player plans the rest by hand (P7).
+    RoutineOnly = "Commander flies routine lines, you plan the rest"
 
 
 @unique
@@ -934,7 +937,13 @@ class Settings:
         default=AutoAtoBehavior.Default,
         choices={v.value: v for v in AutoAtoBehavior},
         detail=(
-            "Aircraft auto-purchase is directed by the auto-planner, so disabling "
+            "No preference: the commander plans everything and frags you one "
+            "flight from the plan, by your preference (the Your flight card). "
+            "Prefer player pilots: players are spread over many flights, as "
+            "before. Never: nobody is fragged. Commander flies routine lines: "
+            "CAP, AWACS, tankers and ground alert are planned for you and you "
+            "plan the strikes yourself. Disabled: nothing is planned. Aircraft "
+            "auto-purchase is directed by the auto-planner, so disabling "
             "auto-planning disables auto-purchase."
         ),
     )

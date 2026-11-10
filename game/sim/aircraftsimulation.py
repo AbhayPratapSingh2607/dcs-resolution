@@ -36,6 +36,10 @@ class AircraftSimulation:
         self.ground_war_enabled = True
         #: When set, the ground war only fights inside this time window.
         self.ground_window: tuple[datetime, datetime] | None = None
+        #: False while flights are moved along their plans without fighting:
+        #: the part of the mission already flown in DCS, before the player
+        #: quit (game.sim.atoperiod.resolve_remainder).
+        self.combat_enabled = True
 
     def begin_simulation(self, start: datetime | None = None) -> None:
         from .atoperiod import ground_window
@@ -99,6 +103,10 @@ class AircraftSimulation:
         for flight in self.iter_flights():
             flight.on_game_tick(events, time, duration)
 
+        if not self.combat_enabled:
+            self._complete_finished_flights()
+            return
+
         # Ground alert fighters scramble against raids the side's radars see.
         gci = getattr(self, "gci", None)
         if gci is not None:
@@ -128,6 +136,15 @@ class AircraftSimulation:
                 events.complete_simulation()
                 return
 
+        self._complete_finished_flights()
+
+        if (
+            not self._auto_resolve_combat(combat_resolution_method, force_continue)
+            and self.combats
+        ):
+            events.complete_simulation()
+
+    def _complete_finished_flights(self) -> None:
         # Find completed flights, removing them from the ATO and returning aircraft
         # and pilots back to the squadron.
         for flight in self.iter_flights():
@@ -135,12 +152,6 @@ class AircraftSimulation:
                 flight.package.remove_flight(flight)
                 if len(flight.package.flights) == 0:
                     flight.squadron.coalition.ato.remove_package(flight.package)
-
-        if (
-            not self._auto_resolve_combat(combat_resolution_method, force_continue)
-            and self.combats
-        ):
-            events.complete_simulation()
 
     def _ground_unavailable_sorties(self, time: datetime) -> None:
         """A second sortie (game.commander.jfacc.sorties) flies airframes that
