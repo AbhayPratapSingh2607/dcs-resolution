@@ -46,12 +46,12 @@ What a campaign looks like when this is done, and where each step stands today.
 | 3 | **Starting aircraft.** Squadrons and detachments start with their aircraft. A detachment starts with as many as would really deploy. Nothing is bought. | Partly. "Squadrons start full" exists. Presets buy from the budget instead. | M4 |
 | 4 | **Turn 0.** Ground forces are bought. You spend pre-war reconnaissance, the first intel round runs, you make the opening choices, red prepares, and blue's opening missile strikes are planned. | Partly. Ground purchases and a pre-war intel picture exist. The rest doesn't. | M4 |
 | 5 | **Turn 1 opens** with a BDA report on the missile strikes, and the damage is on the map. | Missing | M4 |
-| 6 | **The commander plans 6 hours:** routine lines all period, strike waves, and a main push as long as the mission duration. | Partly. 6 hour planning exists as the non-default mode. It has no main push. | M1 |
+| 6 | **The commander plans 6 hours:** routine lines all period, strike waves, and a main push as long as the mission duration. | Exists (M1, 2026-11-10). | M1 |
 | 7 | **You get a flight** from the plan, by your preferred squadron or mission type. You can pick another, or plan your own package. | Missing. Planning by hand exists. | M2 |
 | 8 | **Fly.** The mission starts at your startup. Everything earlier is already fought: flights in the air are where they would be, and earlier strikers are heading home. | Partly. The fighting before the mission and the start stages exist. | M2 |
 | 9 | **Only the flights you are likely to meet are in DCS.** The rest of the war is fought by the combat model at the same time. | Missing. Only ground units are culled. | M3 |
 | 10 | **You quit.** The combat model fights what is left of the 6 hours. | Partly. Packages planned after the mission are fought in the 6 hour mode. Flights that hadn't finished when you quit are assumed to recover. | M2 |
-| 11 | **Debrief:** your mission first, then the rest of the war. | Partly. "How the plan went" exists. | M1, M3 |
+| 11 | **Debrief:** your mission first, then the rest of the war. | Partly. "How the plan went" is split into the mission, before and after it (M1). "Elsewhere" needs M3. | M1, M3 |
 | 12 | **The commander plans the next turn.** Phases move from OCA, SEAD and DEAD to strike and CAS. | Exists | |
 | 13 | **The campaign ends** on the win condition Retribution has today. | Exists | |
 
@@ -178,8 +178,9 @@ replaces, and then `TODO.md` and the memory notes are brought in line.
 
 ## 6. Roadmap
 
-**Current milestone: M1.** One milestone at a time. The game stays playable after each
-one. The items are in `TODO.md` under the same names.
+**Current milestone: M2.** M1 closed 2026-11-10 (W1–W8; W7's bands are recorded in
+`TODO.md`). One milestone at a time. The game stays playable after each one. The items are
+in `TODO.md` under the same names.
 
 ### M1. The 6 hour war (app only)
 

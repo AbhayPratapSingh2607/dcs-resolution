@@ -175,7 +175,8 @@ def turn_summary(
     }
     for name, n in counts.items():
         if n:
-            summary.routine.append(f"{n} {name}{'' if n == 1 else 's'}")
+            plural = name if name == "AWACS" else f"{name}s"
+            summary.routine.append(f"{n} {name if n == 1 else plural}")
 
     summary.threats = expected_enemy(game, blue, side)
     return summary

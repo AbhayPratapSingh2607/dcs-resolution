@@ -100,14 +100,29 @@ and no player assignment yet: the window picker stays until P4.
   sums its routine lines. B6 later adds "elsewhere".
   - Done when: a turn flown through a window shows the three parts, with the combat
     model's results for before and after.
-- [ ] **W7. Bands in the new model** (was F18, and the first pass of item 10).
-  - Run the four scenarios (iraq, iran, peer, red_wins) for 8 turns, 6 for red_wins, in
-    the 6 hour model with the main push.
-  - Record exchange ratios, bases, phases, packages per side per turn and simulation time.
-  - No tuning in M1. A failed band becomes a V2 item, unless it makes the game unplayable.
-  - The loss rates per sortie measured in focused turns (peer: blue 7–10%, red 18–25%)
-    belong to that model. Measure again before judging them.
-  - Done when: the results are recorded here.
+- [x] **W7. Bands in the new model** (was F18, and the first pass of item 10). Recorded
+  2026-11-10, one seed each, `campaign_matrix.py --turn-model full --seeds 1`, 45 min on
+  2 workers. No tuning (M1 rule); the failed bands are V2 items.
+
+  | Scenario | Band | Result | Blue lost/flown | Red lost/flown | Bases B/R | Red phases |
+  |---|---|---|---|---|---|---|
+  | iraq (8 turns) | ratio ≥ 5, red 0 bases | **PASS** 6.7 | 6/922 | 40/76 | 3/0 | homeland_air_defense > front_defense > homeland_air_defense |
+  | iran (8) | ratio ≥ 5, red 0 bases | FAIL 4.0 | 7/858 | 28/176 | 2/0 | same as Iraq |
+  | peer (8) | ratio 0.5–2.5, ≤ 1 base | FAIL 2.6 (bases 1/1 ok) | 10/688 | 26/344 | 1/1 | pvo_defense all game |
+  | red_wins (6) | red takes a base | **PASS** | 14/24 | 10/332 | 0/1 | front_defense > initial_air_operation > front_offensive > front_defense |
+
+  Per turn, blue packages ran 33–50 (Iraq, Iran, peer) and red 3–33; a turn simulated in
+  100–185 s. Blue's push held 38–100% of its offensive packages on turns where it had any;
+  from peer turn 4 and Iran turn 7 blue planned no offensive packages at all (everything
+  scrubbed on risk or already serviced), so the push was empty. Red's push: Russia 2010
+  stayed in pvo_defense with no raids all 8 turns; Russia against Georgia flew 1 raid.
+  Loss rates per sortie in this model: peer blue 1.5%, red 7.6%; far below the mission
+  only figures (7–10% and 18–25%), because most sorties are routine lines.
+  - V2 candidates from this run: Iran's exchange ratio (4.0, red loses little because it
+    flies little); peer's ratio just over the band; blue plans no offensive packages late
+    in a campaign (idle strikers, item 3); fronts wiped in one turn in 5 of 30 turns
+    (Iraq ×4, Iran ×1, red_wins ×2; the e2e's front invariant), to be looked at with the
+    ground model in V1.
 - [x] **W8. Saves, switching and the default** (was F36). Done 2026-11-10: the turn model
   is kept per period in `AirCampaignState.focused`, so a save loads in the model it was
   planned in and a changed setting applies when the next turn is planned; **Mission only** is
