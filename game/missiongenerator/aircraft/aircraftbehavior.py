@@ -44,6 +44,7 @@ from game.ato.flightplans.formationattack import FormationAttackLayout
 from game.ato.flightplans.packagerefueling import PackageRefuelingFlightPlan
 from game.ato.flightplans.shiprecoverytanker import RecoveryTankerFlightPlan
 from game.ato.flightplans.theaterrefueling import TheaterRefuelingFlightPlan
+from game.missiongenerator.aircraft.defendedtarget import target_area_defended
 from game.missiongenerator.missiondata import MissionData
 from game.utils import nautical_miles, knots, feet
 
@@ -72,8 +73,10 @@ class AircraftBehavior:
             self.configure_refueling(group, flight)
         elif self.task == FlightType.RECOVERY:
             self.configure_recovery(group, flight)
-        elif self.task in [FlightType.CAS, FlightType.BAI]:
+        elif self.task == FlightType.CAS:
             self.configure_cas(group, flight)
+        elif self.task == FlightType.BAI:
+            self.configure_bai(group, flight)
         elif self.task == FlightType.ARMED_RECON:
             self.configure_armed_recon(group, flight)
         elif self.task == FlightType.DEAD:
@@ -166,8 +169,11 @@ class AircraftBehavior:
         # missiles and bombs. Take away their bullets so they don't strafe a Tor.
         #
         # Exceptions are made for player flights and for airframes where the gun is
-        # essential like the A-10 or warbirds.
-        if not mission_uses_gun and not self.flight_always_keeps_gun(flight):
+        # essential like the A-10 or warbirds, unless the target is too well defended
+        # to survive a gun run.
+        if not mission_uses_gun and (
+            not self.flight_always_keeps_gun(flight) or self.must_avoid_gun_runs(flight)
+        ):
             for unit in group.units:
                 unit.gun = 0
 
@@ -224,6 +230,39 @@ class AircraftBehavior:
             rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided,
             restrict_jettison=True,
         )
+
+    def configure_bai(self, group: FlyingGroup[Any], flight: Flight) -> None:
+        self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
+        if self.must_avoid_gun_runs(flight):
+            # The ingress waypoint limits the attack to primary munitions and a single
+            # unguided pass, after which the flight continues to egress. No winchester
+            # RTB here: "Unguided" includes the cannon, and with the bullets taken away
+            # a flight carrying only guided weapons could RTB before attacking.
+            self.configure_behavior(
+                flight,
+                group,
+                react_on_threat=OptReactOnThreat.Values.EvadeFire,
+                roe=OptROE.Values.OpenFire,
+                restrict_jettison=True,
+                mission_uses_gun=False,
+            )
+        else:
+            self.configure_behavior(
+                flight,
+                group,
+                react_on_threat=OptReactOnThreat.Values.EvadeFire,
+                roe=OptROE.Values.OpenFire,
+                rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided,
+                restrict_jettison=True,
+            )
+
+    def must_avoid_gun_runs(self, flight: Flight) -> bool:
+        """True for AI-only strike/BAI flights attacking a defended target."""
+        if self.task not in (FlightType.BAI, FlightType.STRIKE):
+            return False
+        if flight.client_count > 0:
+            return False
+        return target_area_defended(flight)
 
     def configure_armed_recon(self, group: FlyingGroup[Any], flight: Flight) -> None:
         self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])

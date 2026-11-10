@@ -1,6 +1,7 @@
 # Retribution v1.6.0
 
 ## Features/Improvements
+* **[Mission Generator]** AI strike and BAI flights attacking a target covered by enemy SAMs or AAA no longer press home low altitude gun runs. They release guided weapons from ingress altitude, make a single pass with rockets/bombs, and egress. Gun-reliant airframes (A-10, warbirds) also give up their bullets for these attacks. Controlled by the new "AI avoids gun runs on defended targets" campaign doctrine setting (on by default); flights with players are unaffected.
 * **[Modding]** Added support for the CurrentHill Iran Military Assets pack: the Shahed-136 launcher, two IRGCN fast-attack craft, and a new `[CH] Iran 2020` faction, behind a New Game mods checkbox. (#886)
 * **[Kneeboard]** Use a light-grey daytime kneeboard background instead of near-white, to avoid glare under HDR / Auto-HDR while staying readable in daylight.
 * **[UX]** Hovering a friendly flight's route line on the map highlights it in yellow, and clicking it selects that flight's package (and the flight) in the ATO sidebar.
