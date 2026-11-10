@@ -76,6 +76,10 @@ something.
     starts is moved along without combat (`Flight.returning`, as On Station does); the
     end of the shift, in the lead-in, is fought. They don't count toward the package
     guidance.
+  - **Decided 2026-11-09 (user):** returning flights are real sorties, planned by the
+    planner. They already go through the composer (squadron, airframes, route), so this is
+    how it works today. Gap: they get no risk estimate yet, so they're missing from the
+    loss experience and from "est. risk".
   - Still to do: returning strikers (with weapons expended), weighting returning flights
     toward the player's base, long-range bombers spawning at their IP after hours of
     assumed transit (today a package from a far base just gets a later TOT, or none).
@@ -209,16 +213,14 @@ something.
 
 Ways to make the window feel like the middle of a war without many more units.
 
-- [ ] **F19. Turnaround at the player's base.** At the player's base, show the turnaround
-  of the air war:
+- [ ] **F19. Turnaround at the player's base.** Decided 2026-11-09 (user): the player's
+  base only, not every friendly base. There, show the turnaround of the air war:
   - a flight landing as the player starts up (RTB, F3);
   - another taxiing out;
   - aircraft parked in their shelters or on the ramp. These are static, cheap, and drawn
     from the real squadron inventory, so losses and damage show.
-- [ ] **F20. Radio traffic that reflects the plan.** AWACS and GCI calls for scrambles and
-  picture calls, JTAC check-ins for the CAS stacks, and tanker check-ins. They come from the
-  same data the planner and the GCI dispatcher use, so the radio tells the story of the
-  turn. Investigate what the existing plugins (EWRS, MOOSE) can be driven with.
+- [x] ~~**F20. Radio traffic that reflects the plan.**~~ Decided 2026-11-09 (user): not
+  implemented. No radio chatter.
 - [ ] **F21. Helicopters in the background.** Utility, CSAR and resupply helicopters near
   the front and the player's base. They are cheap units that read as "busy theater". This
   ties into CSAR and the dynamic FARPs. Keep them low and few, and count them in the unit
@@ -277,7 +279,7 @@ period, or interacts with the new starts.
     ledger so the same aircraft aren't also tasked in the window.
   - Revisit the second-sortie fix from today (`_ground_unavailable_sorties`) under the new
     timing.
-- [ ] **F27. Readiness across a 6 h step.** With ~10 packages a turn, most aircraft sit
+- [ ] **F27. Readiness across a 6 h step.** Shelved 2026-11-09 (user): not now. With ~10 packages a turn, most aircraft sit
   idle. Decide whether these work per turn or per day:
   - mission-capable rates (80%);
   - pilot limits (`max_sorties_per_pilot`);
@@ -310,8 +312,8 @@ period, or interacts with the new starts.
     package's TOT has to leave that time, or the player gets a hot or runway start.
     Interacts with "Player missions ASAP" (`auto_ato_player_missions_asap`).
   - Player packages always count as key packages (F13), and count toward the ~10.
-  - Multiplayer: player flights at several bases each get their own living base (F19)
-    within the unit budget.
+  - Multiplayer: player flights at several bases each get their own living base (F19:
+    each base a player flies from) within the unit budget.
 - [ ] **F31. Ground and sea activity in the window.** Part of the living battlefield and
   part of the unit budget:
   - convoys and transfers already moving on roads (`game/transfers.py`);
@@ -674,19 +676,16 @@ generated mission lands, and tick items once they're flown. Report problems with
 3. **Packages:** items 1 and 2, then F10 (corridor SEAD, H-hour, merged packages), then
    items 6, 8 and 9 (iran, swept CAPs, client losses).
 4. **Readability:** F13, F14 and F16.
-5. **Living battlefield extras:** F19–F24 and F31, cheapest first (F23, F19, F24, F22,
-   F31, then F20 and F21).
-6. **Consequences:** F27, F28, F33–F36 (readiness, economy, CSAR and FARPs, red in DCS,
+5. **Living battlefield extras:** F19, F21–F24 and F31, cheapest first (F23, F19, F24,
+   F22, F31, then F21). F20 dropped.
+6. **Consequences:** F28, F33–F36 (F27 shelved) (readiness, economy, CSAR and FARPs, red in DCS,
    intel, saves).
 7. **Unit budget:** F15.
 8. **Validation and docs:** F17, F18, F37, F38, item 10, and the DCS checks D1–D7.
 
-**Open questions (asked, not yet answered):**
-- Iran: confirm why blue stalls there first, or go straight to corridor SEAD and re-test?
-- Start with the turn model (F1–F3, F6, F7), or with corridor SEAD and H-hour (items 1–2)?
-- Returning flights (F3): real sorties that cost airframes and can be lost, or purely
-  visual?
-- F19: turnaround activity only at the player's own base, or at every friendly base?
-- F20: is AWACS and GCI radio traffic wanted? It's the most work of the extras.
-- F27: are readiness and pilot limits counted per turn or per day?
-- OK to commit and push the TODO?
+**Decided 2026-11-09 (user):**
+- Returning flights (F3) are real sorties, planned by the planner.
+- F19 only at the player's base.
+- F20 (radio chatter) not implemented.
+- F27 (readiness) shelved.
+- The Iran stall was resolved by item 6 (openers and loss experience).
