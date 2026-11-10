@@ -1,557 +1,339 @@
 # TODO
 
-## Focused turns: a smaller, readable air war per turn
+Read `VISION.md` first. It gives the goal, what is out of scope, the decisions and the order
+of the work. Before starting an item, apply its scope test (section 8). If this file and
+`VISION.md` disagree, `VISION.md` is right.
 
-**Goal.** A turn is the "Desired mission duration" (30–150 min), not a 6 hour air tasking
-order. The main combat happens inside that window. The planner plans far fewer flights: one
-CAP per threat axis instead of tens of BARCAP relays, and about 10 meaningful packages. That
-keeps the realism that matters (doctrine, threat-sized packages, SEAD, GCI, intel,
-attrition) and cuts the realism nobody sees (CAPs that never fight, relays, hours of
-transit).
+**Current milestone: M1, the 6 hour war. Next item: W1.**
 
-**Main goal (user, 2026-11-09): the battlefield should feel alive.** The mission opens in
-the middle of an air war, not at its first takeoff. Some flights start on the ground beside
-the player, some are taxiing or taking off, some are holding or on station, some are
-inbound, and some are coming home from an earlier sortie. Flights keep living after the
-window: they RTB and land on their own. Fewer flights, but each one visibly doing
-something.
+How this file is laid out:
 
-**Decisions (user, 2026-11-09):**
-- Turns keep 6 h steps so day and night still cycle. Each turn is a focused window at the
-  start of its step.
-- The rest of each 6 h step is fully quiet: nothing is flown or simulated between windows.
-- At the end of the window the mission doesn't end. The player can keep flying while AI
-  flights finish on their own (RTB, land).
-- About 10 packages per side per turn, as guidance, not a hard limit.
-- AI flights don't all start in the air. They start at a mix of stages (F3).
+- **Roadmap:** the work, by milestone. One milestone at a time, in order.
+- **Parked:** ideas that need the user's word before any work.
+- **Checks in DCS:** the running list of what to fly, kept up to date as items land.
+- **Decisions:** the short list. `VISION.md` has what each one replaces.
 
-**Today:**
-- Each turn plans an ATO period (`ato_period_hours`, default 6 h) and DCS flies a window
-  of it (`game/sim/atoperiod.py`). The combat model fights everything before and after the
-  window.
-- The planner sizes its plan for the whole period: CAP relays every ~55 min, HVAA CAP
-  chains, second sorties.
-- So a 60-minute mission sits inside a plan of 40+ packages. In the USA 1990 vs Iraq 1991
-  test: 22 BARCAP packages, 6 HVAA CAP relays and 5 tanker relays.
-- **Already built that this can reuse:** the On Station start type, ground alerts that
-  are late activated with GCI scrambles, the combat model, and ground combat calibrated
-  for one mission per turn.
+`TODO-earlier.md` holds the lists from before the vision review (F1 to F38, items 1 to
+10). They record what was built and measured. They aren't work lists any more.
 
-### Turn model
+## Roadmap
 
-- [x] **F1. Add a "Focused turn" setting and make it the default.** Done 2026-11-09:
-  **Focused turns** (on by default) and **Focused turns: lead-in** (30 min) in Settings →
-  Campaign management. The period is lead-in + mission duration; the DCS window starts when
-  the lead-in ends, there's no window picker, and flights that took off during the lead-in
-  are fought into place by the combat model and spawn in the air. Peer test, 60 min: blue
-  25 → 12 packages, red 29 → 15; Iraq: blue 35 → 12. Still open: the sortie ledger's
-  turnaround and `max_sorties_per_airframe` (F26), and CAS sizing per period. The planning period
-  becomes the mission window plus a short lead-in, and there's no separate 6 h period or
-  window offset. Keep the 6 h period as the "theater" option for people who want it.
-  - Every phase, apportionment and MOE that assumes 6 h (sortie counts, turnaround,
-    `max_sorties_per_airframe`, CAS sizing per period) has to scale with the period
-    length, or be redefined per turn.
-  - **Decided:** turns keep 6 h steps, so day and night still cycle. Each turn is a
-    focused window at the start of its 6 h step, and the rest of the step is fully quiet
-    (see F9).
-- [ ] **F2. Fit the timeline to the window.** Partly done 2026-11-09: in a focused turn,
-  strike TOTs fall between H-hour (`period.h_hour_min`, 5 min after the window opens) and
-  `period.window_egress_min` (15 min) before it closes, with the waves spread over that
-  span. Still to do: wave sequencing minutes apart (with item 2).
-  - H-hour is a few minutes after mission start.
-  - Every TOT falls inside the window, leaving time to egress before it ends.
-  - Nothing is planned to take off after the window, so `defer_after_window` and
-    `resolve_remainder` become dead code in focused mode.
-  - Waves (SEAD, then strikers, then follow-up) are minutes apart, not hours. This works
-    together with the H-hour sequencing in item 2 below.
-- [ ] **F3. Start AI flights at a mix of stages (living battlefield).** Mostly done
-  2026-11-09:
-  - The lead-in (F1) already gives the mix. Peer test, at mission start, per side: ~16
-    flights inbound or transiting, 4–5 waiting to start up, 2–3 taxiing, 1 taking off, 2 on
-    a CAP racetrack, 1 holding, 2 on ground alert, and sometimes one already engaged.
-  - **Returning flights:** each side plans 2 CAPs (`period.returning_flights`) that flew
-    the shift before. They leave station 5 minutes before the mission starts and are on
-    their way home ("Flying to LANDING") when it opens. They're real sorties: airframes
-    claimed, fought on the way home, losses count. The part of the shift before the turn
-    starts is moved along without combat (`Flight.returning`, as On Station does); the
-    end of the shift, in the lead-in, is fought. They don't count toward the package
-    guidance.
-  - **Decided 2026-11-09 (user):** returning flights are real sorties, planned by the
-    planner. They already go through the composer (squadron, airframes, route), so this is
-    how it works today. Gap: they get no risk estimate yet, so they're missing from the
-    loss experience and from "est. risk".
-  - Still to do: returning strikers (with weapons expended), weighting returning flights
-    toward the player's base, long-range bombers spawning at their IP after hours of
-    assumed transit (today a package from a far base just gets a later TOT, or none).
-    Player flights keep their start type (F30).
-  Original plan: each AI flight
-  gets a start stage that fits where it would really be at mission start, given its TOT,
-  its base and the "the war started hours ago" assumption. The mix is the point: not
-  everything in the air, not everything on the ramp.
-  - **On the ground with the player:** cold or hot on the ramp, taxiing, or lined up.
-    Packages with a late TOT from a nearby base, and ground alerts, which stay on the
-    runway until GCI scrambles them.
-  - **Taking off and climbing out:** flights whose takeoff falls in the first minutes of
+Each item says what to build, where it goes and what shows it's done. "Was F14" names the
+item it replaces in `TODO-earlier.md`. Every item that changes the generated mission also
+gets a test on the generated mission and an entry under "Checks in DCS".
+
+### M1. The 6 hour war (app only)
+
+Every turn plans and fights 6 hours for both sides, with the main effort in a main push as
+long as the mission. The app stays as easy to read as a focused turn is today. No culling
+and no player assignment yet: the window picker stays until P4.
+
+- [ ] **W1. One turn model.** All new work targets the 6 hour turn. Today's focused turn
+  stays as an option named "Mission only" and gets no new features.
+  - Rename the setting in the UI (`focused_turns` in `game/settings/settings.py`). The
+    default changes in W8, once the 6 hour plan is readable.
+  - `campaign_e2e.py` and `campaign_matrix.py` get a flag to pick the model. Today they run
+    whatever the default is (was F38).
+  - Check that what was built for focused turns works over 6 hours: fuel for flights
+    already in the air (F4), the turn briefing, the debrief, SEAD corridors, pulled-back
+    CAP stations and the loss experience. Go through every place that branches on
+    `atoperiod.is_focused` or `planner.focused_lead_in` (`briefing.py`, `threat.py`,
+    `scheduler.py`, `planner.py`, `qt_ui/atopresentation.py`).
+  - Done when: the tests pass, and a 3-turn e2e run finishes in each model.
+- [ ] **W2. The main push.** Each commander puts the turn's main effort into one block as
+  long as "Desired mission duration", with smaller waves before and after it.
+  - Today `scheduler.Timeline.wave_times` spreads equal waves over the period
+    (`period.wave_fractions`, four for the Western profile). New: one of them is the main
+    push. It takes the phase's main effort: SEAD and DEAD first, strikes minutes later
+    through their corridors, then the follow-up (was F2 and item 2, including C2 strikes in
+    the first wave).
+  - Where the push sits in the period is the commander's choice, set in the profile. A
+    first value: about 2 hours in, so there is a war before it. At least one wave comes
+    before it.
+  - Each side picks its own time, from its own doctrine and picture. Red never reads
+    blue's plan. The e2e report says when each push was and whether the two overlapped.
+  - The DCS window picker opens on blue's main push.
+  - Done when: about half of a turn's offensive TOTs fall in the main push (a first
+    value), at least one wave comes before it, and a test covers both.
+- [ ] **W3. Red plans the same way** (was F11).
+  - Routine lines for the whole period: CAPs under GCI, and ground alerts, which are
+    already held all period.
+  - Raids are red's main push. Their echelons are already minutes apart.
+  - Client and irregular air forces keep their small packages, spread over the period.
+  - Done when: in each of the four test scenarios red's plan covers the period the way its
+    doctrine says, and its raids sit in its main push.
+- [ ] **W4. Fold the plan in the list and on the map** (was F14).
+  - List: each routine line (a CAP station, an AWACS or tanker track, an alert sector) is
+    one row with its reliefs inside. The main push is open. Every other wave is one row
+    that opens on a click.
+  - Map: routine lines as compact station and track symbols. Full routes only for the
+    selected package or wave.
+  - Timeline window: it already draws a relief chain in one lane. Shade the main push.
+  - Done when: the first view of a 6 hour plan fits one screen at the default window size,
+    and everything else is one click away.
+- [ ] **W5. Briefing** (was F13). The turn briefing (`briefing.turn_summary`, shown in the
+  ATO panel and in the DCS mission briefing) describes the period:
+  - the phase and intent;
+  - the main push, with its time and key packages;
+  - one line each for what flies before and after it;
+  - the routine lines in one line, and the threats;
+  - what the enemy is expected to do, from blue's intel only (F13's leftover).
+  - Done when: the box for a 6 hour plan is no longer than today's.
+- [ ] **W6. Debrief by part of the turn** (extends F16). "How the plan went" gets three
+  parts: before the mission, the mission, and after it. Each lists its key packages and
+  sums its routine lines. B6 later adds "elsewhere".
+  - Done when: a turn flown through a window shows the three parts, with the combat
+    model's results for before and after.
+- [ ] **W7. Bands in the new model** (was F18, and the first pass of item 10).
+  - Run the four scenarios (iraq, iran, peer, red_wins) for 8 turns, 6 for red_wins, in
+    the 6 hour model with the main push.
+  - Record exchange ratios, bases, phases, packages per side per turn and simulation time.
+  - No tuning in M1. A failed band becomes a V2 item, unless it makes the game unplayable.
+  - The loss rates per sortie measured in focused turns (peer: blue 7–10%, red 18–25%)
+    belong to that model. Measure again before judging them.
+  - Done when: the results are recorded here.
+- [ ] **W8. Saves, switching and the default** (was F36).
+  - Campaigns saved in either model load and keep their model.
+  - Switching applies at the next turn boundary. It touches `period_for`, the held-back
+    packages, the window offset and the ATO already planned.
+  - Then the 6 hour war becomes the default for new campaigns.
+  - Done when: a save from before M1 loads and plays a turn in each model, and a test
+    covers the switch.
+
+### M2. Your seat
+
+You state a preference, get a flight from the real plan, and the mission is the slice
+around it, before and after included.
+
+- [ ] **P1. Preference.** The player names a squadron, a mission type, or both. One per
+  campaign, and it can be changed any turn.
+  - Stored with the campaign, not in the settings, because it names a squadron.
+  - Set at the air wing step of a new campaign and from the "Your flight" card (P3).
+  - Done when: it is saved and loaded with the campaign.
+- [ ] **P2. Ranked offers.** After blue's plan is made, rank its flights for the player.
+  Nothing in the plan changes (decision 4).
+  - Order: the preferred squadron's flights, then flights of the preferred mission type,
+    then any other flight the player can fly. Within each, the main push first, then key
+    packages.
+  - Only aircraft a player can fly.
+  - When nothing matches, say why from the plan's own records, for example "VFA-103 isn't
+    tasked this turn: its aircraft are in turnaround".
+  - A pure function with unit tests.
+- [ ] **P3. "Your flight" card and switching.** At the top of the ATO panel: the fragged
+  flight (the top offer) with a player pilot in it, its package, target and TOT, and
+  "Other flights" with the next offers. Picking one moves the player there. Putting
+  yourself in any flight by hand still works and updates the card.
+  - Today `auto_ato_behavior` ("Prefer player pilots") spreads player pilots over many
+    flights. With a fragged flight, only that flight gets a player by default. Decide in
+    this item how the old setting maps.
+  - Done when: turn 1 shows a fragged flight that matches the preference when the plan has
+    one, and a reason line when it doesn't.
+- [ ] **P4. The mission follows your flight.** The mission starts when the earliest flight
+  with a player in it starts up. This replaces the window picker (`QDcsWindowDialog`) and
+  the package move (`atoperiod.align_player_packages`, was F30) in the 6 hour model.
+  - `atoperiod.window` takes its start from the player flights. With no player flight,
+    **Take off** asks to pick a flight or to fast-forward the turn.
+  - The window's length stays "Desired mission duration". It only decides what is held
+    back for after the mission.
+  - Several players: the earliest startup wins, and later player flights start at their
+    own time. Warn about a player flight that starts after the window.
+  - Done when: picking another flight moves the mission start, and a test covers it.
+- [ ] **P5. Earlier strikers heading home** (F3's leftovers). Start stages follow the
+  timeline for every flight of both sides:
+  - not yet started: on the ground, at its time;
+  - in the air before its TOT: on its route, where the combat model put it (exists);
+  - past its TOT: on its way home with its weapons expended and the fuel it would have
+    left. Today it spawns with a full loadout.
+  - Done when: a test on the generated mission covers the three cases.
+- [ ] **P6. The fight goes on after you quit.**
+  - Export the elapsed mission time: `write_state` in
+    `resources/plugins/base/dcs_retribution.lua` writes it and `game/debriefing.py` reads
+    it. Today only `mission_ended` is exported.
+  - Flights in the mission that hadn't finished when you quit are continued by the combat
+    model from that time, from where their flight plans put them. Today they are assumed
+    to recover.
+  - Then the packages held back for after the mission are fought to the end of the
+    period, as `atoperiod.resolve_remainder` does today.
+  - A mission that ended without a state file (a crash) is treated as flown to the end of
     the window.
-  - **Holding:** packages waiting at the hold or push point for their TOT, CAS stacks
-    waiting for a tasking, and tankers with receivers queued.
-  - **On station:** CAPs, AWACS, tanker tracks.
-  - **Inbound:** strikers and SEAD between hold and target. Long-range bombers at their
-    ingress point, with the hours of transit assumed; they can come from off-map bases.
-  - **Returning (RTB):** flights that flew a sortie just before the window. They spawn
-    egressing or on the way home with reduced fuel and expended weapons, then land. They
-    are "ambience with stakes": they can still be intercepted, and losses count.
-    - These are real sorties from the same air wing. The planner treats them as the end
-      of the turn's earlier sortie: no target effect in this window, the airframes are
-      busy, and they turn around for the next turn.
-    - Keep them few (e.g. 1–3 per side), weighted to bases near the player.
-  - **Player flights** keep the start type the player chose.
-  - Extend On Station and the waypoint generator so every stage spawns at a consistent
-    position, altitude, speed and waypoint index. For RTB, the flight starts on its
-    return leg.
-- [x] **F4. Give flights that start in the air a realistic fuel state.** Done
-  2026-11-09 (`game/ato/flightstate/airbornefuel.py`): AI flights airborne at mission
-  start used to spawn with full internal fuel (only player flights got the estimate). They
-  now get the estimate, but never less than 1.3 × the fuel for the rest of their plan plus
-  25% of a full load. External tanks still spawn full. Aircraft without fuel consumption
-  data keep a full load, except returning flights, which get 40%. Base it on the
-  distance from home base to the spawn point, keeping each aircraft's fuel-for-RTB rule.
-  Bombers that "flew for hours" arrive with tanker-topped or reduced fuel. Check the AI
-  doesn't go RTB on bingo straight away.
-- [x] **F5. Let the mission run past the window.** Checked 2026-11-09: nothing is planned
-  to take off after the window (F1, F2), the DCS mission doesn't end at the window, the
-  fast forward runs the period plus 45 minutes of recovery, and flights still airborne
-  when you end the mission are assumed to recover, as before. Decided: the mission doesn't end at
-  the window end. The player keeps flying while AI flights finish their legs, RTB and land
-  on their own. To do:
-  - The debrief commits whatever happened, including after the window. Flights still
-    airborne when the player ends the mission are assumed to recover unless damaged or out
-    of fuel. That's what the fast forward does today for flights still in the air.
-  - The fast forward (when the player skips the mission) resolves the same window, plus
-    recovery.
-  - Nothing new is scheduled after the window except ground alerts, which can still be
-    scrambled. That way, flying on doesn't keep spawning fresh packages.
+  - Done when: after quitting 20 minutes in, the debrief gives later packages results from
+    the combat model instead of "not flown". Test with a made-up state file.
+- [ ] **P7. Planning by hand.** The second way to play.
+  - A new value between "commander plans everything" and "commander plans nothing": the
+    commander flies the routine lines and you plan the rest. Today `auto_ato_behavior`
+    set to Disabled stops all of blue's planning. Red is always planned by its commander.
+  - Packages made by hand are key packages in the briefing and the debrief.
+  - Any package can be pinned "keep in my mission" (B3 uses it).
+  - Done when: a strike planned by hand shows in the briefing, and in the debrief with its
+    result.
 
-### Planning scale
+### M3. The bubble
 
-- [x] **F6. Make the sortie budget per turn follow the window length.** Done 2026-11-09:
-  **Focused turns: packages per side (guidance)**, default 10. Once a side has that many
-  combat packages, further OCA, SEAD, strike, interdiction and CAS packages are dropped
-  ("packages per turn reached" in the scrub list). Ground alerts, AEW&C, tankers and HVAA
-  CAPs don't count; CSAR, enablers and DCA are planned first, and raids may go over. The
-  sortie total itself already follows the shorter period.
-  - Today a side has ~250 sorties per 6 h. A 60-minute window should plan roughly what
-    fights in that hour, not 1/6 of the sorties spread over relays.
-  - Apportionment shares stay, so doctrine still sets the mix; only the total changes.
-  - Aim for about 10 packages per side per turn (decided). This is guidance, not a hard
-    limit: the planner plans by priority and stops adding low-priority packages around
-    the target, but can go over for something that matters (a raid, a CSAR, a GCI
-    response).
-    - Add a "target packages per turn" setting, default 10.
-    - Packages that start in the RTB stage (F3) don't count toward it.
-- [x] **F7. Plan one CAP per threat axis for the whole window.** Done 2026-11-09: a CAP
-  in a focused turn stays on station until the window ends (`dca.max_patrol_min` 90,
-  `min_patrol_min` 20), AEW&C and theater tankers stretch their time on station by up to
-  half again, no relief is planned for a gap under `period.min_relief_gap_min` (15 min), HVAA
-  CAP stops at the window end, and stations within 10 nm of each other are merged. HVAA CAP
-  was already only planned where enemy fighters can reach the orbit.
-  - A single flight covers the window when its endurance on station is longer than the
-    window, so there are no relays.
-  - HVAA CAP only where enemy fighters can actually reach the AWACS or tanker track.
-  - Extra defensive depth goes to ground alert, which spawns nothing until GCI scrambles
-    it.
-  - This replaces most of item 4 below.
-- [ ] **F8. Keep support to the minimum.** One AWACS per side, and one tanker track per
-  receiver type that needs it. No relays inside the window. Carrier recovery tankers only
-  when carrier aircraft fly in the window.
-- [x] ~~**F9. Abstract the air war that isn't flown.**~~ Decided against: the hours
-  between windows are fully quiet. Only the existing per-turn processes run between turns
-  (repairs, procurement, intel decay, SAM moves, aircraft turnaround). Revisit only if
-  campaigns feel too slow.
-- [ ] **F10. Merge packages.** Merge small packages with nearby targets and TOTs into one
-  strike package with a shared escort and a shared SEAD corridor (item 1 below). Fewer,
-  bigger packages are easier to follow and need fewer escorts.
-- [ ] **F11. Keep both sides at the same scale.** Red's profiles (raids, alerts, IADS
-  management) follow the same window and the same caps. Raids are sized to the window, and
-  the echelons of a raid are minutes apart.
-- [ ] **F12. Keep the ground war and air war per turn in line.** Ground combat is already
-  calibrated for one mission per turn. Check that CAS sizing (`cas_attrition` per period)
-  and interdiction still match when the period is the window.
+DCS holds only what you are likely to meet. The rest of the war is fought at the same
+time.
 
-### Player comprehension
+- [ ] **B1. Relevance.** For each flight of both sides: how likely you are to meet it
+  during the mission (was F22, part of F34).
+  - Inputs: where its flight plan puts it, minute by minute, during the mission; the
+    route, target and base of every flight with a player; for red CAPs and alerts, whether
+    their commit region or sector covers that route.
+  - Output: a score and one reason ("crosses your route at 10:42", "CAP over your
+    target").
+  - Ground units keep their own culling (`perf_culling`).
+  - A pure function with unit tests.
+- [ ] **B2. Clusters.** Flights that would fight each other during the mission go in or
+  out together: a package with its escort and SEAD, a CAP with the raid it would commit
+  on, an alert pair with the raid that would launch it.
+  - Predict the pairs from the combat model's own rules (commit regions, GCI sectors) and
+    the flight plans, for the mission's time only.
+  - Follow one step of "would fight", not the whole chain, or everything joins one
+    cluster.
+- [ ] **B3. Budget** (was F15). About 10 packages per side in DCS. The "packages per side"
+  setting becomes this budget. It is guidance, not a hard limit.
+  - Always in, outside the budget: your package, your tanker and AWACS, the SEAD corridor
+    you fly through, and pinned packages.
+  - Fill the rest by cluster score.
+  - Warn when the aircraft count goes well over a set number.
+- [ ] **B4. Generate the bubble only.** Packages outside the bubble are held back from the
+  .miz the way `atoperiod.defer_after_window` holds back later packages, with the reason
+  kept ("elsewhere" or "after").
+  - Alert pairs in the bubble stay late activated for the GCI plugin.
+  - Done when: a test on the generated mission finds only bubble flights in it.
+- [ ] **B5. Fight the rest.** The combat model fights the flights outside the bubble over
+  the mission's own time, then carries on with P6. The results are committed with the
+  debrief (`MissionResultsProcessor.commit_resolved_period`).
+  - The bubble and the rest don't interact. B7 measures what that costs.
+- [ ] **B6. Show it.**
+  - List: "In your mission" first, each flight with its reason. "Elsewhere" folded.
+  - Map: bubble flights drawn, the rest dimmed.
+  - Debrief: an "Elsewhere" part.
+- [ ] **B7. Measure the distortion without DCS.** A tool that fights the same turn twice
+  with the combat model, once whole and once split into bubble and rest, over several
+  seeds. It compares losses and target results per side.
+  - Set the tolerance from the first measurements and add the number to the matrix.
+  - This matters more because nothing is flown in DCS until M6.
+- [ ] **B8. Your base is alive** (was F19). At the base you fly from, and only there:
+  - parked aircraft as statics, taken from the squadrons' real inventory, inside the
+    aircraft count of B3;
+  - arrivals and departures come from the timeline by themselves.
+  - Check parking with ground starts and landings at a busy base (F32).
 
-- [ ] **F13. A turn briefing.** Partly done 2026-11-09: a box at the top of the ATO panel
-  (`atopresentation.turn_briefing`) shows the turn, phase and mission time, the intent and
-  main effort, up to 5 key packages (yours first) with what each is for, the routine lines
-  in one line ("Also: 3 CAP stations, 1 AWACS, 1 tanker, 2 ground alert pairs, 2 CAPs
-  returning home"), and the threats as our intelligence sees them. Still to do: the same
-  text in the DCS mission briefing, and what the enemy is expected to do. A short plan
-  summary at the top of the ATO panel and in the mission briefing:
-  - phase and intent;
-  - main effort;
-  - the 3–5 key packages and what each is for;
-  - known threats;
-  - what the enemy is expected to do (only what blue's intel supports).
-- [ ] **F14. A less cluttered ATO list and map.** The list part mostly exists: packages
-  are grouped by category with collapsible chips. Still to do: the map symbols.
-  - Group the list by package with the key packages first. Collapse routine DCA and
-    support to one line each, e.g. "2 CAP stations, 1 AWACS, 1 tanker".
-  - On the map, draw CAP stations, tanker and AWACS tracks as compact symbols instead of
-    full routes, and show full routes only for the selected package.
-- [ ] **F15. A unit budget for the mission.** A setting for the aircraft (and optionally
-  ground units) a mission should hold, for performance. Like the package target (F6), it's
-  guidance: the planner prefers fewer, better-placed flights near the budget, and the
-  mission generator warns when it goes well over.
-- [x] **F16. A debrief that follows the plan.** Done 2026-11-09: the debriefing window opens
-  with "How the plan went". Each key package (player packages first) shows its goal and
-  result: target destroyed, units hit or successful attacks, air kills, aborted or not
-  flown, and aircraft lost. Routine lines are summed ("4 CAP stations: no losses"). The
-  data comes from `briefing.plan_debrief`, which also finds packages whose flights finished
-  and left the ATO.
+### M4. Campaign start
 
-### Living battlefield
+A new campaign starts the way a real operation would: a deployed air wing, a prepared
+enemy, an opening salvo and a BDA. M4 doesn't depend on M1 to M3 and can be moved earlier
+if the user asks.
 
-Ways to make the window feel like the middle of a war without many more units.
+- [ ] **T1. One branch with everything.** Merge `combat-resolution` into `Resolution`,
+  which has the presets, and run the tests there. Decide where the items that need both
+  the presets and the planner are built (T3, T9).
+- [ ] **T2. Start with aircraft.** Squadrons and detachments start with their aircraft, for
+  both sides. Nothing is bought at turn 0.
+  - Presets: `buy_preset_aircraft` goes. A squadron's `buy` number becomes the number
+    deployed, so a detachment starts with a few aircraft and a squadron with all of them.
+  - An air wing built by hand starts full ("squadrons start full" on by default).
+  - The planner's request for forces starts on turn 1. Replacements are bought as today.
+  - Retune the starting budget, which now pays for ground forces only.
+  - Done when: a campaign started from a preset shows no aircraft purchase at turn 0 for
+    either side.
+- [ ] **T3. Bomber detachments.** Where the campaign defines an off-map base for the side,
+  the preset adds a detachment of strategic bombers there, never at an airfield in the
+  theater. Elsewhere it adds none.
+  - 10 of the 70 campaigns define an off-map base for blue. One of them (`black_sea`) also
+    defines one for red.
+  - The bombers enter at the map edge, as off-map flights do today.
+  - Done when: bombers appear only in those campaigns, and the planner tasks them.
+- [ ] **T4. Presets from real deployments.** Check the 12 presets against the deployments
+  they name: squadron counts, types, and detachment sizes for AWACS, tankers, electronic
+  warfare and reconnaissance. Note each source in the file. List the factions and eras
+  that have no preset.
+- [ ] **T5. Pre-war reconnaissance.** Before **Begin Campaign**, each side has a number of
+  reconnaissance tasks to spend on areas of the map. Each raises what the side knows
+  there, through the intel picture. Red's commander spends its own.
+- [ ] **T6. First intel round.** At **Begin Campaign** the strategic intel round
+  (`warstate._strategic_intel`) runs once, after T5, and the turn 1 briefing opens with
+  its estimate. Today the pre-war picture is filled in when first needed.
+- [ ] **T7. Opening choices.** At turn 0 the player picks:
+  - H-hour: which 6 hour period of the day the war starts in;
+  - the opening emphasis: air defenses, airfields, command and control, or balanced. It
+    weights the turn 1 target list and the missile strikes (T9).
+- [ ] **T8. Red's turn 0.** A new-campaign setting for strategic surprise: none, partial
+  or full. It sets red's posture at H-hour: SAMs moved or still at their known sites,
+  emission control, decoys, aircraft dispersed or parked in the open, and the share of
+  fighters on alert.
+- [ ] **T9. Opening missile strikes.** Blue only, turn 0 only (decision 5).
+  - Salvo size: from the faction and its era, raised by the cruise missile ships and
+    bomber detachments in the campaign.
+  - Targets: fixed targets from the commander's target list, weighted by the opening
+    emphasis.
+  - The app resolves them at **Begin Campaign**. Hit chances depend on the target, red's
+    defenses and surprise. There is no missile stock afterwards.
+- [ ] **T10. Turn 1 BDA** (was F23). Turn 1 opens with a BDA report: what was fired at and
+  what intelligence assesses was hit, with the intel picture's uncertainty. The damage
+  shows on the map, and in the first mission as wrecks and craters.
+  - Done when: the report changes with the surprise setting and the opening emphasis.
 
-- [ ] **F19. Turnaround at the player's base.** Decided 2026-11-09 (user): the player's
-  base only, not every friendly base. There, show the turnaround of the air war:
-  - a flight landing as the player starts up (RTB, F3);
-  - another taxiing out;
-  - aircraft parked in their shelters or on the ramp. These are static, cheap, and drawn
-    from the real squadron inventory, so losses and damage show.
-- [x] ~~**F20. Radio traffic that reflects the plan.**~~ Decided 2026-11-09 (user): not
-  implemented. No radio chatter.
-- [ ] **F21. Helicopters in the background.** Utility, CSAR and resupply helicopters near
-  the front and the player's base. They are cheap units that read as "busy theater". This
-  ties into CSAR and the dynamic FARPs. Keep them low and few, and count them in the unit
-  budget (F15).
-- [ ] **F22. The enemy is visibly active too.** Red's GCI scrambles, a red CAP on its
-  station, red helicopters behind its lines, and SAMs shifting position between turns
-  (already built). This applies the same mix of stages to red (F3, F11).
-- [ ] **F23. Leftover traces of earlier turns.** Burning wrecks at struck sites (static
-  carcasses already exist), craters on damaged runways, damaged SAM sites shown as
-  damaged. Makes the "hours of war before this window" visible without flights.
-- [ ] **F24. A small amount of randomness in timing.** Small TOT and takeoff jitter, an
-  occasional flight that aborts on the ground (mission-capable rate) or comes home early,
-  so the battlefield doesn't run like clockwork. This is player-visible only; planned
-  effects stay deterministic enough for the planner.
+### M5. Realism and balance
 
-### Realism kept, and how to check it
+- [ ] **V1. Full test matrix, campaign pace and economy in the new model** (was item 10,
+  F12, F17, F28).
+  - All four scenarios at full length: 8 turns × 5 seeds, 6 turns for red_wins.
+  - Turns per phase, and whether the phase thresholds still fit.
+  - Whether money piles up or the AI over-buys.
+  - Whether CAS and interdiction still match the ground model.
+- [ ] **V2. Planner leftovers.** Only where a band fails or a symptom is named, one at a
+  time:
+  - idle strike aircraft get the next-best target (item 3);
+  - DCA sized to the enemy's real air threat (item 4);
+  - a CAP station's estimate counts the enemy sweeps that can reach it (item 8);
+  - client alert sectors pulled under the SAM umbrella (item 9);
+  - why Iran's ground alerts rarely scramble (item 6).
+- [ ] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
+  period that marks targets for CAS. There is no FAC flight type today. First check what
+  the DCS AI can do with its FAC task.
+- [ ] **V4. CSAR, FARP and parking in the period** (was F33, F32). CSAR packages, FARP
+  setup and resupply flights and air assaults in a 6 hour turn and in the bubble, and
+  parking at busy bases and on carrier decks.
+- [ ] **V5. Docs and tests** (was F37, F38). Rewrite the planner guide for the turn model,
+  the main push, your flight and the bubble. Settings descriptions and the changelog.
 
-- [ ] **F17. Track aircraft availability per turn.** Sortie generation still uses
-  mission-capable rates, but per window. Losses per turn will be smaller, so check:
-  - whether campaigns take many more turns to reach each phase;
-  - whether the phase MOEs (enemy air attrition, c2_degraded, ...) need lower thresholds,
-    or need to count per day instead of per turn.
-- [ ] **F18. Re-run the validation in focused mode.**
-  - Run `campaign_matrix.py` and `campaign_e2e.py` with focused turns and re-check the
-    bands (iraq, iran, peer, red_wins). They will need new turn counts.
-  - Add matrix metrics: packages per side per turn, aircraft in the mission, and
-    simulation time.
-  - Do a DCS performance check on a busy theater, recording frame rate and unit count
-    before and after.
+### M6. The DCS pass
 
-### Existing features the change touches
+Every open item under "Checks in DCS", flown in one pass (decision 8). Then the fixes,
+then a frame rate and unit count measurement on a busy theater.
 
-Found by going through what the branch already does. Each one assumes today's 6 h
-period, or interacts with the new starts.
+## Parked
 
-- [x] **F25. The window picker and pre-window fighting.** Done 2026-11-09: in a focused
-  turn there's no picker, and nothing is planned after the window, so `defer_after_window`
-  and `resolve_remainder` find nothing to do. `advance_to_window` stays: it flies the
-  lead-in. The ATO list and timeline count offsets from mission start ("-0:10" is in the
-  lead-in), the **DCS** badge and the "outside the DCS window" dimming are gone, and the
-  timeline runs on to the last landing. Today **Take off** asks which
-  window of the period to fly (a 15-minute slider in `QTopPanel.py`). The combat model fights
-  everything before it (`advance_to_window`) and after it (`resolve_remainder`).
-  - In focused mode the window is the turn, so the slider and both of those steps go.
-  - Keep them for the 6 h "theater" option.
-  - The ATO timeline shows the window and the run-out after it (F5) instead of 6 h. The
-    **DCS** badge on package rows is no longer needed.
-- [x] **F26. Second sorties and turnaround.** Checked 2026-11-09: with a 90-minute period
-  the ledger gives one sortie per airframe (turnaround 2 h is longer than the period), and
-  the focused e2e runs planned 0 second sorties. A 150-minute window can still reuse a
-  helicopter (1.5 h turnaround). Counting returning flights' airframes moves to F3.
-  - Turnaround is 2 h for fighters and 4 h for bombers, longer than most windows, so
-    second sorties (`sorties.py`, `max_sorties_per_airframe`) mostly disappear. Keep them
-    only when the window is long enough (e.g. 150 min).
-  - Returning flights (F3) take the airframes of "the earlier sortie". Count them in the
-    ledger so the same aircraft aren't also tasked in the window.
-  - Revisit the second-sortie fix from today (`_ground_unavailable_sorties`) under the new
-    timing.
-- [ ] **F27. Readiness across a 6 h step.** Shelved 2026-11-09 (user): not now. With ~10 packages a turn, most aircraft sit
-  idle. Decide whether these work per turn or per day:
-  - mission-capable rates (80%);
-  - pilot limits (`max_sorties_per_pilot`);
-  - repairs.
+These need the user's word before any work. Don't build or propose them as part of a
+milestone.
 
-  Without that, a squadron could fly every single turn, four turns a day, without any
-  fatigue.
-- [ ] **F28. Economy and procurement.**
-  - Income per turn stays the same, but losses per turn drop a lot, so money piles up.
-  - The request for forces finds smaller shortfalls, and replacements stay at 4 aircraft
-    per squadron per turn.
-  - Check with the F17 data whether the AI over-buys or runs out of parking, and whether
-    income or prices need scaling.
-- [x] **F29. The turn-0 plan looks like the first turn.** Done 2026-11-09: at turn 0 the
-  ATO panel shows "Pre-war posture: this plan is never flown. Begin Campaign plans turn 1,
-  when hostilities start." Before **Begin Campaign**, the
-  ATO shows the pre-war "Phase 0: Posture" plan: DCA and support only. It's replanned when
-  the campaign begins and never flown, but it reads as the first turn's plan (it confused
-  the user on 2026-11-09). Fix one of two ways:
-  - label it "Pre-war posture — replanned when the campaign begins";
-  - or don't show a plan at turn 0.
-- [ ] **F30. Player flights in a short window.** Partly done 2026-11-09: on **Take off**
-  in a focused turn, a package whose player flights would start up during the lead-in is
-  moved later as a whole (`atoperiod.align_player_packages`), so players start at mission
-  start with their chosen start type and the combat model never flies them. The TOT moves
-  by the same amount, so it can end up late in the window. Still to do: the planner should
-  leave that time when it plans packages with player slots; counting player packages as
-  key packages (F13).
-  - A player starting cold on the ground needs 15–20 min before taking off. The player
-    package's TOT has to leave that time, or the player gets a hot or runway start.
-    Interacts with "Player missions ASAP" (`auto_ato_player_missions_asap`).
-  - Player packages always count as key packages (F13), and count toward the ~10.
-  - Multiplayer: player flights at several bases each get their own living base (F19:
-    each base a player flies from) within the unit budget.
-- [ ] **F31. Ground and sea activity in the window.** Part of the living battlefield and
-  part of the unit budget:
-  - convoys and transfers already moving on roads (`game/transfers.py`);
-  - cargo ships;
-  - airlift flights;
-  - front-line units.
+- **F27, readiness per turn or per day.** Shelved. A 6 hour war four times a day makes it
+  matter more, so it's worth a second look after M1.
+- **F10** merging packages, **F21** background helicopters, **F24** timing randomness,
+  **F31** ground and sea activity in the mission, and stand-off SEAD.
+- **Turn 0 ideas** suggested on 2026-11-09 and not decided:
+  - forces that arrive over the first turns instead of all at once;
+  - a weather and light forecast for the first day, to inform H-hour;
+  - a logbook for your pilot (today a pilot's record is only missions flown);
+  - CAP stations and tracks that keep their names from turn to turn;
+  - limited stocks of precision weapons;
+  - special forces or cyber actions before H-hour;
+  - target restrictions that lift as the phases advance.
 
-  Check that transfers in progress appear in the window at the right place. Count
-  front-line units (front width, `perf_culling`) against the budget (F15).
-- [ ] **F32. Spawning, despawning and parking.** Partly done 2026-11-09:
-  - Late activation already existed: hot, runway and carrier starts activate at their
-    time, and cold starts sit uncontrolled on the ramp until startup (ambience by the
-    player).
-  - New **Parking cleanup** plugin (on by default): an AI aircraft is removed 10 minutes
-    after it shuts down if it's still parked; helicopters only with its option, players
-    never. The base plugin ignores the removal, so it isn't a loss.
-  - Still to check: parking at a busy base and carrier deck space (needs DCS, D10).
-  - Late-activate flights whose stage starts later in the window, so the unit count at any
-    moment stays low.
-  - Remove AI aircraft some minutes after they land and park (including RTB flights,
-    F3/F5).
-  - Check parking at a busy base, where these all compete:
-    - ground starts beside the player;
-    - parked static aircraft (F19);
-    - flights landing.
-  - Check carrier deck space for ground starts and recoveries.
-- [ ] **F33. CSAR, FARPs and air assault in the window.**
-  - Downed pilots' survival is counted in turns, which stay 6 h, so it doesn't change.
-  - CSAR packages, FARP setup and resupply flights, and air assaults aren't counted toward
-    the ~10 packages.
-  - They must fit the window: a FARP setup flight must land within it, or its delivery
-    is counted when the player ends the mission.
-- [ ] **F34. Red in DCS.**
-  - Red's alerts stay late activated for the GCI plugin.
-  - Skynet emission control orders still apply.
-  - Red gets the same mix of start stages (F3, F22), including RTB flights near its own
-    bases.
-  - Red's mixed starts must not hand the player free kills on aircraft taking off. Weight
-    red's ground starts to bases away from the player's package routes.
-- [ ] **F35. Intel and adaptation with fewer flights.** Intel sources were tuned for 6 h
-  of activity a turn:
-  - satellite passes;
-  - recon flights;
-  - EWR and AWACS observations;
-  - learned threat axes (decay 0.7 per turn);
-  - ELINT from SAM engagements.
-
-  With far fewer flights, each side sees much less per turn. Check that intel confidence
-  and learned axes still build up. If not, scale the decay or the per-observation weights
-  to the window.
-- [ ] **F36. Save compatibility and switching modes.**
-  - Campaigns started with the 6 h period must still load. Switching the setting
-    mid-campaign must work, which affects:
-    - `period_for`;
-    - deferred packages;
-    - the window offset;
-    - the ATO already planned for the turn.
-  - Switch at the next turn boundary only.
-- [ ] **F37. Settings and docs.**
-  - New settings, each with a clear description:
-    - focused turns on or off;
-    - target packages per turn;
-    - unit budget;
-    - number of returning flights;
-    - start-stage mix.
-  - Rewrite the planner doc sections "Sorties and timing", "Flying a window of the period"
-    and "Reading the ATO", and add a "Living battlefield" section and a changelog entry.
-- [ ] **F38. Tests.**
-  - Unit tests for:
-    - start-stage assignment (F3);
-    - fitting the timeline to the window (F2);
-    - the package target (F6);
-    - one CAP per axis covering the window (F7);
-    - nothing new scheduled after the window except alerts (F5).
-  - Add a `--focused` flag to `campaign_e2e.py` and the matrix.
-
-## Air campaign planner: Phase I offensive (Western profile)
-
-Found 2026-11-09 in a USA 1990 vs Iraq 1991 Caucasus campaign. In Phase I, offensive
-counter-air planned 0 of 54 sorties and strategic attack 0 of 37. The 12 F-15Es at
-Senaki and the 4 B-1Bs got no tasks, while DCA flew 40 sorties against 30 Iraqi
-fighters hiding in shelters. These items still apply with focused turns: they decide what
-the few packages of a turn are.
-
-- [x] **1. SEAD covers a corridor, not one package.** Done 2026-11-09: every package with
-  HARM shooters (SEAD, SEAD escort, SEAD sweep, DEAD) opens a corridor: its shooters'
-  route buffered by 12 nm (`packages.sead_corridor_nm`), from 10 minutes before its TOT to
-  20 after. A later package whose ingress leg (last 40 nm) is at least 80% inside an
-  active corridor drops its own HARM escort, passes the "no SEAD" rule, and counts the
-  corridor's shooters (up to 8) in its risk estimate. This matches the combat model, where
-  any airborne SEAD flight hunts emitters and deters sites from radiating. First focused
-  plans: 1 package per side used a corridor; blue's bottleneck in the peer test moved from
-  SEAD escorts to fighter sweeps (36 drops). F10 (merging packages) will use corridors
-  more. Original note: A SEAD or DEAD flight suppresses a
-  route corridor for a time window, and every package on that corridor inside the window
-  counts as escorted. Today each package entering radar SAM coverage needs its own SEAD
-  escort. The few SEAD-capable squadrons (F-16CM, AV-8B, Hornets) are used up by the DEAD
-  packages, which caused 59 drops ("SEAD Escort: no mission-capable aircraft free in the
-  sortie window"). This is also what F10 relies on.
-- [ ] **2. H-hour sequencing in Phase I.** Partly done 2026-11-09: SEAD/DEAD nominations
-  are planned before the rest of the target list, in the first wave, so strikes in the
-  next wave (about 10 minutes later in a 60-minute window) can use their corridors. Still
-  to do: C2 strikes in the first wave.
-  - First wave: DEAD against EWRs and the SAMs covering the corridors, plus strikes on
-    C2 targets.
-  - Second wave, 10–20 minutes later: strike and OCA packages through the suppressed
-    corridors.
-  - Deep airfields stay off the list until rollback has thinned the IADS. They are
-    currently estimated at 18–57% losses per sortie against a 3% limit, including 5–8
-    SAMs that are suspected but not located.
-  - With focused turns, this is the shape of the first turn's window (F2).
-- [ ] **3. Give idle strike aircraft the next-best target.** If a strike squadron would sit
-  out the turn, give it the best target it can reach without a SEAD escort: targets
-  outside radar SAM coverage, or interdiction and battlefield strikes near the front.
-  This respects the package cap (F6).
-- [ ] **4. Size DCA to the enemy's real air threat.** Scale DCA by the enemy's fighter
-  numbers, its posture and the enemy sorties our radars actually saw. An enemy hiding its
-  air force gets ground alerts, plus HVAA CAP only where its fighters could reach the
-  AEW&C or tanker tracks. Freed sorties go to OCA and strike. Mostly covered by F7.
-
-## Fast forward: fights restart with nothing happening
-
-- [x] **5. Stop fights that can't produce a shot from restarting.** Done 2026-11-09: after
-  an air engagement with no shots fired, the same opposing pairs of flights don't start
-  another one for 5 minutes (`QUIET_ENGAGEMENT_COOLDOWN` in `model/engine.py`). SAM
-  engagements are unchanged on purpose: the model is calibrated so that time spent inside
-  a SAM zone is what costs aircraft. Original report: In one fast-forwarded
-  turn on 2026-11-09, 135 of 362 new fights were BARCAP fighters (F-14B, F-15E) against the
-  red A-50 AWACS. Each ended "Air engagement over after 40s, 0 shots" and was started again
-  a few seconds later. The same pattern showed up for F-15E vs Su-33 CAPs. Find out why the
-  combat initiator keeps matching these flights (probably the A-50 is inside the CAP's
-  commit region but outside weapons range, or the AWACS can't be engaged). Then make a fight
-  that ends with no shots fired stay off for those flights for a while, or don't start it
-  when no shot is possible. These restarts are what made that turn's fast forward take about
-  3 minutes in the app. Focused turns make this less costly, but it's still a bug.
-
-## OPFOR planner: open issues from tuning (step 11)
-
-From the test matrix (`resources/tools/campaign_matrix.py`) and e2e runs on 2026-11-09.
-Results: red_wins PASS (4 of 4), iraq PASS (exchange ratio 5.6–24), iran FAIL. peer passed
-only a short run (3 seeds, 4 turns).
-
-- [x] **6. Iran: nobody fights.** Done 2026-11-09. Before: in all 4 runs Iran lost 0
-  aircraft and blue lost 1–12, and after turn 1 blue planned only CAPs, scrubbing ~170
-  packages a turn.
-  - **Cause:** the rollback never started. The cheapest DEAD target in Iran's IADS has a
-    route SAM weight of 11 or more (estimate 14–20% against a 4.5% limit), and the rollback
-    allowance only applied at a weight of 8 or less. Also, the estimate was far off: on
-    turn 1 blue's packages estimated 11% and lost 1.4–5.5%.
-  - **Fix 1, openers:** when no SAM site is within the rollback allowance's route weight, the
-    2 least-defended sites may be attacked at up to 20% (`risk.rollback_allowance.
-    opener_limit`, `opener_packages`). Blue flew 2 DEAD packages on turn 1. On their own,
-    openers stalled from turn 2: red moved SAMs onto the axis and the next sites estimated
-    just over 20%.
-  - **Fix 2, loss experience** (`experience.py`): each side scales later estimates by
-    (lost + 3) / (expected + 3) over its own estimated packages, per kind (strike, CAP
-    station), between ×0.35 and ×3, decayed ×0.7 a turn.
-  - **Result** (USA 2005 vs Iran 2015, 5 turns, seed 1): blue flew SEAD, DEAD and CAS every
-    turn (DEAD on turns 1 and 3), losing 0–8% per sortie (5.5%, 0, 0, 8%, 0). Red lost 5
-    aircraft on turn 1.
-  - Not done:
-    - stand-off SEAD (shooters outside the MEZ charged less);
-    - why Iran's ground alerts rarely scramble.
-  - The e2e report now lists scrub reasons ("scrubbed for") and the nearest misses ("closest
-    to flying").
-- [x] **7. Blue's risk estimate shows 0.0%.** Fixed 2026-11-09:
-  - DCA packages are now estimated and gated (risk kind "defense"). Before, they had no
-    estimate at all, so a turn of only CAPs averaged to 0%. The e2e report says how many
-    packages were estimated and weights the mean by sorties.
-  - The CAP estimate counts SAM sites within 15 nm of the station (`packages.
-    station_margin_nm`) at reduced weight, and uses its own fitted exposure
-    (`risk.model.station_exposure` 0.04): Iran CAPs now estimate 3.6–3.8% against 2–4.3%
-    actual. The strike fit gave ~60%.
-  - CAPs no longer get SEAD escorts added by the "one more try" step.
-  - Later the same day: a station over the limit is pulled back along its axis (half the
-    distance, then over the defended base) before the line is dropped. The station SAM term
-    is now linear in the route weight (`station_exposure` 0.0018 per unit of weight). With
-    the old quadratic term and red's SAMs moved up the axis, an Iran run (hash seed 2) ended
-    up with no blue CAP at all: estimate 7.4% against a 4% limit at weight 21, where CAPs
-    had lost 0 of ~30 sorties.
-  - Enemy sweeps in the CAP estimate: see item 8. In the iran runs, blue reports "est. risk
-  0.0%" from turn 2 on while its actual losses are 2–4.3% per sortie.
-  - **Cause (2026-11-09):** from turn 2 blue only plans DCA, about 46 BARCAP sorties a
-    turn (item 6). A CAP's risk is estimated for its route, against the SAMs blue knows
-    about, so a station placed "outside SAM coverage" estimates 0%.
-  - The losses are all to SAMs while on station: CAPs orbiting for hours near an IADS
-    blue hasn't fully located.
-  - **Fix:**
-    - estimate a CAP's risk for the time it spends on station, including the allowance
-      for unlocated SAMs near the station;
-    - keep stations further from suspected coverage.
-  - Also count enemy fighters that can reach the station (item 8).
-- [ ] **8. Red CAPs get swept.** Red's standing CAPs lose badly to blue fighter sweeps
-  supported by AWACS.
-  - In one run, Russia 1990 lost 49 of 75 aircraft on turn 1, most of them Su-33 BARCAPs.
-  - Red's DCA risk estimate said 2.6%, but losses were 65%.
-  - Fix:
-    - the CAP risk estimate must count enemy sweeps and escorts that can reach the
-      station;
-    - when the enemy sweeps, red should pull CAPs back under its SAMs or replace them
-      with ground alerts. Force preservation does this today, but only after the losses.
-  - **Partly done 2026-11-09:** the loss experience factor (item 6) raises a side's
-    estimates when its packages lose more than estimated, up to ×3. In a peer run (Russia
-    2010, 3 turns, focused) red's estimate rose from 2.9% to 7.8% after turn 1. Its actual
-    losses stayed at 11–31% per sortie (fighter sweeps 3/8 and 4/6, BARCAP 2–3/8).
-  - **Also 2026-11-09:** in a focused turn, enemy fighter availability is scaled by 6 h over
-    the window (lead-in included), up to 1 (`packages.availability_period_hours`). Both air
-    forces fly the turn's sorties in the window. Peer estimates went from blue 0.4% / red
-    3.6% air per sortie to 1.4% / 9.6%.
-  - **Still to do:** the air term itself. A station's estimate should count the enemy
-    sweeps and escorts that can reach it (from the enemy sorties the side's radars saw
-    last turn), not just the enemy fighter count.
-- [ ] **9. Red client loss rate.** In the iraq runs, Iraq lost 45–71 aircraft out of
-  84–99 sorties (over 50% per sortie) against a 6% risk limit. Its estimate is far too low.
-  Either Iraq should fly much less (ground alerts only when outclassed), or the estimate
-  should stop those sorties.
-  - **Mostly done 2026-11-09.** With focused turns, Iraq flies about 5–7 aircraft a turn,
-    and its losses are the alert pairs GCI scrambles (2–3 a turn), 4–6 aircraft.
-  - GCI no longer scrambles into raids more than `alert.max_odds` times the alert aircraft
-    able to meet them: 3 by default, 2 for client air forces. Force preservation lowers
-    this (`scramble_max_odds`: 1.5 for Russian and Soviet, 1 for client).
-  - Left: the scrambled pairs still mostly die. Their sectors could be pulled under the
-    SAM umbrella under force preservation. Historically Iraq lost most interceptors it
-    launched too.
-- [ ] **Focused turns raise the loss rate per sortie.** First focused e2e runs (2 turns,
-  2026-11-09): peer blue 7.4–9.7% and red 18–25% per sortie, against limits of 2% and 4%;
-  Iran red 23–29%. Part of this is arithmetic: the idle CAP sorties that used to dilute the
-  rate are gone. The rest is items 8 and 9 (CAPs swept, red estimates too low). Judge the
-  bands per turn as well as per sortie (F17, F18) before tuning risk constants.
-- [ ] **10. The full matrix.** Run all four scenarios at full length (8 turns × 5 seeds;
-  6 turns for red_wins). Peer hasn't been run at full length, or since base captures
-  became possible in fast forward. Re-run after items 1–9, and again in focused mode (F18).
+"Not doing" is in `VISION.md`, section 4. Radio chatter (F20) is on it.
 
 ## Checks in DCS (nobody has flown these yet)
 
 The running list of what to check in DCS. Add an item whenever a feature that changes the
 generated mission lands, and tick items once they're flown. Report problems with
 `Saved Games\DCS\Logs\dcs.log` or a Tacview recording.
+
+**Decided 2026-11-09:** these are flown in one pass at the end (M6), not after each
+milestone. So every item that changes the mission also gets a test on the generated
+mission.
+
+D7's two returning CAPs and all of D9 describe the focused turn, which is today's default.
+After W8 they are checks of the "Mission only" option, and the 6 hour turn gets its own.
 
 **Setup:**
 - A campaign with blue against a modern Russian faction. Russia's planner profile uses
@@ -665,25 +447,27 @@ generated mission lands, and tick items once they're flown. Report problems with
   - Switch fog of war back on while the enemy's ATO is shown: the list switches back to
     yours.
 
-## Suggested order
+## Decisions
 
-0. ~~**Quick fixes first:** item 5, F29, item 7.~~ Done 2026-11-09.
-1. **Turn model:** ~~F1, F6, F7, F25, F26~~ done; F2 partly. Was: F25 and F26 (focused period, timeline in the
-   window, ~10 packages, one CAP per axis, window picker and second sorties). This is
-   where most of the reduction comes from.
-2. **Mixed starts and life after the window:** F3, F4, F5, F30 and F32. This is the core
-   of the "alive" goal. Done 2026-11-09 except the remainders noted under F3, F30 and F32.
-3. **Packages:** items 1 and 2, then F10 (corridor SEAD, H-hour, merged packages), then
-   items 6, 8 and 9 (iran, swept CAPs, client losses).
-4. **Readability:** F13, F14 and F16.
-5. **Living battlefield extras:** F19, F21–F24 and F31, cheapest first (F23, F19, F24,
-   F22, F31, then F21). F20 dropped.
-6. **Consequences:** F28, F33–F36 (F27 shelved) (readiness, economy, CSAR and FARPs, red in DCS,
-   intel, saves).
-7. **Unit budget:** F15.
-8. **Validation and docs:** F17, F18, F37, F38, item 10, and the DCS checks D1–D7.
+The full list, with what each decision replaces, is in `VISION.md`, section 5. Only the
+user changes a decision.
 
-**Decided 2026-11-09 (user):**
+**Decided 2026-11-09, vision review (user):**
+
+1. Every turn is a full 6 hour air war. The combat model fights what DCS doesn't show.
+2. The plan is as big as the air wing can fly. DCS gets about 10 packages per side, the
+   ones near the player.
+3. Two ways to play: the commander plans, or you plan by hand.
+4. Your preference never bends the plan.
+5. Opening missile strikes are blue only and turn 0 only.
+6. Strategic bombers only where the campaign defines an off-map base.
+7. Turn 0 gains red's turn 0, the opening choices and pre-war reconnaissance. No campaign
+   brief.
+8. The DCS checks are flown in one pass at the end.
+9. Squadrons and detachments start with their aircraft. None are bought at turn 0.
+
+**Decided 2026-11-09, earlier (user):**
+
 - Returning flights (F3) are real sorties, planned by the planner.
 - F19 only at the player's base.
 - F20 (radio chatter) not implemented.
