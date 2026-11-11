@@ -1,4 +1,9 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: mid-1980s carrier air wing (US Navy CVW organisation): 2 VF (F-14A, 12),
+# 2 VA (A-7E, 12; F/A-18A in some wings from 1983), VA (A-6E, 10, with KA-6D),
+# VAQ (EA-6B, 4), VAW (E-2C, 4), VS (S-3A, 10), HS (SH-3H, 6).
+# Differences: S-3B (1987) stands in for the S-3A tanker; SH-60B (a frigate
+# helicopter) for the SH-3H.
 name: US Navy Carrier Air Wing (1985)
 description: >-
   Mid-80s air wing: two F-14A squadrons, two A-7E squadrons, A-6E Intruders, EA-6B

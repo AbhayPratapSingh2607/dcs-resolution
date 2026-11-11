@@ -163,6 +163,16 @@ SCARCE_TASKS = {
 }
 
 
+#: Tasks strategic bombers at an off-map base are tasked for first (T3).
+BOMBER_TASKS = {FlightType.STRIKE, FlightType.OCA_RUNWAY}
+
+
+def _off_map(squadron: Squadron) -> bool:
+    from game.theater.controlpoint import ControlPointType
+
+    return squadron.location.cptype is ControlPointType.OFF_MAP
+
+
 def _scarcity(squadron: Squadron) -> int:
     tasks = squadron.auto_assignable_mission_types
     score = 0
@@ -403,6 +413,11 @@ class PackageComposer:
         # them: other tasks take them only when nothing else can fly it.
         if request.task not in SCARCE_TASKS and not request.jammer:
             candidates = sorted(candidates, key=lambda s: _scarcity(s))
+        if request.task in BOMBER_TASKS:
+            # Strategic bombers at an off-map base (T3) strike fixed targets
+            # first: their distance from the map edge says nothing about
+            # their fitness, and they are there for this.
+            candidates = sorted(candidates, key=lambda s: not _off_map(s))
         if request.home is not None:
             candidates = [s for s in candidates if s.location is request.home]
         why = "no suitable squadron in range"

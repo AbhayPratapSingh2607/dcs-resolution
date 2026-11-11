@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: a mid-2010s MEU aviation combat element (USMC MEU organisation): MV-22B (12),
+# CH-53E (4), AH-1Z (4), UH-1Y (3), and AV-8B (6), with F-35B replacing the Harriers
+# from 2017.
+# Differences: no MV-22B, AH-1Z or UH-1Y in DCS; the nearest types stand in.
 name: USMC Amphibious Ready Group (2015)
 description: >-
   Modern MEU aviation: F-35B Lightning IIs (AV-8B if unavailable), AV-8B Harriers,

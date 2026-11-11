@@ -1,4 +1,9 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: a Soviet frontal aviation air army of the mid-1980s (e.g. 16th Air Army in
+# East Germany): MiG-29, MiG-23ML/MLD, Su-24, Su-17M4, MiG-27, Su-25, Mi-24 and
+# Mi-8 regiments; long range aviation Tu-22M3 and Tu-16.
+# Differences: regiments are cut to squadrons of 12; A-50 and IL-78 entered
+# service in 1984-87, so the 1985 support is generous.
 #
 # No country is set, so squadrons use the faction's own country (USSR, Russia, a
 # Warsaw Pact client, ...).
@@ -30,3 +35,8 @@ groups:
       - {aircraft: ["MiG-31 Foxhound", "MiG-25PD Foxbat-E"], primary: Intercept, secondary: air-to-air, size: 8}
       - {aircraft: ["A-50"], primary: AEW&C, size: 2}
       - {aircraft: ["IL-78M"], primary: Refueling, size: 2}
+  # T3: long range aviation, only where the campaign defines an off-map base.
+  - base: off-map
+    squadrons:
+      - {aircraft: ["Tu-22M3 Backfire-C"], primary: Strike, secondary: [BAI, OCA/Runway], size: 6, buy: 4}
+      - {aircraft: ["Tu-16 Badger-B"], primary: Strike, secondary: [OCA/Runway], size: 6, buy: 4}

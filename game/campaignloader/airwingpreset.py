@@ -40,6 +40,10 @@ class BaseKind(Enum):
     CARRIER = "carrier"
     LHA = "lha"
     AIRFIELD = "airfield"
+    #: An off-map base the campaign defines for the side (T3): strategic
+    #: bombers enter at the map edge from there. A group for it adds nothing
+    #: in a campaign without one.
+    OFF_MAP = "off-map"
 
     @classmethod
     def of(cls, control_point: ControlPoint) -> BaseKind:
@@ -47,6 +51,8 @@ class BaseKind(Enum):
             return cls.CARRIER
         if control_point.is_lha:
             return cls.LHA
+        if control_point.cptype is ControlPointType.OFF_MAP:
+            return cls.OFF_MAP
         return cls.AIRFIELD
 
 
@@ -251,6 +257,8 @@ class PresetPlacer:
             return [cp for cp in own if cp.is_carrier]
         if group.base is BaseKind.LHA:
             return [cp for cp in own if cp.is_lha]
+        if group.base is BaseKind.OFF_MAP:
+            return [cp for cp in own if cp.cptype is ControlPointType.OFF_MAP]
         airfields = [cp for cp in own if self.is_airfield(cp)]
         if group.placement is not Placement.ANY:
             enemies = self.enemy_bases()
@@ -323,6 +331,7 @@ class PresetPlacer:
                 BaseKind.CARRIER: "a carrier",
                 BaseKind.LHA: "an LHA",
                 BaseKind.AIRFIELD: "any owned airfield",
+                BaseKind.OFF_MAP: "an off-map base",
             }
             return f"cannot operate from {names[base_kind]}"
         return None
@@ -383,6 +392,9 @@ class PresetPlacer:
 
         for group in preset.groups:
             bases = self.bases_for(group)
+            if not bases and group.base is BaseKind.OFF_MAP:
+                # Bombers only where the campaign has an off-map base (T3).
+                continue
             if not bases:
                 plan.warnings.append(
                     f"No {group.base.value} owned: skipped {len(group.squadrons)} "

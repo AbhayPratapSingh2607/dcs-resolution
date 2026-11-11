@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: mid-2000s carrier air wing (US Navy CVW organisation, e.g. CVW-8 on
+# USS Theodore Roosevelt 2005-06, the last F-14 cruise): VF (F-14D), 3 VFA (F/A-18C/E),
+# VAQ (EA-6B, 4), VAW (E-2C, 4), HS (SH-60F). Tanking by F/A-18E and S-3B.
+# Differences: F-14B stands in for the F-14D.
 name: US Navy Carrier Air Wing (2005)
 description: >-
   Air wing in the last years of the Tomcat: one F-14B squadron, F/A-18C Hornets,

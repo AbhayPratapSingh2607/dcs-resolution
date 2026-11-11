@@ -1,4 +1,9 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: the Russian VKS of the mid-2010s and its 2015 Syria deployment (Hmeimim:
+# Su-24M, Su-25SM, Su-30SM, Su-34, Mi-24P/Mi-35M, Mi-8AMTSh; long range aviation
+# Tu-22M3 from Mozdok, Tu-95MS and Tu-160 from Engels).
+# Differences: squadron sizes are the regiment's squadrons (12), larger than the
+# Syria detachments.
 #
 # No country is set, so squadrons use the faction's own country.
 name: Russian Aerospace Forces (2015)
@@ -28,3 +33,9 @@ groups:
       - {aircraft: ["MiG-31BM Foxhound", "MiG-31 Foxhound"], primary: Intercept, secondary: air-to-air, size: 8}
       - {aircraft: ["A-50"], primary: AEW&C, size: 2}
       - {aircraft: ["IL-78M"], primary: Refueling, size: 2}
+  # T3: long range aviation, only where the campaign defines an off-map base
+  # (Tu-22M3s from Mozdok, Tu-95MS and Tu-160 from Engels over Syria in 2015).
+  - base: off-map
+    squadrons:
+      - {aircraft: ["Tu-22M3 Backfire-C"], primary: Strike, secondary: [BAI, OCA/Runway], size: 6, buy: 4}
+      - {aircraft: ["Tu-95MS Bear-H", "Tu-160 Blackjack"], primary: Strike, secondary: [OCA/Runway], size: 4, buy: 2}

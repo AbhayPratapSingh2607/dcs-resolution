@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: an early-1990s MEU(SOC) aviation combat element (USMC MEU organisation):
+# a reinforced medium helicopter squadron with CH-46E (12), CH-53E (4), AH-1W (4),
+# UH-1N (3) and AV-8B (6).
+# Differences: no CH-46E or UH-1N in DCS; CH-53E/CH-47D and UH-1H stand in.
 name: USMC Amphibious Ready Group (1991)
 description: >-
   Marine Expeditionary Unit aviation on an LHA: AV-8B Harriers, AH-1W SuperCobras,

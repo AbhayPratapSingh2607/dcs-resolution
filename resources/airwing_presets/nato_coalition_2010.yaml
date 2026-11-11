@@ -1,4 +1,9 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: a NATO coalition of the Operation Unified Protector kind (Libya 2011): US
+# Navy and USAF strike and support, RAF Tornado GR4, French Mirage 2000-5 and
+# 2000D, Italian Tornado IDS, NATO E-3A, Turkish KC-135, and B-1B/B-2 strikes
+# from the United States.
+# Differences: Mirage 2000C stands in for the 2000D; no B-2 in DCS.
 #
 # Squadrons from several nations. Each entry's country decides its livery, pilot
 # names and in-mission radio voice. Works best with a Combined Joint Task Forces
@@ -40,3 +45,8 @@ groups:
       - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
       - {aircraft: ["KC-135 Stratotanker MPRS"], country: USA, primary: Refueling, size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: Turkey, primary: Refueling, size: 2}
+  # T3: a bomber detachment, only where the campaign defines an off-map base
+  # (in 2011 B-1Bs and B-2s struck Libya from the United States, B-52s from Fairford).
+  - base: off-map
+    squadrons:
+      - {aircraft: ["B-1B Lancer"], country: USA, primary: Strike, secondary: [BAI, OCA/Runway], size: 6, buy: 4}

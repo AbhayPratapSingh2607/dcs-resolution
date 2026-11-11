@@ -1,4 +1,10 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: Desert Storm USAF deployment (Gulf War Air Power Survey, Vol. V; Desert
+# Storm order of battle): A-10A, F-4G Wild Weasels with F-16C, F-15C, F-15E,
+# F-117A, F-111F, E-3, KC-135/KC-10, and B-52G from Diego Garcia, Moron, Fairford
+# and Jeddah.
+# Differences: no F-4G in DCS, so F-16s fly SEAD; the F-16CM (Block 50, 1994)
+# stands in for the Block 40/42; B-52H for the B-52G; no F-111F.
 name: USAF Air Expeditionary Force (1991)
 description: >-
   Desert Storm style USAF deployment: F-15C air superiority, F-15E and F-117A
@@ -25,3 +31,8 @@ groups:
       - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
       - {aircraft: ["KC-135 Stratotanker MPRS", "KC-10 Extender (Drogue)"], country: USA, primary: Refueling, size: 2}
+  # T3: a bomber detachment, only where the campaign defines an off-map base.
+  # Desert Storm B-52s flew from Diego Garcia, Moron, Fairford and Jeddah.
+  - base: off-map
+    squadrons:
+      - {aircraft: ["B-52H Stratofortress"], country: USA, primary: Strike, secondary: [BAI, OCA/Runway], size: 6, buy: 4}

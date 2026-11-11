@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: Desert Storm carrier air wings (Gulf War Air Power Survey, Vol. V, order
+# of battle; e.g. CVW-17 on USS Saratoga): 2 VF (F-14A/B), 2 VFA (F/A-18C),
+# VA (A-6E with KA-6D), VAQ (EA-6B, 4), VAW (E-2C, 4), VS (S-3B), HS (SH-3H).
+# Differences: no KA-6D in DCS; S-3B tankers only.
 name: US Navy Carrier Air Wing (1991)
 description: >-
   Desert Storm era air wing: F-14 Tomcats, F/A-18C Hornets, A-6E Intruders, EA-6B

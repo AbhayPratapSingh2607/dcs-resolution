@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: current carrier air wing (US Navy CVW organisation): 4 VFA (F/A-18E/F,
+# with F-35C in some wings), VAQ (EA-18G, 5), VAW (E-2D, 5), HSC/HSM (MH-60S/R),
+# VRM (CMV-22B). Tanking by F/A-18E/F.
+# Differences: E-2C for the E-2D; no CMV-22B.
 name: US Navy Carrier Air Wing (2020)
 description: >-
   Modern air wing: F/A-18E/F Super Hornets, an F-35C squadron, EA-18G Growlers,

@@ -1,4 +1,8 @@
 # Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+# Source: the standard mid-1970s carrier air wing (US Navy CVW organisation, e.g.
+# CVW-14 on USS Enterprise 1975): 2 VF (F-14A, 12 each), 2 VA (A-7E, 12 each),
+# 1 VA (A-6E with KA-6D tankers), VAQ (EA-6B, 4), VAW (E-2, 4), VS (S-3A), HS (SH-3).
+# Differences: no KA-6D or S-3A in DCS, so no tanker; no ASW or recon squadrons.
 name: US Navy Carrier Air Wing (1975)
 description: >-
   Post-Vietnam Nimitz-class air wing: two F-14A fighter squadrons, two A-7E light

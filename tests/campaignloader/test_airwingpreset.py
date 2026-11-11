@@ -344,3 +344,51 @@ def test_presets_deploy_their_number_and_nothing_is_bought() -> None:
     # Without a preset number: full when squadrons start full, else none.
     assert deployed_at_start(0, squadrons_start_full=True, max_size=12, free_parking=100) == 12
     assert deployed_at_start(0, squadrons_start_full=False, max_size=12, free_parking=100) == 0
+
+
+# --- Bomber detachments (T3) ---------------------------------------------------
+
+
+def _off_map(name: str) -> Any:
+    base = _base(name, 500, Player.BLUE)
+    base.cptype = ControlPointType.OFF_MAP
+    base.can_operate = lambda aircraft: True  # type: ignore[method-assign]
+    return base
+
+
+BOMBERS = {
+    "base": "off-map",
+    "squadrons": [{"aircraft": ["Eagle"], "primary": "Strike", "size": 6, "buy": 4}],
+}
+
+
+def test_bombers_go_only_to_an_off_map_base() -> None:
+    airfield = _base("Airfield", 0, Player.BLUE)
+    plan = _placer([airfield, _off_map("Edge")], [EAGLE]).resolve(_preset([BOMBERS]))
+    assert [str(p.base) for p in plan.placements] == ["Edge"]
+    assert plan.placements[0].config.aircraft_to_buy == 4
+    # Never at an airfield in the theater, and no warning without an off-map base.
+    plan = _placer([airfield], [EAGLE]).resolve(_preset([BOMBERS]))
+    assert plan.placements == [] and plan.warnings == []
+    # Off-map bases aren't airfields for the other groups.
+    plan = _placer([_off_map("Edge")], [EAGLE]).resolve(
+        _preset([{"base": "airfield", "squadrons": [{"aircraft": ["Eagle"], "primary": "BARCAP"}]}])
+    )
+    assert plan.placements == []
+
+
+def test_builtin_bomber_detachments_only_in_air_force_presets() -> None:
+    from game.campaignloader.airwingpreset import BUILTIN_PRESET_DIR, BaseKind
+
+    with_bombers = sorted(
+        p.stem
+        for p in BUILTIN_PRESET_DIR.glob("*.yaml")
+        if any(g.base is BaseKind.OFF_MAP for g in AirWingPreset.from_yaml(p).groups)
+    )
+    assert with_bombers == [
+        "nato_coalition_2010",
+        "russian_vks_2015",
+        "soviet_vvs_1985",
+        "usaf_aef_1991",
+        "usaf_aef_2005",
+    ]
