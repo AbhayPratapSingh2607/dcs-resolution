@@ -197,6 +197,9 @@ def preset_plan_html(plan: PresetPlan, aircraft_present: bool) -> str:
     if plan.missing_aircraft:
         names = ", ".join(sorted(str(a) for a in plan.missing_aircraft))
         parts.append(f"<p>Added to the faction: {html.escape(names)}</p>")
+    if plan.notes:
+        parts.append("<p><i>" + "<br/>".join(html.escape(n) for n in plan.notes))
+        parts.append("</i></p>")
     if plan.warnings:
         parts.append("<p style='color:orange'><b>Warnings</b></p><ul>")
         parts.extend(

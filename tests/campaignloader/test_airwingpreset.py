@@ -517,3 +517,29 @@ def test_a_base_preset_puts_every_squadron_on_that_base() -> None:
     plan = BasePresetPlacer(game, coalition, far).resolve(base_preset.as_preset())
     assert plan.warnings == []
     assert [p.base for p in plan.placements] == [far, far]
+
+
+def test_a_base_preset_is_trimmed_to_the_parking() -> None:
+    from game.campaignloader.airwingpreset import BasePresetPlacer
+
+    small = _base("Small", 90_000, Player.BLUE, parking=15)
+    enemy = _base("Enemy", 100_000, Player.RED)
+    game, coalition = _located([small, enemy])
+    coalition.air_wing.squadrons = {}
+    preset = _preset(
+        [
+            {
+                "base": "airfield",
+                "squadrons": [
+                    {"aircraft": ["Eagle"], "primary": "BARCAP", "size": 12},
+                    {"aircraft": ["Tanker"], "primary": "Refueling", "size": 12},
+                    {"aircraft": ["Eagle"], "primary": "CAS", "size": 12},
+                ],
+            }
+        ]
+    )
+    plan = BasePresetPlacer(game, coalition, small).resolve(preset)
+    # 12 fit, the next is trimmed to the 3 spots left, the last is left out.
+    assert [p.config.max_size for p in plan.placements] == [12, 3]
+    assert plan.warnings == []
+    assert len(plan.notes) == 2 and "trimmed to 3 of 12" in plan.notes[0]

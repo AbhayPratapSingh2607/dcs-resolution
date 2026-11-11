@@ -200,6 +200,8 @@ class PresetPlan:
     warnings: list[str] = field(default_factory=list)
     #: Aircraft the faction lacks that must be added for this plan to work.
     missing_aircraft: set[AircraftType] = field(default_factory=set)
+    #: Changes made to fit the base (squadrons trimmed to its parking).
+    notes: list[str] = field(default_factory=list)
 
     @property
     def total_cost(self) -> int:
@@ -828,17 +830,19 @@ class BasePresetPlacer(PresetPlacer):
         base: ControlPoint,
         add_missing_aircraft: bool = False,
         replace_at_base: bool = True,
+        fit_parking: bool = True,
     ) -> None:
         super().__init__(game, coalition, add_missing_aircraft, replace_existing=False)
         self.base = base
         self.replace_at_base = replace_at_base
+        self.fit_parking = fit_parking
 
     def bases_for(self, group: PresetGroup) -> list[ControlPoint]:
         return [self.base]
 
     def resolve(self, preset: AirWingPreset) -> PresetPlan:
         if not self.replace_at_base:
-            return super().resolve(preset)
+            return self._resolve_fitted(preset)
         # Parking held by the squadrons being replaced is free for the preset.
         air_wing = self.coalition.air_wing
         kept = {
@@ -848,9 +852,58 @@ class BasePresetPlacer(PresetPlacer):
         original = air_wing.squadrons
         air_wing.squadrons = kept
         try:
-            return super().resolve(preset)
+            return self._resolve_fitted(preset)
         finally:
             air_wing.squadrons = original
+
+    def _resolve_fitted(self, preset: AirWingPreset) -> PresetPlan:
+        if not self.fit_parking:
+            return super().resolve(preset)
+        fitted, notes = self.fit(preset)
+        plan = super().resolve(fitted)
+        plan.preset = preset
+        plan.notes = notes
+        return plan
+
+    #: A squadron trimmed below this many aircraft to fit is left out.
+    MIN_FITTED_SIZE = 2
+
+    def fit(self, preset: AirWingPreset) -> tuple[AirWingPreset, list[str]]:
+        """The preset with each squadron trimmed to the parking left at the
+        base, in order, and those with no room left out (a preset made for a
+        big airfield still fits a small one)."""
+        used = sum(
+            s.max_size
+            for s in self.coalition.air_wing.iter_squadrons()
+            if s.location is self.base
+        )
+        notes: list[str] = []
+        groups = []
+        for group in preset.groups:
+            squadrons = []
+            for config in group.squadrons:
+                aircraft, _, _ = self.choose_aircraft(config, [self.base], group.base)
+                if aircraft is None:
+                    squadrons.append(config)  # resolve explains why
+                    continue
+                free = self.capacity(self.base, aircraft) - used
+                size = min(config.max_size, free)
+                if size < self.MIN_FITTED_SIZE:
+                    notes.append(
+                        f"Left out {aircraft} ×{config.max_size}: no parking left"
+                    )
+                    continue
+                if size < config.max_size:
+                    notes.append(
+                        f"{aircraft} trimmed to {size} of {config.max_size} to fit "
+                        "the parking"
+                    )
+                    buy = config.buy if config.buy is None else min(config.buy, size)
+                    config = dataclasses.replace(config, max_size=size, buy=buy)
+                used += size
+                squadrons.append(config)
+            groups.append(dataclasses.replace(group, squadrons=squadrons))
+        return dataclasses.replace(preset, groups=groups), notes
 
 
 def apply_base_preset(

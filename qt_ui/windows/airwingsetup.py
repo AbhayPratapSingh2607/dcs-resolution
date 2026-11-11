@@ -190,7 +190,11 @@ class BaseRow:
             assert self.plan is not None
             text = _plan_text(self.plan)
             warnings = list(self.plan.warnings)
+        notes = self.plan.notes if self.plan is not None and choice != KEEP else []
         parts = [f"<span style='color:{MUTED}'>Will have: {html.escape(text)}</span>"]
+        parts += [
+            f"<span style='color:{MUTED}'><i>{html.escape(n)}</i></span>" for n in notes
+        ]
         parts += [
             f"<span style='color:{WARN}'>⚠ {html.escape(w)}</span>" for w in warnings
         ]

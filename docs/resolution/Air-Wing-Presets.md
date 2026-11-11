@@ -28,6 +28,8 @@ Preset selection is the main way to build the air wing:
      off-map base is offered strategic bombers. Each role is filled by the faction's best
      aircraft for it that can fly from that base. A second squadron of the same role takes
      another type when there is a close one.
+   * A preset fits the base: its squadrons are trimmed to the parking left, in order, and one
+     with no room is left out. The line under the base says what was trimmed.
    * The historical presets follow (marked *historical*), when the faction has their aircraft.
    * **Keep the campaign's squadrons** leaves the base as the campaign set it up.
      **No squadrons** empties it.

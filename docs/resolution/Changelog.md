@@ -237,6 +237,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Air wing]** A base preset now fits the base's parking. Squadrons are placed in order and
+  each is trimmed to the spots left; one that would be left with fewer than 2 aircraft is left
+  out. The row says what was trimmed, in place of a "not enough parking" warning.
 * **[Debrief]** After a turn fought by the combat model, "How the plan went" lists every package
   again. The model takes each flight off its package as it lands, so the report saw empty
   packages and showed only the tanker and CAP still airborne at the end. On the PG test
