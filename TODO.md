@@ -480,6 +480,13 @@ if the user asks.
     after: 3 DEAD flights on F/A-18E with GPS weapons, Growlers as SEAD escort on both, 27
     packages (TAURUS anti-ship, COTTONMOUTH and LAMPREY strikes out; TIGER and WALLEYE BAI
     in). Matrix not rerun.
+  - **Symptom fixed 2026-11-11 (anti-ship flight with no ships in DCS).** In the fast forward
+    to the window, the SEAD escorts' HARM hunt (`airdefense.sead_hunt`) sank the IRGCN fast
+    attack craft: ships derived as TELARs because they have a surface search radar
+    (`detection_range`), and `IranFAC_MG` is in `UNITS_WITH_RADAR`. Fix: a ship whose threat
+    range is 6 km or less is IR (3 km and up) or gun, not an emitter. PG turn 2 re-planned,
+    3 fast forwards to 20:00: before, 6 boats sunk by HARMs (LORIKEET's two in 1 of 3, the
+    anti-ship flight then had nothing to attack); after, none. Calibration 28/28.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

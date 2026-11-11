@@ -211,6 +211,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Combat Model]** HARMs no longer sink fast attack craft. Ships whose air defense reaches
+  6 km or less (guns and MANPADS: the IRGCN boats, patrol craft) were treated as radar SAMs,
+  so SEAD flights' HARMs hunted their surface search radars while fast forwarding, and an
+  anti-ship package flew in DCS against ships that had already been sunk. Naval SAMs (SA-N-4
+  and up) are unchanged.
 * **[Auto Planner]** DEAD flights carry weapons that hit a site with its radar off. A flight
   armed only with anti-radiation missiles (an EA-18G's DEAD loadout is two HARMs) no longer
   counts as a DEAD flight: against a SAM holding its emissions (Skynet's ambush) the AI had

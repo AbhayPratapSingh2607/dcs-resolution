@@ -948,6 +948,21 @@ def _reliability_for_year(year: int) -> float:
     return max(0.6, min(0.92, 0.6 + (year - 1958) * 0.008))
 
 
+#: Ships whose air defense reaches no further than this have guns and
+#: MANPADS only (fast attack craft, patrol boats); naval SAMs reach further
+#: (SA-N-4 16 km).
+SHIP_GUN_OR_MANPADS_M = 6000.0
+
+
+def _is_ship(unit: TheaterUnit) -> bool:
+    from dcs.unittype import ShipType
+
+    try:
+        return issubclass(unit.type, ShipType)
+    except TypeError:
+        return False
+
+
 def _derive_air_defense(
     unit: TheaterUnit, data: Optional[dict[str, Any]]
 ) -> Optional[AirDefenseProfile]:
@@ -990,7 +1005,21 @@ def _derive_air_defense(
         return None
     detection_m = float(getattr(unit.type, "detection_range", 0) or 0)
     range_km = threat_m / 1000
-    if unit_class is UnitClass.MANPAD:
+    if _is_ship(unit) and threat_m <= SHIP_GUN_OR_MANPADS_M:
+        # A ship this short-ranged has guns or shoulder-launched missiles,
+        # not a radar SAM: its detection range is its surface search radar.
+        # As a TELAR it was a HARM target (the PG Growlers sank IRGCN fast
+        # attack craft with HARMs in fast forward).
+        if threat_m >= 3000:
+            guidance, max_alt, pk, missiles = AirDefenseGuidance.IR, 3500.0, 0.4, 4
+        else:
+            guidance, max_alt, pk, missiles = (
+                AirDefenseGuidance.GUN,
+                min(3000.0, threat_m * 0.7),
+                0.04,
+                30,
+            )
+    elif unit_class is UnitClass.MANPAD:
         guidance, max_alt, pk, missiles = AirDefenseGuidance.IR, 3500.0, 0.4, 2
     elif unit_class is UnitClass.AAA:
         guidance, max_alt, pk, missiles = (
