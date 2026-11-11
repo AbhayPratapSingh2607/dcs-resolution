@@ -211,6 +211,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** The Your flight card and the turn headline with **Briefing…** have their own
+  **Your flight** tab in the left panel, so the package list gets the whole height. Choosing your
+  package on the card, or a flight on the map, switches back to **Packages**.
 * **[Debriefing]** The plan report in the debriefing window shows the turn that was just flown.
   It was made after the next turn was planned, so it listed the next turn's packages and mission
   window, all with "no effect reported", while the kills of the mission flown were missing.

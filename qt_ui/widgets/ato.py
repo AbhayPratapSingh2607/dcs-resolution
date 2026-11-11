@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QCheckBox,
     QDialog,
+    QTabWidget,
     QTextBrowser,
     QWidget,
 )
@@ -652,6 +653,10 @@ class QPackagePanel(QGroupBox):
         self.delete_button.setEnabled(enabled)
 
 
+#: The left panel's tabs.
+PACKAGES_TAB = 0
+
+
 class QAirTaskingOrderPanel(QSplitter):
     """A split panel for displaying the packages and flights of an ATO.
 
@@ -704,19 +709,30 @@ class QAirTaskingOrderPanel(QSplitter):
         ato_layout = QVBoxLayout()
         ato_layout.addLayout(self.red_ato_labeled)
         ato_layout.addWidget(self.pre_war_note)
-        ato_layout.addWidget(self.your_flight)
-        ato_layout.addWidget(self.turn_briefing_row)
 
         self.ato_group_box = QGroupBox("ATO")
         self.ato_group_box.setLayout(ato_layout)
-        self.addWidget(self.ato_group_box)
 
         self.package_panel = QPackagePanel(game_model, self.ato_model)
         self.package_panel.current_changed.connect(self.on_package_change)
-        self.addWidget(self.package_panel)
 
         self.flight_panel = QFlightPanel(game_model)
-        self.addWidget(self.flight_panel)
+
+        # Two tabs, so the packages get the whole height: the ATO (packages
+        # and flights) and your flight with the turn's headline and briefing.
+        packages = QSplitter(Qt.Orientation.Vertical)
+        packages.addWidget(self.ato_group_box)
+        packages.addWidget(self.package_panel)
+        packages.addWidget(self.flight_panel)
+        your_tab = QWidget()
+        your_layout = QVBoxLayout(your_tab)
+        your_layout.addWidget(self.your_flight)
+        your_layout.addWidget(self.turn_briefing_row)
+        your_layout.addStretch(1)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(packages, "Packages")
+        self.tabs.addTab(your_tab, "Your flight")
+        self.addWidget(self.tabs)
 
         self.timeline_dialog: Optional[AtoTimelineDialog] = None
         self.package_panel.timeline_requested.connect(self.open_timeline)
@@ -800,6 +816,7 @@ class QAirTaskingOrderPanel(QSplitter):
 
     def select_package(self, package: Package) -> None:
         """Selects a package in the sidebar (and so on the map)."""
+        self.tabs.setCurrentIndex(PACKAGES_TAB)
         show_opfor = (
             not package.flights[0].blue.is_blue
             if package.flights
@@ -814,6 +831,7 @@ class QAirTaskingOrderPanel(QSplitter):
 
         Triggered when the player clicks a flight's route line on the web map.
         """
+        self.tabs.setCurrentIndex(PACKAGES_TAB)
         # Make sure the panel is showing the ATO that owns this flight.
         show_opfor = not flight.blue.is_blue
         if self.red_ato_checkbox.isChecked() != show_opfor:

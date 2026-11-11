@@ -437,7 +437,7 @@ class QTopPanel(QFrame):
         box = QMessageBox(self)
         box.setWindowTitle("No player flight")
         box.setText(
-            "You are not in any flight. Take one from the <b>Your flight</b> card "
+            "You are not in any flight. Take one from the <b>Your flight</b> tab "
             "or the Flights panel, fast-forward the whole turn with the combat "
             "model, or fly an AI-only mission in a window of your choice."
         )

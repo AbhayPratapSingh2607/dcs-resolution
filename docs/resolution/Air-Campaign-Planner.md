@@ -104,8 +104,8 @@ attacks; they still need SEAD into radar SAM cover like everyone else.
 ## Your seat
 
 Set a preference at the air wing step of a new campaign, or with **Preference…** on the
-**Your flight** card above the package list: a squadron, a mission type, or both. It never
-changes the plan. After the commander has planned the turn, its flights are ranked for you:
+**Your flight** card (the **Your flight** tab of the left panel): a squadron, a mission type,
+or both. It never changes the plan. After the commander has planned the turn, its flights are ranked for you:
 your squadron's flights first, then your mission type, then anything else you can fly; in each,
 the main push first, then key packages, then by time on target. With the planning behaviour
 **No preference** the top offer is yours: one of its pilots becomes the player, and the rest of

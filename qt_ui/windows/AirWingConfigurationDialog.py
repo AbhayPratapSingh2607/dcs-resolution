@@ -861,7 +861,7 @@ class AirWingConfigurationDialog(QDialog):
         seat_note = QLabel(
             "Which squadron, or which kind of mission, would you like to fly? Each "
             "turn the commander frags you the best match from its plan. You can "
-            "change this later from the Your flight card."
+            "change this later from the Your flight tab."
         )
         seat_note.setWordWrap(True)
         seat_layout.addWidget(seat_note)
