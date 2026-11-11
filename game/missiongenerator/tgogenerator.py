@@ -572,9 +572,12 @@ class GroundObjectGenerator:
 class MissileSiteGenerator(GroundObjectGenerator):
     @property
     def culled(self) -> bool:
-        # Don't cull missile sites - their range is long enough to make them easily
-        # culled despite being a threat.
-        return False
+        # Missile sites that fire are kept: their range is long enough to
+        # make them easily culled despite being a threat. Without fire tasks
+        # they are parked launchers, culled like any other ground unit.
+        if self.game.settings.generate_fire_tasks_for_missile_sites:
+            return False
+        return self.game.position_culled(self.ground_object.position)
 
     def generate(self) -> None:
         super(MissileSiteGenerator, self).generate()

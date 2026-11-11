@@ -83,3 +83,33 @@ def test_warns_when_no_attackable_group(caplog: pytest.LogCaptureFixture) -> Non
 
     assert not [t for t in waypoint.tasks if isinstance(t, AttackGroup)]
     assert any("no attackable target group" in rec.message for rec in caplog.records)
+
+
+def test_each_ship_of_a_group_gets_a_missile_first() -> None:
+    """A two ship group: one AttackUnit per ship (one missile, one run, each
+    aircraft for itself) before the AttackGroup that spends the rest; one
+    AttackGroup alone put every missile on the same ship."""
+    from dcs.task import AttackUnit, Expend
+
+    group = _model_group("two-ships")
+    target = MagicMock(spec=TheaterGroundObject)
+    target.groups = [group]
+    miz_group = MagicMock()
+    miz_group.id = 7
+    miz_group.units = [MagicMock(id=101), MagicMock(id=102)]
+
+    builder, waypoint = _build_builder(target, lambda name: miz_group)
+    builder.add_tasks(waypoint)
+
+    kinds = [
+        type(t) for t in waypoint.tasks if isinstance(t, (AttackUnit, AttackGroup))
+    ]
+    assert kinds[:2] == [AttackUnit, AttackUnit]
+    assert AttackGroup in kinds[2:]
+    units = [t for t in waypoint.tasks if isinstance(t, AttackUnit)]
+    assert [t.params["unitId"] for t in units] == [101, 102]
+    for task in units:
+        assert task.params["expend"] == Expend.One.value
+        assert task.params["groupAttack"] is False
+        assert task.params["attackQtyLimit"] is True
+        assert task.params["attackQty"] == 1

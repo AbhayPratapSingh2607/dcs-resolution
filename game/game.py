@@ -691,6 +691,13 @@ class Game:
                 continue
             zones.append(package.target.position)
 
+        # The player's route: what they fly past is what they can meet.
+        for package in itertools.chain(self.blue.ato.packages, self.red.ato.packages):
+            for flight in package.flights:
+                if flight.client_count > 0:
+                    for waypoint in flight.flight_plan.waypoints:
+                        zones.append(waypoint.position)
+
         self.__culling_zones = zones
         events.update_unculled_zones(zones)
 

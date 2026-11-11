@@ -1,6 +1,6 @@
 # The DCS pass (M6)
 
-Every open "Checks in DCS" item in `TODO.md` (D1–D18), grouped into four sessions so that one
+Every open "Checks in DCS" item in `TODO.md` (D1–D20), grouped into five sessions so that one
 campaign covers as many as it can. The details of what to expect are in each D item; this sheet
 says where and in which order to look. Tick the item in `TODO.md` once it's flown. For
 problems, keep `Saved Games\DCS\Logs\dcs.log`, the state file and a Tacview recording, and
@@ -86,6 +86,20 @@ A campaign with a Soviet-era red (e.g. Soviet VVS 1985) in its initial air opera
    DCS. → D15
 4. Fog of war on and off while red's ATO is shown (A1). Fast forward a turn with CAPs near an
    enemy AWACS: quick, no "0 shots" restarting (A3). → A1, A3
+
+## Session 5: Persian Gulf, the Strait of Hormuz
+
+The save `dcs-resolution-PG` (Super Hornets on CVN-75), Settings → Mission generator:
+**Culling of distant units** on.
+
+1. Generate the mission; it loads cleanly. Briefing: "AEW&C", packages by TOT with take-off
+   times, stations one line each. One AWACS line from the carrier, relieved in turn, never two
+   side by side. → D19
+2. F10 map: no parked red aircraft or missile launchers at Kish, Lavan, Bandar Lengeh or
+   Qeshm unless your route or a target is near; the carrier's deck and your ramp are full.
+   → D20
+3. Fly the anti-ship flight on the two ship group (or watch the AI one in Tacview): missiles
+   go to both hulls. → D20
 
 ## Afterwards
 

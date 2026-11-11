@@ -87,6 +87,9 @@ class GameLoop:
         # M3: only the bubble goes into DCS; the rest is fought by the combat
         # model over the mission's time in resolve_remainder.
         hold_back_elsewhere(self.game)
+        # The culling zones were computed at the start of the turn from the
+        # whole plan; only what is still in the mission keeps ground units.
+        self.game.compute_unculled_zones(self.events)
         self.send_update(rate_limit=False)
 
     def pause_and_generate_miz(self, output: Path) -> None:

@@ -211,6 +211,17 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Mission Generation]** Anti-ship flights fire at every ship of a group. Each aircraft first
+  puts one missile on each ship, then spends the rest on the group. Before, the whole flight's
+  missiles went to the first ship DCS picked and the second ship of a two ship group was left
+  untouched.
+* **[Mission Generation]** With culling on, the mission only keeps ground units near what is
+  actually in it. The culling zones are recomputed once packages outside the mission window and
+  the bubble are held back, and they include the player's route. Parked untasked aircraft at
+  bases far from the mission are culled (not at the player's bases, nor red's client slots), and
+  missile sites are culled like other ground units unless they get fire tasks. Before, a Strait
+  of Hormuz mission still spawned every red airfield's parked aircraft and missile launchers out
+  to Kish and Bandar Lengeh.
 * **[Auto Planner]** Only one AEW&C line per station. When the farthest friendly base was the
   carrier itself it was listed twice, and two AWACS flew side by side over it all turn.
 * **[Auto Planner]** Air defense ships count as threats on a package's route. A warship's radar

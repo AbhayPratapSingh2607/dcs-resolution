@@ -2,7 +2,7 @@ import logging
 from typing import List
 
 from dcs.point import MovingPoint
-from dcs.task import AttackGroup, Expend, OptFormation, WeaponType
+from dcs.task import AttackGroup, AttackUnit, Expend, OptFormation, WeaponType
 
 from game.theater import NavalControlPoint, TheaterGroundObject
 from .pydcswaypointbuilder import PydcsWaypointBuilder
@@ -32,6 +32,10 @@ class AntiShipIngressBuilder(PydcsWaypointBuilder):
             )
             return
 
+        # One missile at each ship first, then the rest at the group: one
+        # AttackGroup alone put the whole flight's load on the first ship DCS
+        # picked and left the others untouched.
+        self.add_attack_unit_tasks(waypoint, group_names)
         added = 0
         for ordnance in (
             WeaponType.Antiship,
@@ -54,6 +58,29 @@ class AntiShipIngressBuilder(PydcsWaypointBuilder):
                 self.flight,
                 group_names or "no groups",
             )
+
+    def add_attack_unit_tasks(
+        self, waypoint: MovingPoint, group_names: List[str]
+    ) -> int:
+        """An AttackUnit for each ship of a group of two or more: one attack
+        run, one anti-ship missile, every aircraft for itself."""
+        added = 0
+        for group_name in group_names:
+            miz_group = self.mission.find_group(group_name)
+            if miz_group is None or len(miz_group.units) < 2:
+                continue
+            for unit in miz_group.units:
+                waypoint.tasks.append(
+                    AttackUnit(
+                        unit.id,
+                        attack_limit=1,
+                        weapon_type=WeaponType.Antiship,
+                        group_attack=False,
+                        expend=Expend.One,
+                    )
+                )
+                added += 1
+        return added
 
     def add_attack_group_tasks_for_ordnance(
         self,

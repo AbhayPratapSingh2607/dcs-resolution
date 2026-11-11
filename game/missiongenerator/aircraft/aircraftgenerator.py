@@ -216,10 +216,13 @@ class AircraftGenerator:
                             break
 
     def spawn_unused_aircraft(self) -> None:
+        player_bases = self._player_bases()
         for control_point in self.game.theater.controlpoints:
             if not (
                 isinstance(control_point, Airfield) or isinstance(control_point, Fob)
             ):
+                continue
+            if self._ramp_culled(control_point, player_bases):
                 continue
 
             for squadron in control_point.squadrons:
@@ -230,6 +233,32 @@ class AircraftGenerator:
                     # If we run out of parking, stop spawning aircraft at this base.
                     break
         self._spawn_parked_elsewhere()
+
+    def _player_bases(self) -> set[int]:
+        """id() of the bases the player's flights take off from, land at or
+        divert to."""
+        bases: set[int] = set()
+        for coalition in (self.game.blue, self.game.red):
+            for package in coalition.ato.packages:
+                for flight in package.flights:
+                    if flight.client_count > 0:
+                        for cp in (flight.departure, flight.arrival, flight.divert):
+                            if cp is not None:
+                                bases.add(id(cp))
+        return bases
+
+    def _ramp_culled(self, control_point: ControlPoint, player_bases: set[int]) -> bool:
+        """The parked untasked aircraft of a base far from the mission are
+        culled like the ground units around it, except at the player's bases
+        and where red's parked aircraft are client slots."""
+        if id(control_point) in player_bases:
+            return False
+        if (
+            control_point.captured.is_red
+            and self.game.settings.untasked_opfor_client_slots
+        ):
+            return False
+        return self.game.position_culled(control_point.position)
 
     def _spawn_parked_elsewhere(self) -> None:
         """B8: the aircraft of packages held outside the bubble that are on
