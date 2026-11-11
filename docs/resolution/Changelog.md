@@ -211,6 +211,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** Closing the Take off or Fast-forward progress window cancels. The combat model stops
+  at its next tick, and nothing after it runs: no mission generation, no waiting window. Take
+  off again to resume from where it stopped. Before, closing it only hid the window; the fast
+  forward and mission generation carried on and the waiting window opened anyway.
 * **[UI]** The debriefing window opens at 1280x940 (at most 90% of the screen) in two columns:
   how the plan went and the after-action report on the left, the loss lists and pilots on the
   right. In one column every box was squeezed to a few lines.

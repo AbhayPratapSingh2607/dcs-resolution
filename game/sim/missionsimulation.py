@@ -4,7 +4,7 @@ import json
 import time
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING
 
 from game.debriefing import Debriefing
 from game.missiongenerator import MissionGenerator
@@ -86,9 +86,15 @@ class MissionSimulation:
         self.completed = events.simulation_complete
         return events
 
-    def advance_to_window(self, events: GameUpdateEvents) -> bool:
+    def advance_to_window(
+        self,
+        events: GameUpdateEvents,
+        should_stop: Optional[Callable[[], bool]] = None,
+    ) -> bool:
         """Fight the part of the ATO period before the DCS window with the
-        combat model (game.sim.atoperiod). Returns True if time advanced."""
+        combat model (game.sim.atoperiod). Returns True if time advanced.
+        ``should_stop`` (the player cancelled) ends it early at a tick; it
+        resumes from there next time."""
         from .atoperiod import window
 
         bounds = window(self.game)
@@ -96,6 +102,8 @@ class MissionSimulation:
             return False
         with logged_duration("Resolving the ATO period before the DCS window"):
             while self.time < bounds[0]:
+                if should_stop is not None and should_stop():
+                    break
                 self.time += TICK
                 self.aircraft_simulation.on_game_tick(
                     events, self.time, TICK, CombatResolutionMethod.RESOLVE, True

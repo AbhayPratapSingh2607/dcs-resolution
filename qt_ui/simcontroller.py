@@ -90,11 +90,15 @@ class SimController(QObject):
         with self.game_loop.paused_sim():
             yield
 
-    def run_to_first_contact(self) -> None:
-        self.game_loop.run_to_first_contact()
+    def run_to_first_contact(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
+        return self.game_loop.run_to_first_contact(should_stop)
 
-    def advance_to_window(self) -> None:
-        self.game_loop.advance_to_window()
+    def advance_to_window(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
+        return self.game_loop.advance_to_window(should_stop)
 
     def generate_miz(self, output: Path) -> None:
         self.game_loop.pause_and_generate_miz(output)

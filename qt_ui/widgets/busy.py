@@ -5,7 +5,11 @@ window responsive and shows what is happening.
 The game state isn't locked; the dialog is application modal, so nothing in
 the UI can change it meanwhile. The simulation already ticks on a background
 timer thread and reaches the UI through queued signals, so the work done here
-behaves the same way."""
+behaves the same way.
+
+Closing the dialog (its X, or Esc) cancels: ``cancelled`` turns True, work
+that takes ``should_stop`` ends at its next check, and the caller skips the
+steps after it."""
 
 from __future__ import annotations
 
@@ -32,6 +36,17 @@ class BusyDialog:
         self.dialog.setAutoClose(False)
         self.dialog.setAutoReset(False)
         self.started = time.monotonic()
+        self.cancelled = False
+        self._done = False
+        self.dialog.canceled.connect(self._cancel)  # type: ignore[attr-defined]
+
+    def _cancel(self) -> None:
+        if not self._done:
+            self.cancelled = True
+
+    def should_stop(self) -> bool:
+        """For the worker: whether the player cancelled."""
+        return self.cancelled
 
     def __enter__(self) -> "BusyDialog":
         self.dialog.show()
@@ -39,6 +54,7 @@ class BusyDialog:
         return self
 
     def __exit__(self, *_exc: object) -> None:
+        self._done = True
         self.dialog.close()
 
     def run(self, text: str, work: Callable[[], T]) -> T:
@@ -57,9 +73,14 @@ class BusyDialog:
         thread.start()
         while thread.is_alive():
             elapsed = int(time.monotonic() - self.started)
-            self.dialog.setLabelText(
-                f"{text}\n\n{elapsed // 60}:{elapsed % 60:02d} elapsed"
-            )
+            if self.cancelled:
+                # Closing hid the dialog; keep it up until the work stops.
+                if not self.dialog.isVisible():
+                    self.dialog.show()
+                label = f"Stopping…\n\n{text}"
+            else:
+                label = f"{text}\n\n{elapsed // 60}:{elapsed % 60:02d} elapsed"
+            self.dialog.setLabelText(label)
             QApplication.processEvents()
             thread.join(0.05)
         QApplication.processEvents()

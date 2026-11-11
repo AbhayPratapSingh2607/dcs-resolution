@@ -374,8 +374,12 @@ class QTopPanel(QFrame):
                     busy.run(
                         "Fighting the period up to your mission with the combat "
                         "model…",
-                        self.sim_controller.advance_to_window,
+                        lambda: self.sim_controller.advance_to_window(
+                            busy.should_stop
+                        ),
                     )
+            if busy.should_stop():
+                return
 
         negative_starts = self.negative_start_packages(
             self.sim_controller.current_time_in_sim
@@ -392,14 +396,22 @@ class QTopPanel(QFrame):
                 with logged_duration("Simulating to first contact"):
                     busy.run(
                         "Simulating to first contact…",
-                        self.sim_controller.run_to_first_contact,
+                        lambda: self.sim_controller.run_to_first_contact(
+                            busy.should_stop
+                        ),
                     )
+            if busy.should_stop():
+                return
             busy.run(
                 "Generating the DCS mission…",
                 lambda: self.sim_controller.generate_miz(
                     persistency.mission_path_for("retribution_nextturn.miz")
                 ),
             )
+        if busy.should_stop():
+            # Generating can't stop halfway; the mission is written but
+            # nothing waits for it. Take off again to fly it.
+            return
 
         waiting = QWaitingForMissionResultWindow(self.game, self.sim_controller, self)
         waiting.exec_()
@@ -465,8 +477,12 @@ class QTopPanel(QFrame):
             with logged_duration("Simulating entire turn"):
                 busy.run(
                     "Fighting the whole turn with the combat model…",
-                    self.sim_controller.run_to_first_contact,
+                    lambda: self.sim_controller.run_to_first_contact(
+                        busy.should_stop
+                    ),
                 )
+                if busy.should_stop():
+                    return
                 debriefing = busy.run(
                     "Collecting the results…", self.sim_controller.debrief_simulated
                 )

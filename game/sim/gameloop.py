@@ -4,7 +4,7 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator, TYPE_CHECKING
+from typing import Callable, Iterator, Optional, TYPE_CHECKING
 
 from .gamelooptimer import GameLoopTimer
 from .gameupdatecallbacks import GameUpdateCallbacks
@@ -64,25 +64,42 @@ class GameLoop:
         if not events.empty:
             self.callbacks.on_update(events)
 
-    def run_to_first_contact(self) -> None:
+    def run_to_first_contact(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
+        """Returns False when ``should_stop`` (the player cancelled) ended it
+        before contact; it resumes from there next time."""
         self.pause()
         if not self.started:
             self.start()
         logging.info("Running sim to first contact")
         while not self.completed:
+            if should_stop is not None and should_stop():
+                logging.info("Stopped before first contact: cancelled")
+                return False
             self.tick(suppress_events=False)
+        return True
 
-    def advance_to_window(self) -> None:
+    def advance_to_window(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
         """Resolve the ATO period up to the chosen DCS window and hold back
-        packages that start after it (game.sim.atoperiod)."""
-        from .atoperiod import align_player_packages, defer_after_window
+        packages that start after it (game.sim.atoperiod). Returns False when
+        ``should_stop`` (the player cancelled) ended it early: the period is
+        fought up to there and the rest waits for the next Take off."""
+        from .atoperiod import align_player_packages, defer_after_window, window
         from .bubble import hold_back_elsewhere
 
         self.pause()
         if not self.started:
             self.start()
         align_player_packages(self.game, self.sim.time)
-        self.sim.advance_to_window(self.events)
+        self.sim.advance_to_window(self.events, should_stop)
+        bounds = window(self.game)
+        if bounds is not None and self.sim.time < bounds[0]:
+            logging.info(f"Stopped the fast forward at {self.sim.time:%H:%M}: cancelled")
+            self.send_update(rate_limit=False)
+            return False
         defer_after_window(self.game)
         # M3: only the bubble goes into DCS; the rest is fought by the combat
         # model over the mission's time in resolve_remainder.
@@ -91,6 +108,7 @@ class GameLoop:
         # whole plan; only what is still in the mission keeps ground units.
         self.game.compute_unculled_zones(self.events)
         self.send_update(rate_limit=False)
+        return True
 
     def pause_and_generate_miz(self, output: Path) -> None:
         self.pause()
