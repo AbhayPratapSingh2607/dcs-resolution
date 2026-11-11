@@ -420,7 +420,8 @@ if the user asks.
 ### M6. The DCS pass
 
 Every open item under "Checks in DCS", flown in one pass (decision 8). Then the fixes,
-then a frame rate and unit count measurement on a busy theater.
+then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D18 and
+A1–A6 grouped into four sessions, is `DCS-PASS.md`.
 
 ## Parked
 
