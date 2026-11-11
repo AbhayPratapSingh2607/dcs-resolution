@@ -184,24 +184,10 @@ class AirWingPresetDialog(QDialog):
             parts.extend(f"<li>{line}</li>" for line in lines)
             parts.append("</ul>")
 
-        budget = self.coalition.budget
-        if self.aircraft_present:
-            parts.append(
-                "<p>Squadrons start full, so aircraft are free and buy counts are "
-                "ignored.</p>"
-            )
-        else:
-            colour = "red" if plan.total_cost > budget else "inherit"
-            parts.append(
-                f"<p>Starting aircraft: {plan.total_aircraft}, cost "
-                f"<span style='color:{colour}'>${plan.total_cost}M</span> of the "
-                f"${budget:.0f}M starting budget.</p>"
-            )
-            if plan.total_cost > budget:
-                parts.append(
-                    "<p>Not enough money for every aircraft: purchases are spread "
-                    "evenly over the squadrons until the money runs out.</p>"
-                )
+        parts.append(
+            f"<p>Aircraft deployed at the start: {plan.total_aircraft}. Nothing is "
+            "bought; the starting budget pays for ground forces.</p>"
+        )
 
         if plan.missing_aircraft:
             names = ", ".join(sorted(str(a) for a in plan.missing_aircraft))

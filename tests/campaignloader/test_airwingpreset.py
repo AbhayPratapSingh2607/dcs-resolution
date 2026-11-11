@@ -18,7 +18,7 @@ from game.campaignloader.airwingpreset import (
     BaseKind,
     Placement,
     PresetPlacer,
-    buy_preset_aircraft,
+    deployed_at_start,
 )
 from game.dcs.countries import country_with_name
 from game.theater.controlpoint import ControlPointType
@@ -332,42 +332,15 @@ def test_falls_back_to_next_preferred_aircraft() -> None:
     assert [p.aircraft for p in plan.placements] == [TANKER]
 
 
-# --- Purchasing ------------------------------------------------------------------
+# --- Deployed at the start (T2) ------------------------------------------------
 
 
-def _squadron(price: int, buy: int, max_size: int = 12) -> Any:
-    return SimpleNamespace(
-        aircraft=SimpleNamespace(price=price),
-        preset_purchase=buy,
-        owned_aircraft=0,
-        max_size=max_size,
-    )
-
-
-def test_buy_is_round_robin_when_money_is_short() -> None:
-    a, b = _squadron(10, 3), _squadron(10, 3)
-    remaining = buy_preset_aircraft([a, b], 35, lambda s: 100)
-    assert (a.owned_aircraft, b.owned_aircraft) == (2, 1)
-    assert remaining == 5
-    assert a.preset_purchase == 0 and b.preset_purchase == 0
-
-
-def test_buy_everything_when_affordable() -> None:
-    a = _squadron(10, 4)
-    assert buy_preset_aircraft([a], 100, lambda s: 100) == 60
-    assert a.owned_aircraft == 4
-
-
-def test_buy_stops_at_parking_and_max_size() -> None:
-    parked = _squadron(1, 10)
-    capped = _squadron(1, 10, max_size=3)
-    free = {id(parked): 2}
-
-    def free_parking(s: Any) -> int:
-        if s is parked:
-            return free[id(parked)] - parked.owned_aircraft
-        return 100
-
-    buy_preset_aircraft([parked, capped], 1000, free_parking)
-    assert parked.owned_aircraft == 2
-    assert capped.owned_aircraft == 3
+def test_presets_deploy_their_number_and_nothing_is_bought() -> None:
+    # A detachment deploys a few, a squadron its size, capped by size and parking.
+    assert deployed_at_start(4, squadrons_start_full=False, max_size=12, free_parking=100) == 4
+    assert deployed_at_start(4, squadrons_start_full=True, max_size=12, free_parking=100) == 4
+    assert deployed_at_start(20, squadrons_start_full=True, max_size=12, free_parking=100) == 12
+    assert deployed_at_start(8, squadrons_start_full=True, max_size=12, free_parking=3) == 3
+    # Without a preset number: full when squadrons start full, else none.
+    assert deployed_at_start(0, squadrons_start_full=True, max_size=12, free_parking=100) == 12
+    assert deployed_at_start(0, squadrons_start_full=False, max_size=12, free_parking=100) == 0

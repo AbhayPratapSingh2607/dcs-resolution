@@ -270,15 +270,19 @@ class SquadronConfigurationBox(QGroupBox):
 
         buy_column = QVBoxLayout()
         task_and_size_row.addLayout(buy_column)
-        buy_column.addWidget(QLabel("Buy at start:"))
+        buy_column.addWidget(QLabel("Deployed at start:"))
         self.buy_selector = QSpinBox(self)
         self.buy_selector.setRange(0, self.squadron.max_size)
         self.buy_selector.setValue(min(squadron.preset_purchase, squadron.max_size))
-        self.buy_selector.setEnabled(not aircraft_present)
+        self.buy_selector.setSpecialValueText("full" if aircraft_present else "none")
         self.buy_selector.setToolTip(
-            "Aircraft bought from the starting budget at the start of the campaign."
-            if not aircraft_present
-            else "Squadrons start full, so no aircraft need to be bought."
+            "Aircraft the squadron has when the campaign starts; a detachment "
+            "deploys a few. Nothing is bought at turn 0. "
+            + (
+                "0 (full): the whole squadron."
+                if aircraft_present
+                else "0: none (squadrons don't start full)."
+            )
         )
         buy_column.addWidget(self.buy_selector)
 
@@ -462,8 +466,7 @@ class SquadronConfigurationBox(QGroupBox):
         self.squadron.name = self.name_edit.text()
         self.squadron.nickname = self.nickname_edit.text()
         self.squadron.max_size = self.max_size_selector.value()
-        if not self.aircraft_present:
-            self.squadron.preset_purchase = self.buy_selector.value()
+        self.squadron.preset_purchase = self.buy_selector.value()
         if (primary_task := self.primary_task_selector.selected_task) is not None:
             self.squadron.primary_task = primary_task
         else:

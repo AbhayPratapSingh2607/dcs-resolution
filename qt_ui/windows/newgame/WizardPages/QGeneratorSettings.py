@@ -70,7 +70,8 @@ class GeneratorOptions(QtWidgets.QWizardPage):
         label = QtWidgets.QLabel("Squadrons start at full capacity")
         label.setToolTip(
             "Campaign will start with all squadrons at full strength "
-            "given enough room at the airfield in question.\n"
+            "given enough room at the airfield in question; preset detachments "
+            "start with their deployed number. Nothing is bought at turn 0.\n"
             "Each squadron's capacity can be defined during Air Wing Configuration."
         )
         generatorLayout.addWidget(label, 5, 0)
@@ -315,7 +316,9 @@ class GeneratorOptions(QtWidgets.QWizardPage):
         self.no_lha.setChecked(s.get("no_lha", False))
         self.no_player_navy.setChecked(s.get("no_player_navy", False))
         self.no_enemy_navy.setChecked(s.get("no_enemy_navy", False))
-        self.squadrons_start_full.setChecked(s.get("squadron_start_full", False))
+        # Decision 9 (T2): squadrons start with their aircraft, whatever the
+        # campaign file says. Unchecking it is the old behaviour.
+        self.squadrons_start_full.setChecked(True)
 
         self.f9f_panther.setChecked(s.get("f9f_panther", False))
         self.a4_skyhawk.setChecked(s.get("a4_skyhawk", False))

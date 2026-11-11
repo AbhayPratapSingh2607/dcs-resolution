@@ -3,8 +3,9 @@
 A preset describes squadrons by the *kind* of base they belong on (carrier, LHA or
 airfield) rather than by a specific base, so the same preset works on any campaign.
 ``PresetPlacer`` turns a preset into concrete placements for a coalition, and
-``apply_preset`` creates the squadrons. Aircraft are bought from the starting budget
-at turn 0 by ``buy_preset_aircraft``.
+``apply_preset`` creates the squadrons. A squadron's ``buy`` number is how many
+aircraft it has deployed at the start (T2, decision 9): nothing is bought at turn 0;
+``deployed_at_start`` gives the number and ``Squadron.populate_for_turn_0`` applies it.
 """
 
 from __future__ import annotations
@@ -65,7 +66,8 @@ class PresetSquadronConfig(SquadronConfig):
     country: Optional[str] = None
     #: Name of a squadron definition to use, if available.
     squadron: Optional[str] = None
-    #: Aircraft to buy at the start. None means "fill the squadron" (max size).
+    #: Aircraft deployed at the start (the YAML key is still ``buy``). None
+    #: means the whole squadron (max size); a detachment names a few.
     buy: Optional[int] = None
 
     @property
@@ -602,36 +604,19 @@ def apply_preset(
     return PresetSquadronAssigner(plan, game, coalition).assign_plan()
 
 
-def buy_preset_aircraft(
-    squadrons: Iterable[Squadron],
-    budget: float,
-    free_parking: Callable[[Squadron], int],
-) -> float:
-    """Buys each squadron's ``preset_purchase`` aircraft from the budget.
-
-    Aircraft are bought one at a time, round-robin across squadrons, so a budget
-    shortfall leaves every squadron a little short instead of leaving the last
-    squadrons empty. Returns the remaining budget.
-    """
-    pending = [s for s in squadrons if s.preset_purchase > 0]
-    while pending:
-        still_pending = []
-        for squadron in pending:
-            price = squadron.aircraft.price
-            if (
-                price > budget
-                or squadron.owned_aircraft >= squadron.max_size
-                or free_parking(squadron) <= 0
-            ):
-                squadron.preset_purchase = 0
-                continue
-            squadron.owned_aircraft += 1
-            squadron.preset_purchase -= 1
-            budget -= price
-            if squadron.preset_purchase > 0:
-                still_pending.append(squadron)
-        pending = still_pending
-    return budget
+def deployed_at_start(
+    deployed: int, squadrons_start_full: bool, max_size: int, free_parking: int
+) -> int:
+    """How many aircraft a squadron has at turn 0 (T2): the number its preset
+    deploys, else all of them when squadrons start full, else none; never
+    more than its size or the parking left at its base. Nothing is bought."""
+    if deployed > 0:
+        wanted = min(deployed, max_size)
+    elif squadrons_start_full:
+        wanted = max_size
+    else:
+        return 0
+    return max(0, min(wanted, free_parking))
 
 
 def preset_from_air_wing(

@@ -293,13 +293,20 @@ class Squadron:
         if any(p.status is not PilotStatus.Active for p in self.pilot_pool):
             raise ValueError("Squadrons can only be created with active pilots.")
         self._recruit_pilots(self.settings.squadron_pilot_limit)
-        if squadrons_start_full:
+        from game.campaignloader.airwingpreset import deployed_at_start
+
+        # T2: squadrons start with their aircraft (a preset's deployed number,
+        # else full when squadrons start full); nothing is bought at turn 0.
+        if self.preset_purchase > 0 or squadrons_start_full:
             parking_type = ParkingType().from_squadron(self)
-            self.owned_aircraft = min(
-                self.max_size, self.location.unclaimed_parking(parking_type)
+            self.owned_aircraft = deployed_at_start(
+                self.preset_purchase,
+                squadrons_start_full,
+                self.max_size,
+                self.location.unclaimed_parking(parking_type),
             )
         self.initial_aircraft = self.owned_aircraft
-        # Any purchase the budget couldn't cover is dropped; it only applies to turn 0.
+        # The deployed number only applies to turn 0.
         self.preset_purchase = 0
 
     def end_turn(self) -> None:

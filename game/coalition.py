@@ -192,20 +192,7 @@ class Coalition:
 
         Final initialization occurs before Game.initialize_turn runs for turn 0.
         """
-        if not squadrons_start_full:
-            self.buy_preset_aircraft()
         self.air_wing.populate_for_turn_0(squadrons_start_full)
-
-    def buy_preset_aircraft(self) -> None:
-        """Buys the starting aircraft requested by air wing presets."""
-        from game.campaignloader.airwingpreset import buy_preset_aircraft
-        from game.theater import ParkingType
-
-        self.budget = buy_preset_aircraft(
-            self.air_wing.iter_squadrons(),
-            self.budget,
-            lambda s: s.location.unclaimed_parking(ParkingType().from_squadron(s)),
-        )
 
     def initialize_turn(self, is_turn_0: bool) -> None:
         """Processes coalition-specific turn initialization.
@@ -234,7 +221,9 @@ class Coalition:
             self.plan_missions(self.game.conditions.start_time)
             if self.player.is_blue:
                 self.frag_player()
-        self.plan_procurement()
+        # T2: squadrons start with their aircraft, so turn 0 buys ground forces
+        # and runway repairs only; aircraft purchases start on turn 1.
+        self.plan_procurement(buy_aircraft=not is_turn_0)
 
     def frag_player(self) -> None:
         """Offer the player a flight from the plan just made: the top offer
@@ -276,7 +265,7 @@ class Coalition:
                         self, self.game.settings.desired_player_mission_duration
                     ).schedule_missions(now)
 
-    def plan_procurement(self) -> None:
+    def plan_procurement(self, buy_aircraft: bool = True) -> None:
         # The first turn needs to buy a *lot* of aircraft to fill CAPs, so it gets much
         # more of the budget that turn. Otherwise budget (after repairs) is split evenly
         # between air and ground. For the default starting budget of 2000 this gives 600
@@ -291,6 +280,7 @@ class Coalition:
             manage_runways = True
             manage_front_line = True
             manage_aircraft = True
+        manage_aircraft = manage_aircraft and buy_aircraft
 
         self.budget = ProcurementAi(
             self.game,
