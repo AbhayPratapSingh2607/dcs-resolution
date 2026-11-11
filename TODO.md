@@ -487,6 +487,11 @@ if the user asks.
     range is 6 km or less is IR (3 km and up) or gun, not an emitter. PG turn 2 re-planned,
     3 fast forwards to 20:00: before, 6 boats sunk by HARMs (LORIKEET's two in 1 of 3, the
     anti-ship flight then had nothing to attack); after, none. Calibration 28/28.
+    Then the same for a real naval SAM: one HARM from a SEAD escort sank LOBSTER's last REZKY
+    in 3 of 3 fast forwards (`fire_arms` killed the "radar" unit, which on a ship is the hull),
+    and the player's anti-ship flight on it found no ship. Fix: an ARM hit on a ship silences
+    the site for `SHIP_RADAR_OUT` (6 h) instead. After: REZKY afloat at 20:00 in 3 of 3.
+    Calibration 28/28.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

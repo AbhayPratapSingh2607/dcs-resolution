@@ -211,6 +211,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Combat Model]** A HARM that hits a warship wrecks its radars and silences its SAMs for six
+  hours instead of sinking it. One HARM from a SEAD escort sank LOBSTER's remaining frigate in
+  every fast forward to the mission window, so the anti-ship flight planned against it found
+  nothing in DCS.
 * **[Combat Model]** HARMs no longer sink fast attack craft. Ships whose air defense reaches
   6 km or less (guns and MANPADS: the IRGCN boats, patrol craft) were treated as radar SAMs,
   so SEAD flights' HARMs hunted their surface search radars while fast forwarding, and an

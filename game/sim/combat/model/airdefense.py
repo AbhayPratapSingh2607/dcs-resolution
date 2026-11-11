@@ -31,7 +31,7 @@ from game.sim.combatlog import CombatDomain
 from .aircrew import LossCause
 from .airframe import AirframeState, WeaponStore
 from .engine import CombatModel, clamp, distance_km, radar_horizon_km
-from .profiles import AirDefenseGuidance, AirDefenseProfile, WeaponRole
+from .profiles import AirDefenseGuidance, AirDefenseProfile, WeaponRole, is_ship
 
 if TYPE_CHECKING:
     from game.ato import Flight
@@ -789,6 +789,12 @@ def _sead_response(
     return fire_arms(model, site, shooters[:2], now, events, rng)
 
 
+#: How long a ship hit by an ARM stays off the air: its radars are
+#: repaired at sea or in port, not in minutes (a land site shutting down to
+#: defeat the ARM comes back after one to three).
+SHIP_RADAR_OUT = timedelta(hours=6)
+
+
 def fire_arms(
     model: CombatModel,
     site: SamSiteState,
@@ -835,6 +841,20 @@ def fire_arms(
         p_hit = weapon.accuracy * airframe.skill * model.lethality
         if rng.random() < clamp(p_hit, 0.05, 0.9):
             radar = rng.choice(radars)
+            if is_ship(radar):
+                # A ship's radars are on its hull: an ARM's warhead wrecks
+                # them and silences its SAMs, it doesn't sink the ship (one
+                # HARM sank LOBSTER's REZKY in every PG fast forward).
+                went_dark = True
+                site.dark_until = now + SHIP_RADAR_OUT
+                model.log(
+                    now,
+                    CombatDomain.AIR_DEFENSE,
+                    side,
+                    f"{weapon.name} wrecks the radars of "
+                    f"{radar.unit_type or radar.type.id} at {site.tgo.name}",
+                )
+                continue
             if model.results.kill_theater_unit(radar, events):
                 model.log(
                     now,

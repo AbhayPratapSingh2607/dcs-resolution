@@ -954,7 +954,7 @@ def _reliability_for_year(year: int) -> float:
 SHIP_GUN_OR_MANPADS_M = 6000.0
 
 
-def _is_ship(unit: TheaterUnit) -> bool:
+def is_ship(unit: TheaterUnit) -> bool:
     from dcs.unittype import ShipType
 
     try:
@@ -1005,7 +1005,7 @@ def _derive_air_defense(
         return None
     detection_m = float(getattr(unit.type, "detection_range", 0) or 0)
     range_km = threat_m / 1000
-    if _is_ship(unit) and threat_m <= SHIP_GUN_OR_MANPADS_M:
+    if is_ship(unit) and threat_m <= SHIP_GUN_OR_MANPADS_M:
         # A ship this short-ranged has guns or shoulder-launched missiles,
         # not a radar SAM: its detection range is its surface search radar.
         # As a TELAR it was a HARM target (the PG Growlers sank IRGCN fast
