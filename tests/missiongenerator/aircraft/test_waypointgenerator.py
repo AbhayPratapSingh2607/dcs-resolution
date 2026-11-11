@@ -77,3 +77,22 @@ def test_unlocks_a_run_of_trapped_speed_locked_waypoints() -> None:
     _generator(points)._resolve_locked_speed_time_conflicts()
 
     assert [p.speed_locked for p in points] == [False, False, False, False]
+
+
+def test_unlocks_speed_on_a_time_locked_waypoint_after_the_spawn() -> None:
+    """A CAP already past its racetrack start when the mission starts: the
+    racetrack start's TOT clamps to ETA 0, locked, with a locked speed, right
+    after the time-locked spawn point. DCS rejects the mission ("All waypoints
+    (2-2) have locked speed and surrounded by waypoints 1 and 2 with locked
+    time")."""
+    points = [
+        _wp(eta_locked=True, speed_locked=True, name="spawn"),
+        _wp(eta_locked=True, speed_locked=True, name="RACETRACK START"),
+        _wp(eta_locked=False, speed_locked=True, name="RACETRACK END"),
+        _wp(eta_locked=False, speed_locked=True, name="LANDING"),
+    ]
+
+    _generator(points)._resolve_locked_speed_time_conflicts()
+
+    assert [p.speed_locked for p in points] == [True, False, True, True]
+    assert [p.ETA_locked for p in points] == [True, True, False, False]

@@ -167,7 +167,7 @@ class WaypointGenerator:
 
     def _resolve_locked_speed_time_conflicts(self) -> None:
         """Unlock the speed on any waypoint that has a locked speed between two
-        time-locked (TOT) waypoints. DCS rejects that combination at mission start;
+        time-locked (TOT) waypoints, or that is itself time-locked after one. DCS rejects that combination at mission start;
         the bounding TOTs already determine the segment speed, so the speed lock is
         redundant. The times are kept (needed to sync with the escorted package).
         """
@@ -181,10 +181,16 @@ class WaypointGenerator:
                 seen = True
         eta_locked_after = False
         for i in range(n - 1, -1, -1):
+            # The waypoint's own time lock counts too: a CAP already past its
+            # racetrack start at mission start gets ETA 0, locked, with a
+            # locked speed, after the time-locked spawn point. DCS rejects it
+            # ("All waypoints (2-2) have locked speed and surrounded by
+            # waypoints 1 and 2 with locked time").
+            own_eta = getattr(points[i], "ETA_locked", False)
             if (
                 getattr(points[i], "speed_locked", False)
                 and eta_locked_before[i]
-                and eta_locked_after
+                and (eta_locked_after or own_eta)
             ):
                 points[i].speed_locked = False
                 logging.debug(
