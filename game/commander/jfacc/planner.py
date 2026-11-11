@@ -360,7 +360,8 @@ class JfaccPlanner:
         self._apply_category_scaling()
         self._set_push_quota()
         self.planned_keys: set[str] = set()
-        #: SAM site id -> TOT of the DEAD package tasked against it.
+        #: SAM site (or air defense ship) id -> TOT of the package tasked
+        #: against it.
         self.suppressed: dict[object, datetime] = {}
         self.aewc_planned = False
         risk_scale = self.effect("risk_scale", 1.0)
@@ -1464,10 +1465,17 @@ class JfaccPlanner:
     def _rollback_stalled(self) -> bool:
         """Rollback is allowed, no openers were named and no SAM site was
         attacked this period."""
+        from game.theater.theatergroundobject import SamGroundObject
+
+        sam_attacked = any(
+            isinstance(n.target, SamGroundObject)
+            and getattr(n.target, "id", None) in self.suppressed
+            for n in self.nominations
+        )
         return (
             self.composer.rollback_allowed
             and not self.composer.opener_targets
-            and not self.suppressed
+            and not sam_attacked
         )
 
     def _choose_rollback_openers(self, force: bool = False) -> None:
@@ -1511,18 +1519,55 @@ class JfaccPlanner:
             f"(lightest route weight {weighed[0][0]:.1f}); opening on {names}"
         )
 
+    def _route_guard_ships(self) -> set[int]:
+        """Air defense ships whose envelope (plus 5 nm) reaches the straight
+        route from our nearest base to a nominated target."""
+        from shapely.geometry import LineString, Point as ShapelyPoint
+
+        ships = [
+            n.target
+            for n in self.nominations
+            if n.priority > 0 and _air_defense_ship(n.target)
+        ]
+        if not ships:
+            return set()
+        routes = []
+        for nomination in self.nominations:
+            if nomination.priority <= 0 or _air_defense_ship(nomination.target):
+                continue
+            origin = self.composer.origin_for(nomination.target)
+            if origin is None:
+                continue
+            start = origin.position  # type: ignore[attr-defined]
+            end = nomination.target.position
+            routes.append(LineString([(start.x, start.y), (end.x, end.y)]))
+        guarding: set[int] = set()
+        for ship in ships:
+            reach = ship.max_threat_range().meters + 5 * 1852  # type: ignore[attr-defined]
+            point = ShapelyPoint(ship.position.x, ship.position.y)
+            if any(route.distance(point) <= reach for route in routes):
+                guarding.add(id(ship))
+        return guarding
+
     def _plan_jiptl(self) -> None:
         from game.theater.theatergroundobject import SamGroundObject
 
         # H-hour sequencing (item 2): suppression is planned first, in the
         # first wave, so the strikes of the next wave can fly through the SEAD
         # corridors it opens instead of each needing its own HARM escort.
+        # Air defense ships are suppression too: a frigate's missiles cover
+        # the routes past it, so it is attacked in the suppression wave with
+        # the DEAD instead of by a later anti-ship strike.
+        # A ship covering the way to this period's targets goes first among
+        # them: it is a small package and every later route is safer for it.
         openers = self.composer.opener_targets
+        guarding = self._route_guard_ships()
         ordered = sorted(
             self.nominations,
             key=lambda n: (
                 0 if getattr(n.target, "id", None) in openers else 1,
-                0 if n.category is Category.SEAD else 1,
+                0 if n.category is Category.SEAD or _air_defense_ship(n.target) else 1,
+                0 if id(n.target) in guarding else 1,
             ),
         )
         for nomination in ordered:
@@ -1533,7 +1578,10 @@ class JfaccPlanner:
                 continue
             if not self.coalition.air_wing.can_auto_plan(nomination.mission):
                 continue
-            tot = self._strike_tot(nomination.target.position, category)
+            ad_ship = _air_defense_ship(nomination.target)
+            tot = self._strike_tot(
+                nomination.target.position, Category.SEAD if ad_ship else category
+            )
             if tot is None:
                 continue
             request = self._offensive_request(nomination, tot=tot)
@@ -1544,8 +1592,8 @@ class JfaccPlanner:
             if composed is not None:
                 self._note_push_spend(category, composed)
                 self._mark_planned(nomination)
-                if isinstance(nomination.target, SamGroundObject):
-                    self.suppressed[nomination.target.id] = (
+                if isinstance(nomination.target, SamGroundObject) or ad_ship:
+                    self.suppressed[nomination.target.id] = (  # type: ignore[attr-defined]
                         composed.package.time_over_target
                     )
 
@@ -1629,3 +1677,17 @@ def plan(game: Game, player: Player, now: datetime, tracer: MultiEventTracer) ->
         return False
     JfaccPlanner(game, player, profile).plan_missions(now, tracer)
     return True
+
+
+def _air_defense_ship(target: object) -> bool:
+    """An enemy ship group whose air defense counts in the route threat."""
+    from game.theater.theatergroundobject import NavalGroundObject
+
+    from .targetclass import sam_weight
+
+    if not isinstance(target, NavalGroundObject):
+        return False
+    try:
+        return sam_weight(target) > 0
+    except Exception:
+        return False

@@ -215,6 +215,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   and missiles sit on one hull, which the planner's radar SAM check didn't recognise, so a
   frigate's SA-N-4 next to the route of a DEAD package through the Strait of Hormuz added
   nothing to its risk, escort or timing. Ships are weighed by their reach like land sites.
+* **[Auto Planner]** Air defense ships are attacked in the suppression wave (H-hour) with the
+  DEAD, and a ship whose missiles cover the way to the period's targets goes first among them.
+  Before, ships were left to anti-ship strikes in a later wave, after the SEAD had flown past
+  them.
 * **[ATO]** The ATO timeline redraws as soon as a package's timings change (TOT, flights added
   or removed), not at the next turn.
 * **[UI]** **Take off** and fast-forward show a progress dialog with the elapsed time while the
