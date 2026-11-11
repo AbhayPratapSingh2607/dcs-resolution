@@ -3,15 +3,18 @@
 An air wing preset sets up a whole side's air wing in one click: a US Navy carrier air wing from
 1975, 1985, 1991, 2005 or 2020, a USMC amphibious ready group, a USAF expeditionary force, a
 multinational NATO coalition, or a Soviet or Russian air force. Presets aren't tied to a theater.
-Each squadron says which *kind* of base it belongs on (carrier, LHA or airfield), so the same preset
-works on any campaign.
+Each squadron says which *kind* of base it belongs on (carrier, LHA, airfield or off-map), so the
+same preset works on any campaign. The USAF, NATO, Russian and Soviet presets add a strategic bomber
+detachment at an off-map base when the campaign defines one for the side (10 of the 70 campaigns do
+for blue, `black_sea` also for red); elsewhere they add none. Each preset file notes the deployment
+it is drawn from and where DCS lacks the real types.
 
 ## Applying a preset
 
 1. Start a new game. When the **Air Wing Configuration** window opens, choose the Blue or Red tab.
 2. Click **Apply Preset...**. Presets closest to the campaign's start year are listed first.
-3. Select a preset. The preview shows which base each squadron goes to, how many aircraft will be
-   bought and what they cost against the starting budget, and any warnings.
+3. Select a preset. The preview shows which base each squadron goes to, how many aircraft are
+   deployed at the start, and any warnings.
 4. Choose the options:
    * **Replace existing squadrons** (on by default) removes the campaign's own squadrons first.
    * **Add aircraft missing from the faction** lets the preset use stock DCS aircraft the faction
@@ -21,15 +24,12 @@ works on any campaign.
 **Save as Preset...** saves the side's current air wing so you can reuse it on another theater.
 Your presets are stored in `Saved Games/DCS/Retribution/AirWingPresets`.
 
-## Buying aircraft at the start
+## Aircraft at the start
 
-Each squadron has a **Buy at start** box next to **Max size**. When the campaign begins, that many
-aircraft are bought from the starting budget. If the money runs out, aircraft are bought one at a
-time across all squadrons, so each squadron ends up a little short instead of the last ones getting
-nothing. Money left over goes to the usual automatic procurement.
-
-If **Squadrons start full** is ticked in the wizard, squadrons are filled for free and the buy
-counts are ignored.
+Squadrons and detachments start with their aircraft; nothing is bought at turn 0. Each squadron has
+a **Deployed at start** box next to **Max size**: a squadron deploys all of its aircraft, a
+detachment a few. With **Squadrons start full** (now ticked by default) a squadron without a number
+starts full. The starting budget pays for ground forces; aircraft purchases start on turn 1.
 
 ## Warnings
 

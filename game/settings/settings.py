@@ -14,6 +14,7 @@ from .minutesoption import minutes_option
 from .optiondescription import OptionDescription, SETTING_DESCRIPTION_KEY
 from .skilloption import skill_option
 from ..ato.starttype import StartType
+from ..opening import Surprise
 from ..warfare.collateral import RoeSetting
 
 if TYPE_CHECKING:
@@ -1377,6 +1378,22 @@ class Settings:
             "Sustained losses relative to the size of a side's forces lower its "
             "resolve, which reduces income and every morale baseline. It never ends "
             "the war by itself."
+        ),
+    )
+    strategic_surprise: Surprise = choices_option(
+        "Strategic surprise at H-hour",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=Surprise.PARTIAL,
+        choices={v.value: v for v in Surprise},
+        detail=(
+            "Set before Begin Campaign. How ready the enemy is when the war "
+            "starts: with none, many of its mobile SAMs have left their known "
+            "sites, its radars wait in ambush, decoys are out, aircraft are "
+            "dispersed and more fighters sit on alert; with full surprise its "
+            "SAMs are where intelligence saw them, radiating, and its aircraft "
+            "are parked in the open. It also changes how well the opening "
+            "missile strikes hit."
         ),
     )
     space_and_agency_intel: bool = boolean_option(

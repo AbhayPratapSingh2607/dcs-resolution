@@ -224,6 +224,18 @@ class TargetNominator:
             value *= min(1.5, 0.4 + present / 16)
         return value
 
+    def _opening_weight(self, target_class: str) -> float:
+        """Turn 1: the opening emphasis chosen at turn 0 (game.opening, T7)
+        weights blue's target list."""
+        if not self.player.is_blue or self.game.turn != 1:
+            return 1.0
+        from game.opening import EMPHASIS_CLASSES, EMPHASIS_WEIGHT, opening_of
+
+        plan = opening_of(self.game)
+        if not plan.begun:
+            return 1.0
+        return EMPHASIS_WEIGHT if target_class in EMPHASIS_CLASSES.get(plan.emphasis, set()) else 1.0
+
     def nominate(self) -> list[TargetNomination]:
         from game.theater.theatergroundobject import TheaterGroundObject
 
@@ -271,6 +283,7 @@ class TargetNominator:
                 * max(0.2, confidence)
                 * max(0.0, remaining)
             )
+            priority *= self._opening_weight(target_class)
             if stale or remaining <= 0:
                 priority = 0.0
             nominations.append(

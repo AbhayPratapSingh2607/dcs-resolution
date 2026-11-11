@@ -94,6 +94,16 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Campaign start]** Squadrons and detachments start with their aircraft, for both sides;
+  nothing is bought at turn 0 (a preset's buy number is now the number deployed, and squadrons
+  start full by default). Turn 0 spends the budget on ground forces.
+* **[Campaign start]** Air wing presets add strategic bomber detachments at the side's off-map
+  base where the campaign defines one; each preset notes its sources.
+* **[Campaign start]** **Begin Campaign** asks for H-hour, the opening emphasis, the strategic
+  surprise (new setting) and the pre-war reconnaissance areas. It then flies both sides'
+  reconnaissance, runs the first intel round, puts the enemy in its posture (moved SAMs, emission
+  control, decoys, dispersal, alert fighters) and fires blue's opening cruise missile salvo. The
+  turn 1 briefing opens with the estimate and the BDA.
 * **[Bubble]** In a full turn, only what you are likely to meet goes into DCS: your package,
   your tanker and AWACS, the SEAD on your route, pinned packages, enemy CAPs and alerts covering
   your route, and the packages crossing it, about 10 packages per side (**Full turn: packages

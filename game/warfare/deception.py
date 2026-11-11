@@ -54,6 +54,11 @@ def place_decoys(game: Game, war_state: WarState) -> int:
         doctrine = war_state.doctrine(game, player)
         if doctrine.deception <= 0:
             continue
+        from game.opening import decoys_allowed
+
+        if not decoys_allowed(game, player):
+            # Caught by full surprise (T8): no time to set out decoys.
+            continue
         rng = war_state.rng(game, f"decoys{player}")
         from game.commander.jfacc.iads import decoy_plan
 

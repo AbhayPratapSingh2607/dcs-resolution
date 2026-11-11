@@ -607,6 +607,10 @@ class JfaccPlanner:
         pairs = int(alert.get("pairs_per_base", int(dca.get("qra_per_base", 0)) // 2))
         # Force preservation holds more fighters back for the defense.
         pairs += int(self.effect("alert_pairs_bonus", 0))  # type: ignore[call-overload]
+        # Turn 1: red's posture at H-hour (game.opening, T8).
+        from game.opening import alert_pairs_bonus
+
+        pairs += alert_pairs_bonus(self.game, self.player)
         if pairs <= 0:
             return []
         size = int(alert.get("flight_size", 2))

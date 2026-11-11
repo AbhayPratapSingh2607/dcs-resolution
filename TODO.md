@@ -4,7 +4,7 @@ Read `VISION.md` first. It gives the goal, what is out of scope, the decisions a
 of the work. Before starting an item, apply its scope test (section 8). If this file and
 `VISION.md` disagree, `VISION.md` is right.
 
-**M1, M2 and M3 done 2026-11-10 (W1–W8, P1–P7, B1–B8). Current milestone: M4, campaign start. Next: T1.**
+**M1 to M4 done 2026-11-10 (W1–W8, P1–P7, B1–B8, T1–T10). Current milestone: M5, realism and balance. Next: V1.**
 
 How this file is laid out:
 
@@ -296,10 +296,17 @@ A new campaign starts the way a real operation would: a deployed air wing, a pre
 enemy, an opening salvo and a BDA. M4 doesn't depend on M1 to M3 and can be moved earlier
 if the user asks.
 
-- [ ] **T1. One branch with everything.** Merge `combat-resolution` into `Resolution`,
+- [x] **T1. One branch with everything.** Done 2026-11-10: `Resolution` merged into
+  `combat-resolution` (3b80f0f29; it only lacked the presets and gun-run avoidance), so
+  `combat-resolution` has everything and M4 is built there; `Resolution` can fast-forward
+  to it. Tests pass. Merge `combat-resolution` into `Resolution`,
   which has the presets, and run the tests there. Decide where the items that need both
   the presets and the planner are built (T3, T9).
-- [ ] **T2. Start with aircraft.** Squadrons and detachments start with their aircraft, for
+- [x] **T2. Start with aircraft.** Done 2026-11-10: `airwingpreset.deployed_at_start`,
+  `Squadron.populate_for_turn_0`; the wizard ticks "Squadrons start full"; turn 0 buys no
+  aircraft (`Coalition.plan_procurement(buy_aircraft=False)`). Checked on black_sea with the
+  USAF 2005 and Russian 2015 presets: 68 and 86 aircraft deployed, no orders. The starting
+  budget is not retuned yet (red spends all of it on ground forces at turn 0): V1. Squadrons and detachments start with their aircraft, for
   both sides. Nothing is bought at turn 0.
   - Presets: `buy_preset_aircraft` goes. A squadron's `buy` number becomes the number
     deployed, so a detachment starts with a few aircraft and a squadron with all of them.
@@ -308,39 +315,54 @@ if the user asks.
   - Retune the starting budget, which now pays for ground forces only.
   - Done when: a campaign started from a preset shows no aircraft purchase at turn 0 for
     either side.
-- [ ] **T3. Bomber detachments.** Where the campaign defines an off-map base for the side,
+- [x] **T3. Bomber detachments.** Done 2026-11-10 in part: `BaseKind.OFF_MAP`, bomber groups
+  in the USAF 1991/2005, NATO 2010, Russian 2015 and Soviet 1985 presets; the JFACC composer
+  offers off-map bombers first for Strike and OCA/Runway. **Open:** on black_sea over 5 turns
+  every bomber package was scrubbed for want of a free SEAD escort (doctrine: no strikers into
+  radar SAM cover without SEAD). Not tuned (no band fails); look at it in V2. Where the campaign defines an off-map base for the side,
   the preset adds a detachment of strategic bombers there, never at an airfield in the
   theater. Elsewhere it adds none.
   - 10 of the 70 campaigns define an off-map base for blue. One of them (`black_sea`) also
     defines one for red.
   - The bombers enter at the map edge, as off-map flights do today.
   - Done when: bombers appear only in those campaigns, and the planner tasks them.
-- [ ] **T4. Presets from real deployments.** Check the 12 presets against the deployments
+- [x] **T4. Presets from real deployments.** Done 2026-11-10: each preset's header names its
+  source and the types DCS lacks. No preset yet for: China, Iran, Iraq, Israel, Syria, Egypt,
+  India, Pakistan, North Korea, the Vietnam war (USA, NVA), the Falklands, World War II,
+  Sweden, and France, the UK or Germany alone. Check the 12 presets against the deployments
   they name: squadron counts, types, and detachment sizes for AWACS, tankers, electronic
   warfare and reconnaissance. Note each source in the file. List the factions and eras
   that have no preset.
-- [ ] **T5. Pre-war reconnaissance.** Before **Begin Campaign**, each side has a number of
+- [x] **T5. Pre-war reconnaissance.** Done 2026-11-10: `game/opening.py` (`recon_tasks`,
+  `fly_recon`, `commander_recon`) and `qt_ui/windows/QOpeningDialog.py`. Before **Begin Campaign**, each side has a number of
   reconnaissance tasks to spend on areas of the map. Each raises what the side knows
   there, through the intel picture. Red's commander spends its own.
-- [ ] **T6. First intel round.** At **Begin Campaign** the strategic intel round
+- [x] **T6. First intel round.** Done 2026-11-10: Begin Campaign fills the pre-war
+  picture, then the reconnaissance; the strategic round follows in `WarState.end_turn`
+  (no decay on turn 1); `opening.opening_estimate` opens the turn 1 briefing. At **Begin Campaign** the strategic intel round
   (`warstate._strategic_intel`) runs once, after T5, and the turn 1 briefing opens with
   its estimate. Today the pre-war picture is filled in when first needed.
-- [ ] **T7. Opening choices.** At turn 0 the player picks:
+- [x] **T7. Opening choices.** Done 2026-11-10: H-hour and emphasis in the opening dialog;
+  `TargetNominator._opening_weight` on turn 1. At turn 0 the player picks:
   - H-hour: which 6 hour period of the day the war starts in;
   - the opening emphasis: air defenses, airfields, command and control, or balanced. It
     weights the turn 1 target list and the missile strikes (T9).
-- [ ] **T8. Red's turn 0.** A new-campaign setting for strategic surprise: none, partial
+- [x] **T8. Red's turn 0.** Done 2026-11-10: setting `strategic_surprise`;
+  `opening.apply_posture` (moved SAMs), `mobile_emcon`, `decoys_allowed`,
+  `alert_pairs_bonus`, `parked_in_open`. A new-campaign setting for strategic surprise: none, partial
   or full. It sets red's posture at H-hour: SAMs moved or still at their known sites,
   emission control, decoys, aircraft dispersed or parked in the open, and the share of
   fighters on alert.
-- [ ] **T9. Opening missile strikes.** Blue only, turn 0 only (decision 5).
+- [x] **T9. Opening missile strikes.** Done 2026-11-10: `opening.salvo_size`, `fire_salvo`. Blue only, turn 0 only (decision 5).
   - Salvo size: from the faction and its era, raised by the cruise missile ships and
     bomber detachments in the campaign.
   - Targets: fixed targets from the commander's target list, weighted by the opening
     emphasis.
   - The app resolves them at **Begin Campaign**. Hit chances depend on the target, red's
     defenses and surprise. There is no missile stock afterwards.
-- [ ] **T10. Turn 1 BDA** (was F23). Turn 1 opens with a BDA report: what was fired at and
+- [x] **T10. Turn 1 BDA** (was F23). Done 2026-11-10: `opening.bda_report`; checked on
+  black_sea: full surprise and air defenses 26 of 33 targets assessed hit, no surprise and
+  airfields 17 of 30. Turn 1 opens with a BDA report: what was fired at and
   what intelligence assesses was hit, with the intel picture's uncertainty. The damage
   shows on the map, and in the first mission as wrecks and craters.
   - Done when: the report changes with the surprise setting and the opening emphasis.
@@ -542,6 +564,16 @@ default since W8). D11 checks the 6 hour turn.
     "Elsewhere, fought by the combat model: …";
   - with the setting **Full turn: only what you'd meet is in DCS** off, every package
     flying during the window is in DCS.
+- [ ] **D16. The opening (M4).** New campaign with a preset (e.g. USAF 2005 on a campaign
+  with an off-map base). **Expect:**
+  - no aircraft purchase at turn 0; squadrons show their aircraft; bombers only at the off-map
+    base;
+  - **Begin Campaign** opens the opening dialog; the chosen H-hour sets turn 1's start time;
+  - the turn 1 briefing starts with **The opening**: the estimate, the recon areas and the
+    BDA lines;
+  - in the first mission, targets the salvo hit show wrecks, and a cratered runway at a hit
+    airfield;
+  - with surprise "None", enemy SAMs are not where the map first showed them.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

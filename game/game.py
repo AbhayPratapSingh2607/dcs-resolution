@@ -460,6 +460,17 @@ class Game:
 
         events = GameUpdateEvents()
 
+        if self.turn == 0:
+            # Begin Campaign: H-hour, red's posture, pre-war reconnaissance and
+            # the opening missile strikes (game.opening, M4).
+            from game.opening import begin_campaign
+
+            with logged_duration("Campaign opening"):
+                try:
+                    begin_campaign(self, events)
+                except Exception:
+                    logging.exception("The campaign opening failed")
+
         logging.info("Pass turn")
         with logged_duration("Turn finalization"):
             self.finish_turn(events, no_action)

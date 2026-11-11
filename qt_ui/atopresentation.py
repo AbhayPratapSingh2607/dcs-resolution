@@ -603,6 +603,17 @@ def turn_briefing(game: Game, blue: bool = True) -> Optional[str]:
         return None
     when = e(summary.period_text).replace(", ", " · ", 1)
     lines = [f"<b>Turn {summary.turn}: {e(summary.phase)}</b>{when}"]
+    if blue:
+        # Turn 1 opens with the opening estimate and the BDA (game.opening).
+        from game.opening import turn_one_lines
+
+        opening = turn_one_lines(game)
+        if opening:
+            lines.append("<b>The opening</b>")
+            lines.extend(
+                ("&nbsp;&nbsp;" + e(l.strip())) if l.startswith("  ") else e(l)
+                for l in opening
+            )
     if summary.intent:
         lines.append(e(summary.intent))
     if summary.key:

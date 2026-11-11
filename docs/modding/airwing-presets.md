@@ -3,7 +3,7 @@
 An air wing preset is a ready-made air wing, such as a US Navy carrier air wing from
 1985, a USAF expeditionary force, or a multinational NATO task force. You apply it in
 the new game **Air Wing Configuration** window. The squadrons are placed on the bases
-your side owns, and their aircraft are bought from the starting budget.
+your side owns, and start with their aircraft deployed (nothing is bought).
 
 Presets aren't tied to a theater. Each one says what *kind* of base its squadrons
 belong on (carrier, LHA or airfield), not which base, so the same preset works on
@@ -17,8 +17,7 @@ any campaign.
    campaign's start year come first.
 3. Select a preset. The preview shows:
    - which base each squadron goes to;
-   - how many aircraft will be bought, and what they cost against your starting
-     budget;
+   - how many aircraft are deployed at the start;
    - warnings, for example when your side owns no carrier or the faction doesn't
      have an aircraft.
 4. Options:
@@ -31,14 +30,9 @@ any campaign.
      wizard's mod settings instead.
 5. Click **Apply**. You can still edit, remove or add squadrons afterwards.
 
-Each squadron has a **Buy at start** box next to **Max size**. It holds the number
-of aircraft bought from the starting budget when the campaign begins. If the money
-runs out, aircraft are bought one at a time in turn across squadrons, so every
-squadron ends up a little short instead of the last ones getting nothing. Any money
-left over is spent by the usual automatic procurement.
-
-If **Squadrons start full** is checked in the wizard, squadrons are filled for free
-as before, and the buy counts are ignored.
+Each squadron has a **Deployed at start** box next to **Max size**: the number of
+aircraft it has when the campaign begins. Nothing is bought at turn 0; the starting
+budget pays for ground forces.
 
 **Save as Preset...** saves the side's current air wing as a preset file, so you can
 reuse it on other theaters.
@@ -56,7 +50,7 @@ description: Mid-80s Nimitz-class air wing.
 era: 1985                               # optional; used for sorting
 side: blue                              # optional: blue, red, or leave out
 groups:
-  - base: carrier                       # carrier | lha | airfield
+  - base: carrier                       # carrier | lha | airfield | off-map
     count: 1                            # see below
     squadrons:
       - aircraft: ["F-14A Tomcat (Block 135-GR Late)", "F-14A Tomcat (Block 135-GR Early)"]
@@ -77,7 +71,7 @@ A preset is a list of groups. All squadrons in a group go on the same kind of ba
 
 | Key | Meaning |
 |---|---|
-| `base` | `carrier`, `lha` or `airfield` (default). Airfields include FOBs and FARPs, but not off-map spawns. |
+| `base` | `carrier`, `lha`, `airfield` (default) or `off-map`. Airfields include FOBs and FARPs, but not off-map spawns. `off-map` is the side's off-map base, for strategic bombers; a campaign without one gets none of the group, with no warning. |
 | `count` | Carriers and LHAs: how many of your carriers/LHAs each get the whole group (default 1). Airfields: how many airfields the group may be spread over (default: all). |
 | `placement` | Airfields only. `front` fills the airfields closest to the enemy first, `rear` fills the farthest first, and `any` (default) spreads squadrons over the airfields. |
 
@@ -98,7 +92,7 @@ plus three of their own:
 | `name`, `nickname`, `female_pilot_percentage` | Optional overrides, as in campaign files. |
 | `country` | DCS country name (e.g. `UK`, `France`, `Germany`, `Turkey`). Only squadron definitions from that country are used. If there are none, a squadron is generated with that country. The country decides the livery, pilot names and in-mission radio voice. Leave it out to use the faction's country. |
 | `squadron` | Name of a squadron definition (from `resources/squadrons`) to use if it's available. |
-| `buy` | Aircraft to buy at the start (default: `size`). |
+| `buy` | Aircraft deployed at the start (default: `size`). Nothing is bought. |
 
 Aircraft names are the names Retribution shows in the game, as used in faction files
 (e.g. `F/A-18C Hornet (Lot 20)`). Put older or stock aircraft later in the `aircraft`

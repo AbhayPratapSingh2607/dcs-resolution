@@ -86,6 +86,10 @@ def plan_emcon(
     emcon = cfg.get("emcon") or {}
     lorad_default = str(emcon.get("lorad", ACTIVE))
     mobile_default = str(emcon.get("mobile", ACTIVE))
+    # Turn 1: red's posture at H-hour (game.opening, T8).
+    from game.opening import mobile_emcon
+
+    mobile_default = mobile_emcon(game, player) or mobile_default
     hunted_at = float(emcon.get("hunted_threshold", 0.8))
     hunted_order = str(emcon.get("hunted", AMBUSH))
     preserve_order = str(emcon.get("preserve", DARK))

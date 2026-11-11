@@ -321,6 +321,34 @@ the CAPs, AWACS, tankers and ground alerts planned for you and leaves the strike
 packages are key packages in the briefing and the debrief. **Keep in my mission** on a package
 pins it for the DCS mission.
 
+## The opening
+
+**Begin Campaign** opens the opening choices:
+
+* **H-hour**: which 6 hour period of the day the war starts in.
+* **Opening emphasis**: air defenses, airfields, command and control, or balanced. It weights the
+  turn 1 target list and the opening missile strikes.
+* **Strategic surprise** (also in the settings): how ready the enemy is. With none, many of its
+  mobile SAMs have left their known sites, its mobile radars wait in ambush on turn 1, its decoys
+  are out, its aircraft are dispersed and an extra alert pair sits at each fighter base. With full
+  surprise its SAMs are where intelligence saw them, radiating, without decoys, its aircraft parked
+  in the open, and one alert pair fewer.
+* **Pre-war reconnaissance**: a number of enemy bases (more with better ISR) to look at; each
+  raises what intelligence knows within 40 nm. The enemy reconnoitres its own.
+
+Begin Campaign then starts the war at H-hour, puts the enemy in its posture, flies the
+reconnaissance, runs the first strategic intel round, and fires blue's opening missile salvo:
+cruise missiles from the faction's era (none before 1983 for Western factions, Russia from 2015),
+raised by the cruise missile ships and bomber detachments in the campaign, at fixed targets from
+the target list weighted by the emphasis. Hit chances depend on the target, the SAMs around it and
+the surprise. There is no missile stock afterwards. The turn 1 briefing opens with the opening
+estimate and the BDA: what was fired at and what intelligence assesses was hit, with its
+uncertainty. The damage shows on the map, and in the first mission as wrecks and craters.
+
+Squadrons and detachments start with their aircraft; nothing is bought at turn 0. Strategic
+bombers sit at off-map bases only, and the commander offers them first for strikes and runway
+attacks; they still need SEAD into radar SAM cover like everyone else.
+
 ## The bubble
 
 In a full turn with a player flight, the DCS mission holds only what you are likely to meet.

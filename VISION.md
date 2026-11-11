@@ -42,10 +42,10 @@ What a campaign looks like when this is done, and where each step stands today.
 | # | Step | Today | Milestone |
 |---|------|-------|-----------|
 | 1 | **New campaign.** Pick a campaign, both factions, mods and settings. | Exists | |
-| 2 | **Air wing.** Build your own, or pick a preset taken from a real deployment. The preset reads the campaign's bases: a carrier gets its air wing, an LHA its Marine squadrons, an off-map base its bomber detachment. | Partly. 12 presets exist, but only on the `airwing-presets` and `Resolution` branches. No bomber group. | M4 |
-| 3 | **Starting aircraft.** Squadrons and detachments start with their aircraft. A detachment starts with as many as would really deploy. Nothing is bought. | Partly. "Squadrons start full" exists. Presets buy from the budget instead. | M4 |
-| 4 | **Turn 0.** Ground forces are bought. You spend pre-war reconnaissance, the first intel round runs, you make the opening choices, red prepares, and blue's opening missile strikes are planned. | Partly. Ground purchases and a pre-war intel picture exist. The rest doesn't. | M4 |
-| 5 | **Turn 1 opens** with a BDA report on the missile strikes, and the damage is on the map. | Missing | M4 |
+| 2 | **Air wing.** Build your own, or pick a preset taken from a real deployment. The preset reads the campaign's bases: a carrier gets its air wing, an LHA its Marine squadrons, an off-map base its bomber detachment. | Exists (M4, 2026-11-10): 12 presets with sources; bomber detachments at off-map bases (they rarely fly yet: T3). | M4 |
+| 3 | **Starting aircraft.** Squadrons and detachments start with their aircraft. A detachment starts with as many as would really deploy. Nothing is bought. | Exists (M4). | M4 |
+| 4 | **Turn 0.** Ground forces are bought. You spend pre-war reconnaissance, the first intel round runs, you make the opening choices, red prepares, and blue's opening missile strikes are planned. | Exists (M4): the opening dialog at Begin Campaign; the strikes are resolved there. | M4 |
+| 5 | **Turn 1 opens** with a BDA report on the missile strikes, and the damage is on the map. | Exists (M4). | M4 |
 | 6 | **The commander plans 6 hours:** routine lines all period, strike waves, and a main push as long as the mission duration. | Exists (M1, 2026-11-10). | M1 |
 | 7 | **You get a flight** from the plan, by your preferred squadron or mission type. You can pick another, or plan your own package. | Exists (M2, 2026-11-10). | M2 |
 | 8 | **Fly.** The mission starts at your startup. Everything earlier is already fought: flights in the air are where they would be, and earlier strikers are heading home. | Exists (M2). Weapons expended past the TOT; to be flown in M6. | M2 |
@@ -178,8 +178,8 @@ replaces, and then `TODO.md` and the memory notes are brought in line.
 
 ## 6. Roadmap
 
-**Current milestone: M4.** M1, M2 and M3 closed 2026-11-10 (W1–W8, P1–P7, B1–B8; W7's
-bands and B7's distortion are recorded in `TODO.md`). One milestone at a time. The game stays playable after each one. The items are
+**Current milestone: M5.** M1 to M4 closed 2026-11-10 (W1–W8, P1–P7, B1–B8, T1–T10; W7's
+bands, B7's distortion and T3's open point are recorded in `TODO.md`). One milestone at a time. The game stays playable after each one. The items are
 in `TODO.md` under the same names.
 
 ### M1. The 6 hour war (app only)

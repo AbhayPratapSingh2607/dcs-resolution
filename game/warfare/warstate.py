@@ -511,8 +511,11 @@ class WarState:
         from game.theater.player import Player
 
         if self.intel_enabled(game):
-            for player in (Player.BLUE, Player.RED):
-                self.picture(game, player).decay(game, game.turn)
+            # The pre-war picture and reconnaissance (game.opening) are fresh
+            # at Begin Campaign; the strategic round runs right after them (T6).
+            if game.turn > 1:
+                for player in (Player.BLUE, Player.RED):
+                    self.picture(game, player).decay(game, game.turn)
             self._strategic_intel(game)
         if not self.morale_enabled(game):
             return

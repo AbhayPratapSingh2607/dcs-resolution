@@ -210,6 +210,12 @@ class QTopPanel(QFrame):
         self.dialog.show()
 
     def passTurn(self):
+        if self.game.turn == 0:
+            # Begin Campaign: the opening choices first (game.opening, M4).
+            from qt_ui.windows.QOpeningDialog import QOpeningDialog
+
+            if not QOpeningDialog(self.game, self.window()).exec():
+                return
         with report_lost_farps(self.game, self.window()):
             with logged_duration("Skipping turn"):
                 self.game.pass_turn(no_action=True)
