@@ -82,6 +82,14 @@ class QTopPanel(QFrame):
         self.transfers.setProperty("style", "btn-primary")
         self.transfers.clicked.connect(self.open_transfers)
 
+        self.fire_missions = QPushButton("Fire Missions")
+        self.fire_missions.setDisabled(True)
+        self.fire_missions.setProperty("style", "btn-primary")
+        self.fire_missions.setToolTip(
+            "Plan cruise missile, missile and artillery strikes for this turn."
+        )
+        self.fire_missions.clicked.connect(self.open_fire_missions)
+
         self.wet_wing = QPushButton("Wet Wing")
         self.wet_wing.setProperty("style", "btn-primary")
         self.wet_wing.setToolTip(
@@ -111,6 +119,7 @@ class QTopPanel(QFrame):
         self.buttonBoxLayout = QHBoxLayout()
         self.buttonBoxLayout.addWidget(self.air_wing)
         self.buttonBoxLayout.addWidget(self.transfers)
+        self.buttonBoxLayout.addWidget(self.fire_missions)
         self.buttonBox.setLayout(self.buttonBoxLayout)
 
         self.simSpeedControls = SimSpeedControls(sim_controller)
@@ -162,6 +171,8 @@ class QTopPanel(QFrame):
 
         self.air_wing.setEnabled(True)
         self.transfers.setEnabled(True)
+        # From turn 1: turn 0's strikes are the opening salvo.
+        self.fire_missions.setEnabled(game.turn >= 1)
 
         self.conditionsWidget.setCurrentTurn(game.turn, game.conditions)
 
@@ -202,6 +213,12 @@ class QTopPanel(QFrame):
 
     def open_air_wing(self):
         self.dialog = AirWingDialog(self.game_model, self.window())
+        self.dialog.show()
+
+    def open_fire_missions(self) -> None:
+        from qt_ui.windows.QFireMissionsDialog import QFireMissionsDialog
+
+        self.dialog = QFireMissionsDialog(self.game, self.window())
         self.dialog.show()
 
     def open_transfers(self):

@@ -312,6 +312,11 @@ class GroundObjectGenerator:
 
     @property
     def culled(self) -> bool:
+        from game.missiongenerator.firemissiongenerator import fires_in_mission
+
+        if fires_in_mission(self.game, self.ground_object):
+            # It fires a fire mission in DCS (game.warfare.firemissions).
+            return False
         return self.game.iads_considerate_culling(self.ground_object)
 
     def generate(self) -> None:
@@ -577,6 +582,10 @@ class MissileSiteGenerator(GroundObjectGenerator):
         # they are parked launchers, culled like any other ground unit.
         if self.game.settings.generate_fire_tasks_for_missile_sites:
             return False
+        from game.missiongenerator.firemissiongenerator import fires_in_mission
+
+        if fires_in_mission(self.game, self.ground_object):
+            return False
         return self.game.position_culled(self.ground_object.position)
 
     def generate(self) -> None:
@@ -586,8 +595,14 @@ class MissileSiteGenerator(GroundObjectGenerator):
             return
 
         # Note : Only the SCUD missiles group can fire (V1 site cannot fire in game right now)
-        # TODO : Should be pre-planned ?
+        from game.missiongenerator.firemissiongenerator import planned_missile_groups
+
+        planned = planned_missile_groups(self.game)
         for group in self.ground_object.groups:
+            if group.group_name in planned:
+                # Fires its planned fire mission instead
+                # (game.missiongenerator.firemissiongenerator).
+                continue
             vg = self.m.find_group(group.group_name)
             if vg is not None:
                 targets = self.possible_missile_targets()

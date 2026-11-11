@@ -126,6 +126,12 @@ class MissionGenerator:
         # Generate ground conflicts first so the JTACs get the first laser code (1688)
         # rather than the first player flight with a TGP.
         self.generate_ground_conflicts()
+        # Missile and artillery strikes timed inside the mission.
+        from game.missiongenerator.firemissiongenerator import FireMissionGenerator
+
+        FireMissionGenerator(
+            self.mission, self.game, self.time, self.artillery_groups
+        ).generate()
         # Must run before the air units: a CSAR flight's pickup waypoint carries an
         # Embarking task that references the downed pilot's group id, so the pilot
         # groups have to exist before flight waypoints are built.
@@ -258,6 +264,7 @@ class MissionGenerator:
 
     def generate_ground_conflicts(self) -> None:
         """Generate FLOTs and JTACs for each active front line."""
+        self.artillery_groups: dict[tuple[str, bool], list[Any]] = {}
         for front_line in self.game.theater.conflicts():
             player_cp = front_line.blue_cp
             enemy_cp = front_line.red_cp
@@ -282,6 +289,10 @@ class MissionGenerator:
                 self.mission_data,
             )
             ground_conflict_gen.generate()
+            for blue, groups in getattr(
+                ground_conflict_gen, "artillery_groups", {}
+            ).items():
+                self.artillery_groups[(front_line.name, blue)] = groups
 
     def generate_air_units(self, tgo_generator: TgoGenerator) -> None:
         """Generate the air units for the Operation"""

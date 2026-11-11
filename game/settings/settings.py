@@ -1423,6 +1423,18 @@ class Settings:
             "runway grounds everything there."
         ),
     )
+    fire_missions: bool = boolean_option(
+        "Fire missions (missile and artillery strikes)",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "From turn 1, cruise missile ships, missile sites and front-line "
+            "artillery fire planned strikes: yours from the Fire Missions "
+            "window, the enemy's by its commander. Strikes timed inside the "
+            "DCS mission are fired in DCS; the rest by the combat model."
+        ),
+    )
     space_and_agency_intel: bool = boolean_option(
         "Satellites and intelligence agencies",
         page=CAMPAIGN_DOCTRINE_PAGE,

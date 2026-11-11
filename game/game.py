@@ -578,6 +578,27 @@ class Game:
                 gplanner.plan_groundwar()
                 self.ground_planners[cp.id] = gplanner
 
+        # Fire missions (game.warfare.firemissions): last turn's are dropped,
+        # and red's commander plans its own.
+        from game.warfare.firemissions import (
+            drop_old_missions,
+            fire_plan_of,
+            plan_ai_fire_missions,
+        )
+
+        try:
+            drop_old_missions(self)
+            if for_red:
+                plan = fire_plan_of(self)
+                plan.missions = [
+                    m
+                    for m in plan.missions
+                    if m.player_blue or not m.auto or m.turn != self.turn
+                ]
+                plan_ai_fire_missions(self, self.red.player)
+        except Exception:
+            logging.exception("Fire mission planning failed")
+
         # Update cull zones
         with logged_duration("Computing culling positions"):
             self.compute_unculled_zones(events)

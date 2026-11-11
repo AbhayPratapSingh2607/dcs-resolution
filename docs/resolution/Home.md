@@ -19,6 +19,8 @@ plugins), see [Retribution's wiki](https://github.com/dcs-retribution/dcs-retrib
 * [Air campaign planner](Air-Campaign-Planner.md): a doctrine-driven (Western JFACC) auto
   planner. It plans each turn as a 6 hour ATO with campaign phases, a target list with BDA,
   apportionment, threat-scaled packages and risk limits. You pick which window of it to fly.
+* [Fire missions](Fire-Missions.md): cruise missile, Scud and artillery strikes you plan for a
+  turn, fired in DCS when timed inside the mission and by the combat model otherwise.
 * [Air wing presets](Air-Wing-Presets.md): ready-made air wings from different eras that work on
   any theater, bought from the starting budget.
 

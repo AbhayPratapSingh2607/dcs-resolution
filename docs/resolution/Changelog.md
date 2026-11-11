@@ -5,6 +5,14 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Fire missions]** Plan cruise missile, Scud and artillery strikes in regular turns.
+  **Fire Missions** in the top bar (or **Plan fire mission…** on an enemy site) picks a
+  launcher (Ticonderoga and Arleigh Burke ships, Scud sites, front-line artillery), a target in
+  its reach, the rounds and the time; **Suggest** lets the commander fill the rest. Strikes timed
+  inside the DCS mission are fired in DCS by the launcher itself; the rest are fired by the
+  combat model at their time. Each launcher fires up to its capacity every turn, with no stock.
+  Red's commander plans its own, and its turn 1 counter-strike follows the strategic surprise.
+  Setting: **Fire missions**. [Guide](Fire-Missions.md)
 * **[Opening]** The enemy's reaction to the opening salvo follows the strategic surprise. With
   no surprise its engineers reopen the cut runways next turn, half its fighters and attack
   aircraft fly from road bases meanwhile, and its missile units fire back on turn 1. With full

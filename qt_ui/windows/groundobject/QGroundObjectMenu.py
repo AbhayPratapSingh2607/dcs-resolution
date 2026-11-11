@@ -114,7 +114,27 @@ class QGroundObjectMenu(QDialog):
         if self.show_buy_sell_actions and self.ground_object.purchasable:
             # if not purchasable but is_iads => naval unit
             self.mainLayout.addLayout(self.actionLayout)
+        from game.warfare.firemissions import enabled as fire_missions_enabled
+
+        if (
+            self.cp.captured.is_red
+            and self.game.turn >= 1
+            and fire_missions_enabled(self.game)
+            and not self.ground_object.is_dead
+        ):
+            fire = QPushButton("Plan fire mission…")
+            fire.setToolTip(
+                "Strike this site with a cruise missile ship, missile site or "
+                "front-line artillery this turn."
+            )
+            fire.clicked.connect(self.plan_fire_mission)
+            self.mainLayout.addWidget(fire)
         self.setLayout(self.mainLayout)
+
+    def plan_fire_mission(self) -> None:
+        from qt_ui.windows.QFireMissionsDialog import plan_at
+
+        plan_at(self.game, self.ground_object, self)
 
     @property
     def show_buy_sell_actions(self) -> bool:

@@ -115,8 +115,7 @@ mission, then elsewhere, then before and after.
 **Not doing (decided).** Don't build or propose these:
 
 - Radio chatter.
-- Missile strikes by red, and missile salvos after turn 0 for either side. There is no
-  missile stock to track.
+- A missile stock to track (fire missions have a per-turn capacity instead; decision 10).
 - Bombers in campaigns without an off-map base. No virtual off-map bases.
 - A separate campaign brief or operations order page. The turn briefing stays.
 - Changing the plan to suit the player's preference.
@@ -163,6 +162,19 @@ replaces, and then `TODO.md` and the memory notes are brought in line.
 8. **The DCS checks are flown in one pass at the end,** not after each milestone.
 9. **Squadrons and detachments start with their aircraft, and none are bought at
    turn 0.** *Replaces* the presets buying aircraft from the starting budget.
+
+**2026-11-11 (user):**
+
+10. **Fire missions in regular turns, for both sides.** You plan cruise missile, missile
+    and artillery strikes each turn; red's commander plans its own, and its turn 1
+    counter-strike follows the strategic surprise. Each launcher has a per-turn capacity:
+    there is still no missile stock. Strikes inside the DCS mission are fired by DCS.
+    *Replaces* decision 5's "turn 0 only" and "blue only", and the "not doing" item
+    "missile strikes by red, and missile salvos after turn 0".
+11. **Road bases.** A cratered runway grounds only part of a squadron: the rest flies from
+    road strips, starting in the air near its airfield. The enemy's reaction to the
+    opening salvo (runway repair, road base share, counter-strike) follows the strategic
+    surprise.
 
 **Earlier decisions that still hold:**
 

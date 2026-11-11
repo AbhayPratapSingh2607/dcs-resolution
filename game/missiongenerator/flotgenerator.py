@@ -109,6 +109,16 @@ class FlotGenerator:
         enemy_groups = self._generate_groups(
             self.enemy_planned_combat_groups, is_player=Player.RED
         )
+        # The artillery groups fire the planned fire missions too
+        # (game.missiongenerator.firemissiongenerator).
+        self.artillery_groups = {
+            True: [
+                g for g, cg in player_groups if cg.role == CombatGroupRole.ARTILLERY
+            ],
+            False: [
+                g for g, cg in enemy_groups if cg.role == CombatGroupRole.ARTILLERY
+            ],
+        }
 
         # TODO: Differentiate AirConflict and GroundConflict classes.
         if self.conflict.heading is None:

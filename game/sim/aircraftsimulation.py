@@ -50,6 +50,9 @@ class AircraftSimulation:
         from game.sim.gci import GciController
 
         self.gci = GciController(self.game, self.model)
+        from game.warfare.firemissions import FireMissionSimulation
+
+        self.fire_missions = FireMissionSimulation(self.game, self.results)
         self.ground_war = None
         self.ground_window = ground_window(self.game)
         if self.ground_war_enabled and getattr(
@@ -124,6 +127,10 @@ class AircraftSimulation:
         if combat_resolution_method is CombatResolutionMethod.RESOLVE:
             self._observe(time)
             sead_hunt(self.model, time, events)
+            # Missile and artillery strikes due now (game.warfare.firemissions).
+            fire_missions = getattr(self, "fire_missions", None)
+            if fire_missions is not None:
+                fire_missions.tick(time, events)
             if self.ground_war is not None and (
                 self.ground_window is None
                 or self.ground_window[0] <= time <= self.ground_window[1]

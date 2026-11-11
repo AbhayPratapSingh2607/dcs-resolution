@@ -314,6 +314,9 @@ class QWaitingForMissionResultWindow(QDialog):
             events.update_flight(f)
         for cp in self.game.theater.controlpoints:
             cp.release_parking_slots()
+        from game.warfare.firemissions import reset_in_mission
+
+        reset_in_mission(self.game)
         GameUpdateSignal.get_instance().updateGame(self.game)
         EventStream().put_nowait(events)
         self.close()

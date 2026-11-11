@@ -164,6 +164,23 @@ class GameLoop:
         remainder = resolve_remainder(self.game, self.events, debriefing)
         if remainder is not None:
             debriefing.remainder = remainder  # type: ignore[attr-defined]
+        # Fire missions still due (after the last combat model pass, or given
+        # to DCS but after the player quit) are fired now.
+        from game.warfare.firemissions import resolve_pending
+        from .atoperiod import quit_time
+
+        try:
+            quit = (
+                None
+                if getattr(debriefing, "simulated", False)
+                else quit_time(self.game, debriefing)
+            )
+            resolve_pending(self.game, self.events, quit)
+            from game.warfare.firemissions import summary_message
+
+            summary_message(self.game)
+        except Exception:
+            logging.exception("Could not resolve the pending fire missions")
         self.completed = True
         self.send_update(rate_limit=False)
 
