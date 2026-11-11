@@ -368,7 +368,7 @@ in together. About **Full turn: packages per side in DCS** packages of each side
 fill the rest, most likely first; it is guidance, not a limit.
 
 The combat model fights the packages elsewhere over the mission's own time, apart from DCS, and
-carries on when you quit. Their aircraft still on the ramp at your base are parked there. The
+carries on when you quit. Their aircraft still on the ramp at your base are parked there.
 Your flight card shows what the mission will hold, **Bubble…** lists every package with its
 reason, the package tooltip gives it too, packages elsewhere fold by group in the list and are
 dimmed on the map, and the debriefing reports them as **Elsewhere during the mission**. Turn it
@@ -376,6 +376,13 @@ off with **Full turn: only what you'd meet is in DCS**.
 
 `resources/tools/bubble_distortion.py SAVE --seeds 5` measures what keeping the two apart costs:
 it fights the save's window whole and split and compares losses.
+
+Some missions take effect through a script in the DCS mission: rescues (CSAR), FARP deliveries
+(CTLD) and base captures (capture zones). For AI flights the mission never had, because they
+flew before the window, elsewhere or after it, the combat model's result counts instead: a
+surviving CSAR flight rescues its pilot, a surviving FARP setup flight delivers the FARP, and a
+surviving air assault takes its objective if the base has no armor left to hold it. Flights in
+the mission, and every flight with a player, count only what the mission reports.
 
 ## Reading the ATO
 

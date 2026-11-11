@@ -393,9 +393,21 @@ if the user asks.
   while it is airborne within 40 nm gets x1.25 on visual, rocket and laser hits, and laser
   counts as designated. Checked on the T3 black_sea save: an A-10C pair as FAC(A) with the
   main effort CAS, AFAC and FAC in the .miz.
-- [ ] **V4. CSAR, FARP and parking in the period** (was F33, F32). CSAR packages, FARP
+- [x] **V4. CSAR, FARP and parking in the period** (was F33, F32). CSAR packages, FARP
   setup and resupply flights and air assaults in a 6 hour turn and in the bubble, and
-  parking at busy bases and on carrier decks.
+  parking at busy bases and on carrier decks. Done 2026-11-10:
+  - CSAR: already covered (`commit_csar_results` credits surviving AI CSAR flights that
+    weren't in the mission, also in `commit_resolved_period`).
+  - FARP setup and air assault: only the mission's CTLD and capture-zone reports counted,
+    so a FARP whose setup flight flew before the window never came up, and air assaults
+    outside DCS did nothing. `game/sim/offmission.py`: surviving AI setup flights outside
+    the mission deliver; surviving air assaults take a base with no armor left. Both in
+    `commit` and `commit_resolved_period`.
+  - Parking: peer save (black_sea), full turn to the window, bubble on: no flight forced to
+    an air start, every live ATO flight in the unit map. CVN-71 holds 11 groups (about 16
+    aircraft) cold on deck at the start: whether DCS fits them is D18. Many "Not enough
+    helipads" warnings are idle helicopters at FOBs, which are skipped (as before).
+  - Resupply flights: there are none for dynamic FARPs (upkeep is paid in money).
 - [ ] **V5. Docs and tests** (was F37, F38). Rewrite the planner guide for the turn model,
   the main push, your flight and the bubble. Settings descriptions and the changelog.
 
@@ -589,6 +601,13 @@ default since W8). D11 checks the 6 hour turn.
   - in DCS, on that frequency, the AI FAC(A) checks you in and talks you onto targets (smoke
     or laser marks); it does not drop its own bombs;
   - check that the AI actually works the front: if it only orbits, note what it does.
+- [ ] **D18. Busy decks and FARPs outside the mission (V4).** **Expect:**
+  - a full turn on a carrier campaign: every cold start flight on the carrier deck spawns on
+    a deck spot (none stacked, none missing); note the count if DCS runs out;
+  - a dynamic FARP placed at turn start whose setup flight lands before your mission: the
+    FARP is established after the turn (message "… established");
+  - an AI air assault outside your mission on an undefended base: the base changes hands
+    after the turn.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

@@ -113,6 +113,7 @@ class MissionResultsProcessor:
                 self.commit_front_line_battle_impact(debriefing, events)
             with logged_duration("commit_fast_forward_captures"):
                 self.commit_fast_forward_captures(debriefing)
+                self.commit_off_mission_assaults(debriefing)
             with logged_duration("commit_captures"):
                 self.commit_captures(debriefing, events)
             with logged_duration("commit_farp_setups"):
@@ -143,9 +144,22 @@ class MissionResultsProcessor:
             self.commit_airlift_losses(debriefing)
             self.commit_ground_losses(debriefing, events)
             self.commit_damaged_runways(debriefing)
+            # V4: FARP deliveries and air assaults flown here, not in DCS.
+            self.commit_farp_setups(debriefing, events)
+            if self.commit_off_mission_assaults(debriefing):
+                self.commit_captures(debriefing, events)
             self.record_carcasses(debriefing)
             self.update_war_state(debriefing)
             self.record_observations(debriefing)
+
+    def commit_off_mission_assaults(self, debriefing: Debriefing) -> bool:
+        """Adds the bases taken by air assaults the combat model flew (V4,
+        game.sim.offmission) to the debriefing's captures."""
+        from game.sim.offmission import air_assault_captures
+
+        captures = air_assault_captures(self.game, debriefing)
+        debriefing.base_captures.extend(captures)
+        return bool(captures)
 
     def record_observations(self, debriefing: Debriefing) -> None:
         """What each side's own sensors and losses told it about the enemy's
@@ -454,7 +468,12 @@ class MissionResultsProcessor:
     def commit_farp_setups(
         self, debriefing: Debriefing, events: GameUpdateEvents
     ) -> None:
-        delivered = debriefing.state_data.farp_setup_events
+        from game.sim.offmission import farp_deliveries
+
+        # Reported by CTLD in the mission, or flown by the combat model (V4).
+        delivered = list(debriefing.state_data.farp_setup_events) + farp_deliveries(
+            self.game, debriefing
+        )
         for coalition in (self.game.blue, self.game.red):
             coalition.farps.commit_setups(delivered, events)
 

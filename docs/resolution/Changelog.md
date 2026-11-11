@@ -94,6 +94,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Full turn]** FARP setup flights and air assaults flown by the combat model (before the DCS
+  window, outside the bubble or after it) now take effect: the FARP is delivered, and the
+  assault takes its objective when nothing defends it. Before, only what the DCS mission
+  reported counted, so a FARP whose setup flight flew before the window never came up.
 * **[Planner]** FAC(A): western CAS packages over the main effort take an airborne forward
   air controller (AFAC and FAC tasks in DCS, on the kneeboard with the JTACs); CAS with a FAC(A)
   overhead hits more often in the combat model.
