@@ -180,10 +180,21 @@ def allowed_guidance(profile: PlanningProfile, conditions: Conditions) -> list[s
     return list(table.get(conditions.key, ["gps", "laser", "unguided"]))
 
 
-def _loadout_ok(guidance: set[str], allowed: Iterable[str], conditions: Conditions) -> bool:
+def _loadout_ok(
+    guidance: set[str],
+    allowed: Iterable[str],
+    conditions: Conditions,
+    kinetic: bool = False,
+) -> bool:
+    """Whether a loadout with these guidance kinds can attack. ``kinetic``
+    (DEAD): anti-radiation missiles don't count, since they need the site's
+    radar on and a site holding its emissions (Skynet's ambush) gives them
+    nothing; the AI then drops its attack tasks and flies home."""
     if not guidance:
         return False
     usable = set(allowed) | {"anti_radiation", "antiship", "atgm", "rocket", "cluster", "runway", "iir", "ir"}
+    if kinetic:
+        usable.discard("anti_radiation")
     if conditions.low_cloud:
         usable -= {"laser", "tv"}
     return bool(guidance & usable)
@@ -234,16 +245,19 @@ def apply(flight: Flight, profile: PlanningProfile, conditions: Conditions) -> t
     members = list(flight.iter_members())
     if not members:
         return True, ""
+    kinetic = flight.flight_type is FlightType.DEAD
     current = members[0].loadout
-    if _loadout_ok(_a2g_guidance(current), allowed, conditions):
+    if _loadout_ok(_a2g_guidance(current), allowed, conditions, kinetic):
         return True, ""
     for candidate in _candidate_loadouts(flight):
-        if _loadout_ok(_a2g_guidance(candidate), allowed, conditions):
+        if _loadout_ok(_a2g_guidance(candidate), allowed, conditions, kinetic):
             for member in members:
                 if member.is_player:
                     continue
                 member.loadout = candidate.clone()
             return True, f"weapons changed to {candidate.name} ({conditions.describe()})"
+    if kinetic:
+        return False, f"no {flight.unit_type} weapons for DEAD beyond anti-radiation"
     return False, f"no {flight.unit_type} weapons suit {conditions.describe()}"
 
 

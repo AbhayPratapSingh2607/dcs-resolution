@@ -211,6 +211,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Auto Planner]** DEAD flights carry weapons that hit a site with its radar off. A flight
+  armed only with anti-radiation missiles (an EA-18G's DEAD loadout is two HARMs) no longer
+  counts as a DEAD flight: against a SAM holding its emissions (Skynet's ambush) the AI had
+  nothing to fire at, dropped its attack and turned home at the IP. Such squadrons fly SEAD
+  escort instead, and the DEAD goes to a squadron with JSOW, JDAM or similar.
 * **[UI]** The Your flight card and the turn headline with **Briefing…** have their own
   **Your flight** tab in the left panel, so the package list gets the whole height. Choosing your
   package on the card, or a flight on the map, switches back to **Packages**.

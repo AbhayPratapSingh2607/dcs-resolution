@@ -1,6 +1,6 @@
 # The DCS pass (M6)
 
-Every open "Checks in DCS" item in `TODO.md` (D1–D21), grouped into five sessions so that one
+Every open "Checks in DCS" item in `TODO.md` (D1–D22), grouped into five sessions so that one
 campaign covers as many as it can. The details of what to expect are in each D item; this sheet
 says where and in which order to look. Tick the item in `TODO.md` once it's flown. For
 problems, keep `Saved Games\DCS\Logs\dcs.log`, the state file and a Tacview recording, and
@@ -103,6 +103,8 @@ The save `dcs-resolution-PG` (Super Hornets on CVN-75), Settings → Mission gen
 4. End the mission: the debriefing's plan report lists this turn's packages (yours first)
    with what was killed in DCS, and before and after the mission the combat model's part.
    → D21
+5. Watch the DEAD packages (Tacview): the DEAD flight releases JSOW/JDAM on its SAM from the
+   IP, it doesn't turn home with its weapons. → D22
 
 ## Afterwards
 

@@ -471,6 +471,15 @@ if the user asks.
     against about 42 coalition combat losses (almost all to ground fire), and some 250 more
     destroyed in shelters and on airfields. campaign_e2e doesn't record parked aircraft
     destroyed; add it and count it in the exchange ratio.
+  - **Symptom fixed 2026-11-11 (DEAD with HARMs only).** On the PG save the SHOEBILL and
+    TARANTULA DEAD flights were EA-18Gs whose DEAD loadout is two AGM-88 and jammers. Skynet
+    held SHOEBILL's SA-6 in ambush (`dcs.log`: "emission control: ambush"), so the AI had no
+    emitter, dropped its AttackGroup tasks and flew home from its IP. Fix: for DEAD,
+    `weaponeering.apply` doesn't count anti-radiation weapons, so the composer takes the next
+    squadron. PG turn 2 re-planned, before: 3 DEAD flights, 2 with HARMs only, 28 packages;
+    after: 3 DEAD flights on F/A-18E with GPS weapons, Growlers as SEAD escort on both, 27
+    packages (TAURUS anti-ship, COTTONMOUTH and LAMPREY strikes out; TIGER and WALLEYE BAI
+    in). Matrix not rerun.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):
@@ -509,7 +518,7 @@ if the user asks.
 ### M6. The DCS pass
 
 Every open item under "Checks in DCS", flown in one pass (decision 8). Then the fixes,
-then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D21 and
+then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D22 and
 A1–A6 grouped into five sessions, is `DCS-PASS.md`.
 
 ## Parked
@@ -720,6 +729,9 @@ default since W8). D11 checks the 6 hour turn.
   debriefing window lists **this** turn's packages and window (yours marked "(you)"): what
   you and the AI killed in DCS shows as "target destroyed" or "N units hit at the target",
   and the parts before and after the mission show what the combat model did.
+- [ ] **D22. DEAD flights carry weapons that hit a dark site (fix 2026-11-11).** On the PG
+  save, each DEAD flight carries JSOW/JDAM (not HARMs only) and attacks its SAM even when
+  Skynet keeps it in ambush; Growlers fly SEAD escort and fire when the site lights up.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.
