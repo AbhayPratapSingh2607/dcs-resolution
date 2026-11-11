@@ -71,15 +71,25 @@ class AirWing:
         airfield_cache = ObjectiveDistanceCache.get_closest_airfields(location)
         best_aircraft = AircraftType.priority_list_for_task(task)
         ordered: list[Squadron] = []
-        for control_point in airfield_cache.operational_airfields:
+        from game.warfare.roadbases import is_road_base, road_capacity
+
+        for control_point in airfield_cache.closest_airfields:
             if control_point.captured != self.player:
+                continue
+            # A cratered airfield still flies part of its squadrons from road
+            # bases (game.warfare.roadbases).
+            road_base = not control_point.runway_is_operational()
+            if road_base and not is_road_base(control_point):
                 continue
             capable_at_base = []
             squadrons = [
                 s
                 for s in control_point.squadrons
-                if not preferred_type
-                or s.aircraft.variant_id == preferred_type.variant_id
+                if (
+                    not preferred_type
+                    or s.aircraft.variant_id == preferred_type.variant_id
+                )
+                and (not road_base or bool(road_capacity(s)))
             ]
             for squadron in squadrons:
                 if squadron.can_auto_assign_mission(

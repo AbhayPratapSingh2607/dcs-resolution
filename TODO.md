@@ -760,6 +760,11 @@ default since W8). D11 checks the 6 hour turn.
     JSOWs ~100 km out and they fell 45 km short;
   - the debriefing's plan report says which ("took a decoy for the target and bombed it" or
     "saw through a decoy and attacked the real site").
+- [ ] **D24. Road bases (2026-11-11).** On a save where red's runways are cratered (the
+  autosave of 2026-11-11, turn 2): red's DEAD, CAS and SEAD escort flights from Maykop and
+  Krasnodar appear in the air 6–15 km from their field, at low level, and late activate at
+  their start time; ones already airborne at mission start spawn along their route. Nothing
+  sits on the cratered field's ramp. They land back at the field.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

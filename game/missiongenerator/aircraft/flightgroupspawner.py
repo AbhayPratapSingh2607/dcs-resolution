@@ -1,4 +1,5 @@
 import logging
+import math
 import random
 from typing import Any, Union, Tuple, Optional, List, Type
 
@@ -59,6 +60,9 @@ STACK_SEPARATION = feet(200)
 RTB_ALTITUDE = meters(800)
 RTB_DISTANCE = 5000
 HELI_ALT = 500
+#: How far from its cratered airfield a road base flight appears (meters).
+ROAD_BASE_MIN_M = 6000
+ROAD_BASE_MAX_M = 15000
 
 
 class FlightGroupSpawner:
@@ -430,6 +434,13 @@ class FlightGroupSpawner:
 
         speed = GroundSpeed.for_flight(self.flight, alt)
         pos = at + Vector2(random.randint(100, 1000), random.randint(100, 1000))
+        if getattr(self.flight, "from_road_base", False):
+            # Took off from a road strip a few miles from the cratered field.
+            distance = random.uniform(ROAD_BASE_MIN_M, ROAD_BASE_MAX_M)
+            bearing = random.uniform(0, 2 * math.pi)
+            pos = at + Vector2(
+                distance * math.cos(bearing), distance * math.sin(bearing)
+            )
 
         group = self.mission.flight_group(
             country=self.country,

@@ -141,6 +141,14 @@ ALERT_BONUS = {Surprise.NONE: 1, Surprise.PARTIAL: 0, Surprise.FULL: -1}
 PARKED_IN_OPEN = {Surprise.NONE: 0.3, Surprise.PARTIAL: 0.6, Surprise.FULL: 1.0}
 #: Cruise missile hit chance multiplier.
 SURPRISE_HIT = {Surprise.NONE: 0.75, Surprise.PARTIAL: 0.9, Surprise.FULL: 1.0}
+#: Turns until a runway the salvo cratered is open again. Engineers standing
+#: by with repair kits reopen a strip within one 6 hour turn; caught by
+#: surprise, the repair takes the usual four.
+SALVO_REPAIR_TURNS = {Surprise.NONE: 1, Surprise.PARTIAL: 2, Surprise.FULL: 4}
+#: Share of red's missile launchers (Scud sites, artillery) that fire back on
+#: turn 1 (game.warfare.firemissions): ready when the war was expected,
+#: silent when caught by surprise.
+COUNTER_STRIKE_SHARE = {Surprise.NONE: 1.0, Surprise.PARTIAL: 0.5, Surprise.FULL: 0.0}
 
 
 def _red_turn_1(game: Game, player: Any) -> bool:
@@ -500,6 +508,12 @@ def _hit_airfield(
 ) -> None:
     if hits >= 2 and cp.runway_status is not None:
         cp.runway_status.damage()
+        # The repair starts at once; how long it takes follows the surprise.
+        # Turn 0's own end ticks it once more (ControlPoint.process_turn runs
+        # after Begin Campaign), hence the extra turn.
+        cp.runway_status.repair_turns_remaining = (
+            SALVO_REPAIR_TURNS[surprise_of(game)] + 1
+        )
         shot.runway_cut = True
     exposure = parked_in_open(game, cp.captured)
     for _ in range(hits):
@@ -556,6 +570,51 @@ def bda_report(game: Game, shots: list[SalvoShot], sized: str) -> list[str]:
                 else "no effect seen"
             )
         lines.append(f"  {shot.target} ({shot.target_class.replace('_', ' ')}): {shot.missiles} missiles, {text}")
+    lines.extend(reaction_lines(game, shots))
+    return lines
+
+
+def reaction_lines(game: Game, shots: list[SalvoShot]) -> list[str]:
+    """What intelligence expects the enemy to do about the salvo, which the
+    strategic surprise decides: how soon its runways reopen, how much of its
+    air force flies from road bases meanwhile, and whether it fires back."""
+    from game.warfare.roadbases import OPENING_SHARE, enabled
+
+    surprise = surprise_of(game)
+    lines: list[str] = []
+    cut = [s for s in shots if s.runway_cut]
+    if cut:
+        turns = SALVO_REPAIR_TURNS[surprise]
+        lines.append(
+            f"Enemy reaction: {len(cut)} runway{'s' if len(cut) != 1 else ''} cut; "
+            + (
+                "repair crews were standing by and should reopen them next turn"
+                if turns == 1
+                else f"repairs should take about {turns} turns"
+            )
+            + "."
+        )
+        if enabled(game):
+            share = OPENING_SHARE.get(surprise.name, 0.0)
+            lines.append(
+                f"  Until then about {round(share * 100)}% of their fighters and "
+                "attack aircraft there fly from road bases"
+                + (
+                    " (dispersed before H-hour)"
+                    if surprise is Surprise.NONE
+                    else " (caught at their main bases)"
+                    if surprise is Surprise.FULL
+                    else ""
+                )
+                + "; helicopters fly on."
+            )
+    counter = COUNTER_STRIKE_SHARE[surprise]
+    if counter >= 1.0:
+        lines.append(
+            "Expect a counter-strike on turn 1: the enemy's missile units were ready."
+        )
+    elif counter > 0:
+        lines.append("Expect a limited counter-strike from the enemy's missile units.")
     return lines
 
 

@@ -5,6 +5,16 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Opening]** The enemy's reaction to the opening salvo follows the strategic surprise. With
+  no surprise its engineers reopen the cut runways next turn, half its fighters and attack
+  aircraft fly from road bases meanwhile, and its missile units fire back on turn 1. With full
+  surprise the runways stay shut for four turns, only 10% fly from roads and nothing fires back.
+  The turn 1 BDA says what to expect. [Guide](Air-Campaign-Planner.md#the-opening)
+* **[Air war]** Road bases. A cratered runway no longer grounds a whole air force: part of each
+  squadron there (40% for blue; red's share follows the surprise and grows) flies from road
+  strips and starts in the air a few miles from its airfield. Helicopters all fly on; bombers,
+  tankers, AWACS and transports stay grounded. Setting: **Road base operations**.
+  [Guide](Air-Campaign-Planner.md#road-bases)
 * **[Opening]** The Begin Campaign window lists the planned opening missile strikes: each
   target, its type, the base it is near and the missiles aimed at it, following the opening
   emphasis as you change it. **Fire the opening salvo** turns the strikes off, and so does the

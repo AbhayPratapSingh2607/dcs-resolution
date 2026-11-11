@@ -86,6 +86,9 @@ class Flight(
         #: simulation moves it, without combat, to where it is at the turn's
         #: start, so it is on its way home when the mission starts.
         self.returning = False
+        #: Took off from a road base: the squadron's runway is cratered, so
+        #: the flight starts in the air near it (game.warfare.roadbases).
+        self.from_road_base = False
         if claim_inv:
             self.squadron.claim_inventory(count)
         if roster is None:
@@ -190,6 +193,7 @@ class Flight(
         state.setdefault("alert_released", False)
         state.setdefault("patrol_duration_override", None)
         state.setdefault("returning", False)
+        state.setdefault("from_road_base", False)
         self.__dict__.update(state)
         if isinstance(self.roster, FlightRoster):
             self.roster = FlightMembers.from_roster(self, self.roster)

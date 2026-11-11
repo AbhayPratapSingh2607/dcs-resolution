@@ -254,6 +254,12 @@ class Package(RadioFrequencyContainer):
             for flight in self.flights:
                 if flight.departure == airfield:
                     return airfield
+        # Flights from road bases leave a cratered airfield
+        # (game.warfare.roadbases).
+        for airfield in cache.closest_airfields:
+            for flight in self.flights:
+                if flight.departure == airfield and flight.from_road_base:
+                    return airfield
         raise RuntimeError("Could not find any airfield assigned to this package")
 
     @staticmethod

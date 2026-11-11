@@ -103,6 +103,37 @@ the surprise. There is no missile stock afterwards. The turn 1 briefing opens wi
 estimate and the BDA: what was fired at and what intelligence assesses was hit, with its
 uncertainty. The damage shows on the map, and in the first mission as wrecks and craters.
 
+**How the enemy reacts follows the strategic surprise.** The BDA ends with what intelligence
+expects:
+
+| | No surprise | Partial | Full surprise |
+|---|---|---|---|
+| Runways cut by the salvo reopen after | 1 turn | 2 turns | 4 turns |
+| Share flying from road bases on turn 1 | 50% | 25% | 10% |
+| Counter-strike on turn 1 by its missile units | all of them | half | none |
+
+Repairs on runways cut by the salvo start at once and cost the enemy nothing: its engineers
+were waiting for it, or weren't. Runways cut later in the war follow the normal rules (four
+turns once the repair is bought). The road base share grows by 10% a turn after turn 1, to
+40% (or the turn 1 share when that is higher).
+
+### Road bases
+
+A squadron whose airfield runway is cratered keeps flying part of its aircraft from road
+strips nearby, as air forces that expect war plan to. The commander plans those sorties like
+any other, and the flights start in the air 6 to 15 km from their airfield ("took off from a
+road base"), in DCS and in the combat model. Only that share of the squadron is mission
+capable while the runway is out:
+
+* blue flies 40%; red follows the surprise at the opening (above) and organises from there;
+* helicopters don't need a runway and all fly;
+* bombers, tankers, AWACS and transports stay grounded;
+* flights you plan yourself from a cratered airfield take off from the road too.
+
+They come back to their airfield: DCS doesn't show the craters. **Road base operations**
+(Campaign Doctrine → Intelligence, morale and electronic warfare) turns this off, and a
+cratered runway grounds everything there again.
+
 Squadrons and detachments start with their aircraft; nothing is bought at turn 0. Strategic
 bombers sit at off-map bases only, and the commander offers them first for strikes and runway
 attacks; they still need SEAD into radar SAM cover like everyone else.

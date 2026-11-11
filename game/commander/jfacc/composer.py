@@ -33,6 +33,7 @@ from . import weaponeering
 from .profile import PlanningProfile
 from .risk import RiskEstimate, estimate
 from .sorties import Allocation, SortieLedger
+from game.warfare.roadbases import mark_road_base_flight
 from .threat import RouteThreat, analyse_route
 
 if TYPE_CHECKING:
@@ -490,6 +491,7 @@ class PackageComposer:
                 flight.alert = True
                 if squadron.location.required_aircraft_start_type is None:
                     flight.start_type = StartType.RUNWAY
+            mark_road_base_flight(flight)
             builder.package.add_flight(flight)
             ok, note = weaponeering.apply(flight, self.profile, self.conditions)
             if not ok:

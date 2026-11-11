@@ -117,6 +117,12 @@ class SortieLedger:
         # Small detachments still get at least one jet up when they have any.
         if untasked > 0:
             capable = max(1, capable)
+        # On a cratered airfield only the share flying from road bases.
+        from game.warfare.roadbases import road_capacity
+
+        road = road_capacity(squadron)
+        if road is not None:
+            capable = min(capable, road)
         slots = [AirframeSlot() for _ in range(capable)]
         self.slots[squadron] = slots
         self.not_mission_capable[squadron] = untasked - capable

@@ -19,6 +19,7 @@ from dcs.triggers import TriggerOnce, Event
 from dcs.unit import Skill
 from dcs.unitgroup import FlyingGroup, StaticGroup
 
+from game.warfare.roadbases import mark_road_base_flight, road_capable
 from game.ato.airtaaskingorder import AirTaskingOrder
 from game.ato.flight import Flight
 from game.ato.flightstate import Completed, WaitingForStart
@@ -150,7 +151,14 @@ class AircraftGenerator:
                 continue
             for flight in package.flights:
                 if flight.alive and not isinstance(flight.state, Completed):
-                    if not flight.squadron.location.runway_is_operational():
+                    if (
+                        not flight.squadron.location.runway_is_operational()
+                        and not flight.from_road_base
+                        and not (
+                            road_capable(flight.squadron)
+                            and mark_road_base_flight(flight)
+                        )
+                    ):
                         logging.warning(
                             f"Runway not operational, skipping flight: {flight.flight_type}"
                         )
