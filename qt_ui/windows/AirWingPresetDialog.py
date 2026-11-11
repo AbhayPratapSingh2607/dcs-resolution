@@ -164,38 +164,43 @@ class AirWingPresetDialog(QDialog):
         self.preview.setHtml(self.preview_html(self.plan))
 
     def preview_html(self, plan: PresetPlan) -> str:
-        by_base: dict[ControlPoint, list[str]] = defaultdict(list)
-        for placed in plan.placements:
-            config = placed.config
-            details = [config.primary.value, f"size {config.max_size}"]
-            if not self.aircraft_present:
-                details.append(f"buy {config.aircraft_to_buy}")
-            if config.country:
-                details.append(config.country)
-            name = config.squadron or config.name
-            label = f"{placed.aircraft}" + (f" — {name}" if name else "")
-            by_base[placed.base].append(
-                f"{html.escape(label)} <i>({html.escape(', '.join(details))})</i>"
-            )
+        return preset_plan_html(plan, self.aircraft_present)
 
-        parts = []
-        for base, lines in by_base.items():
-            parts.append(f"<b>{html.escape(base.name)}</b><ul>")
-            parts.extend(f"<li>{line}</li>" for line in lines)
-            parts.append("</ul>")
 
-        parts.append(
-            f"<p>Aircraft deployed at the start: {plan.total_aircraft}. Nothing is "
-            "bought; the starting budget pays for ground forces.</p>"
+def preset_plan_html(plan: PresetPlan, aircraft_present: bool) -> str:
+    """Where a resolved preset puts its squadrons, and its warnings."""
+    by_base: dict[ControlPoint, list[str]] = defaultdict(list)
+    for placed in plan.placements:
+        config = placed.config
+        details = [config.primary.value, f"size {config.max_size}"]
+        if not aircraft_present:
+            details.append(f"buy {config.aircraft_to_buy}")
+        if config.country:
+            details.append(config.country)
+        name = config.squadron or config.name
+        label = f"{placed.aircraft}" + (f" — {name}" if name else "")
+        by_base[placed.base].append(
+            f"{html.escape(label)} <i>({html.escape(', '.join(details))})</i>"
         )
 
-        if plan.missing_aircraft:
-            names = ", ".join(sorted(str(a) for a in plan.missing_aircraft))
-            parts.append(f"<p>Added to the faction: {html.escape(names)}</p>")
-        if plan.warnings:
-            parts.append("<p style='color:orange'><b>Warnings</b></p><ul>")
-            parts.extend(
-                f"<li style='color:orange'>{html.escape(w)}</li>" for w in plan.warnings
-            )
-            parts.append("</ul>")
-        return "".join(parts)
+    parts = []
+    for base, lines in by_base.items():
+        parts.append(f"<b>{html.escape(base.name)}</b><ul>")
+        parts.extend(f"<li>{line}</li>" for line in lines)
+        parts.append("</ul>")
+
+    parts.append(
+        f"<p>Aircraft deployed at the start: {plan.total_aircraft}. Nothing is "
+        "bought; the starting budget pays for ground forces.</p>"
+    )
+
+    if plan.missing_aircraft:
+        names = ", ".join(sorted(str(a) for a in plan.missing_aircraft))
+        parts.append(f"<p>Added to the faction: {html.escape(names)}</p>")
+    if plan.warnings:
+        parts.append("<p style='color:orange'><b>Warnings</b></p><ul>")
+        parts.extend(
+            f"<li style='color:orange'>{html.escape(w)}</li>" for w in plan.warnings
+        )
+        parts.append("</ul>")
+    return "".join(parts)

@@ -5,6 +5,13 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Air wing]** Presets and squadrons by location. **Presets by Base...** in the Air Wing
+  Configuration window fills one base from a preset made for it: carrier air wings for a
+  carrier, ARG squadrons for an LHA, and front, middle or rear groups for airfields, which are
+  ranked and labelled closest to farthest from the battle (`#1 Front · Gudauta (31 km from the
+  battle)`). Add Squadron picks the base first and then lists only the aircraft and squadrons
+  that fly from it, and squadron base boxes use the same ranked labels.
+  [Guide](Air-Wing-Presets.md#presets-by-base)
 * **[Intel]** The decoy call. A package sent against a site its side's picture holds as a
   decoy gets one roll before the mission is flown. The chance starts at 15% plus 35% of the
   side's ISR, gains 20% with a SEAD element in the package (most decoys don't radiate), and

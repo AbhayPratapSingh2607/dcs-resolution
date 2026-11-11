@@ -24,6 +24,33 @@ it is drawn from and where DCS lacks the real types.
 **Save as Preset...** saves the side's current air wing so you can reuse it on another theater.
 Your presets are stored in `Saved Games/DCS/Retribution/AirWingPresets`.
 
+## Presets by base
+
+**Presets by Base...** fills one base at a time. The window lists the side's bases: carriers
+first, then LHAs and off-map bases, then airfields ranked closest to farthest from the battle
+(the nearest front line, or the nearest enemy base in a campaign without a ground war). Each
+airfield is labelled with its rank, its third and its distance, for example
+`#1 Front · Gudauta (31 km from the battle)`. The closest airfield is always Front and the
+farthest always Rear.
+
+Pick a base and you are offered only the preset groups made for it:
+
+* a **carrier**: the carrier air wings;
+* an **LHA**: the amphibious ready groups;
+* a **Front** airfield: groups placed at front or any airfields;
+* a **Middle** airfield: groups placed at any, front or rear airfields;
+* a **Rear** airfield: groups placed at rear or any airfields (tankers, AWACS, bombers);
+* an **off-map** base: the strategic bomber detachments.
+
+The preview shows the squadrons the base gets and the ones it replaces. With **Replace the
+squadrons at this base** (on by default) the base's squadrons are swapped for the preset's;
+untick it to add them alongside. Squadrons at other bases are never touched.
+
+**Add Squadron** also starts from the location. Pick the base first, in the same ranked and
+labelled list; the aircraft list then shows only aircraft that can fly from it, and the
+squadron list only squadrons that fly from that kind of base. A carrier offers carrier
+aircraft and an LHA offers LHA aircraft. Each squadron's **Base** box uses the same ranked labels.
+
 ## Aircraft at the start
 
 Squadrons and detachments start with their aircraft; nothing is bought at turn 0. Each squadron has

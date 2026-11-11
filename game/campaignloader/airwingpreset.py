@@ -673,3 +673,205 @@ def preset_from_air_wing(
         for kind, entries in groups.items()
     ]
     return data
+
+
+# ------------------------------------------------------------ by location
+
+
+class Band(Enum):
+    """Where an airfield sits relative to the battle, closest third first."""
+
+    FRONT = "Front"
+    MIDDLE = "Middle"
+    REAR = "Rear"
+
+
+@dataclass(frozen=True)
+class RankedBase:
+    """One of a side's bases, ranked by its distance to the battle."""
+
+    base: ControlPoint
+    kind: BaseKind
+    #: Km to the battle (the closest front line, else the closest enemy base).
+    distance_km: float
+    #: 1 = closest airfield to the battle. None for carriers, LHAs, off-map.
+    rank: Optional[int] = None
+    band: Optional[Band] = None
+
+    @property
+    def label(self) -> str:
+        if self.kind is BaseKind.CARRIER:
+            what = "Carrier"
+        elif self.kind is BaseKind.LHA:
+            what = "LHA"
+        elif self.kind is BaseKind.OFF_MAP:
+            what = "Off-map"
+        else:
+            assert self.band is not None
+            what = f"#{self.rank} {self.band.value}"
+        return f"{what} · {self.base.name} ({self.distance_km:.0f} km from the battle)"
+
+
+def battle_points(game: Game, coalition: Coalition) -> list[Any]:
+    """Where the battle is for this side: its front lines, else the enemy's
+    bases (a campaign without a ground war)."""
+    fronts = [f.position for f in game.theater.conflicts()]
+    if fronts:
+        return fronts
+    return [
+        cp.position for cp in game.theater.control_points_for(coalition.player.opponent)
+    ]
+
+
+def ranked_bases(game: Game, coalition: Coalition) -> list[RankedBase]:
+    """The side's bases, ships first, then its airfields closest to farthest
+    from the battle, each airfield in the front, middle or rear third."""
+    points = battle_points(game, coalition)
+
+    def km(cp: ControlPoint) -> float:
+        if not points:
+            return 0.0
+        return min(cp.position.distance_to_point(p) for p in points) / 1000
+
+    ships: list[RankedBase] = []
+    airfields: list[ControlPoint] = []
+    for cp in game.theater.control_points_for(coalition.player):
+        if cp.is_dynamic_farp:
+            continue
+        kind = BaseKind.of(cp)
+        if kind is BaseKind.AIRFIELD:
+            airfields.append(cp)
+        else:
+            ships.append(RankedBase(cp, kind, km(cp)))
+    order = {BaseKind.CARRIER: 0, BaseKind.LHA: 1, BaseKind.OFF_MAP: 2}
+    ships.sort(key=lambda r: (order[r.kind], r.distance_km))
+    airfields.sort(key=km)
+    ranked = []
+    for index, cp in enumerate(airfields):
+        # Closest and farthest are always front and rear; the rest by thirds.
+        fraction = index / (len(airfields) - 1) if len(airfields) > 1 else 0.0
+        if fraction < 1 / 3:
+            band = Band.FRONT
+        elif fraction > 2 / 3:
+            band = Band.REAR
+        else:
+            band = Band.MIDDLE
+        ranked.append(RankedBase(cp, BaseKind.AIRFIELD, km(cp), index + 1, band))
+    return ships + ranked
+
+
+#: The placements of preset groups that suit each band of airfields.
+BAND_PLACEMENTS = {
+    Band.FRONT: (Placement.FRONT, Placement.ANY),
+    Band.MIDDLE: (Placement.ANY, Placement.FRONT, Placement.REAR),
+    Band.REAR: (Placement.REAR, Placement.ANY),
+}
+
+
+@dataclass(frozen=True)
+class BasePreset:
+    """The squadrons a preset puts on one kind of base, offered for one base:
+    a carrier's air wing for a carrier, an ARG's for an LHA, a front-line
+    group for an airfield near the battle."""
+
+    preset: AirWingPreset
+    group: PresetGroup
+
+    @property
+    def label(self) -> str:
+        what = self.group.base.value
+        if self.group.base is BaseKind.AIRFIELD:
+            what = f"{self.group.placement.value} airfields"
+        aircraft = ", ".join(
+            dict.fromkeys(
+                (c.aircraft[0] if c.aircraft else c.squadron or "?")
+                for c in self.group.squadrons
+            )
+        )
+        return (
+            f"{self.preset.name} — {what}, {len(self.group.squadrons)} "
+            f"squadron(s): {aircraft}"
+        )
+
+    def as_preset(self) -> AirWingPreset:
+        # One base: every squadron goes there.
+        group = dataclasses.replace(self.group, count=1)
+        return dataclasses.replace(self.preset, groups=[group])
+
+
+def base_presets_for(
+    presets: Iterable[AirWingPreset], ranked: RankedBase, year: int
+) -> list[BasePreset]:
+    """The preset groups made for this kind of base (and, for an airfield,
+    this distance from the battle), closest to the campaign year first."""
+    matching = [
+        BasePreset(preset, group)
+        for preset in presets
+        for group in preset.groups
+        if group.base is ranked.kind
+    ]
+    if ranked.kind is BaseKind.AIRFIELD and ranked.band is not None:
+        suited = BAND_PLACEMENTS[ranked.band]
+        matching = [b for b in matching if b.group.placement in suited]
+        matching.sort(key=lambda b: suited.index(b.group.placement))
+    matching.sort(key=lambda b: b.preset.sort_key(year))
+    return matching
+
+
+class BasePresetPlacer(PresetPlacer):
+    """Places one base preset's squadrons on one base."""
+
+    def __init__(
+        self,
+        game: Game,
+        coalition: Coalition,
+        base: ControlPoint,
+        add_missing_aircraft: bool = False,
+        replace_at_base: bool = True,
+    ) -> None:
+        super().__init__(game, coalition, add_missing_aircraft, replace_existing=False)
+        self.base = base
+        self.replace_at_base = replace_at_base
+
+    def bases_for(self, group: PresetGroup) -> list[ControlPoint]:
+        return [self.base]
+
+    def resolve(self, preset: AirWingPreset) -> PresetPlan:
+        if not self.replace_at_base:
+            return super().resolve(preset)
+        # Parking held by the squadrons being replaced is free for the preset.
+        air_wing = self.coalition.air_wing
+        kept = {
+            aircraft: [s for s in squadrons if s.location is not self.base]
+            for aircraft, squadrons in air_wing.squadrons.items()
+        }
+        original = air_wing.squadrons
+        air_wing.squadrons = kept
+        try:
+            return super().resolve(preset)
+        finally:
+            air_wing.squadrons = original
+
+
+def apply_base_preset(
+    plan: PresetPlan,
+    game: Game,
+    coalition: Coalition,
+    base: ControlPoint,
+    replace_at_base: bool = True,
+) -> list[Squadron]:
+    """Creates a base preset's squadrons at the base, first removing the
+    squadrons already there when replacing."""
+    from collections import defaultdict
+
+    air_wing = coalition.air_wing
+    if replace_at_base:
+        for aircraft, squadrons in list(air_wing.squadrons.items()):
+            for squadron in [s for s in squadrons if s.location is base]:
+                air_wing.unclaim_squadron_def(squadron)
+                squadrons.remove(squadron)
+    if not isinstance(air_wing.squadrons, defaultdict):
+        air_wing.squadrons = defaultdict(list, air_wing.squadrons)
+    if plan.missing_aircraft:
+        add_aircraft_to_faction(coalition, plan.missing_aircraft)
+    return PresetSquadronAssigner(plan, game, coalition).assign_plan()

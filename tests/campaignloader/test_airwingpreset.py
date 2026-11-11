@@ -337,13 +337,31 @@ def test_falls_back_to_next_preferred_aircraft() -> None:
 
 def test_presets_deploy_their_number_and_nothing_is_bought() -> None:
     # A detachment deploys a few, a squadron its size, capped by size and parking.
-    assert deployed_at_start(4, squadrons_start_full=False, max_size=12, free_parking=100) == 4
-    assert deployed_at_start(4, squadrons_start_full=True, max_size=12, free_parking=100) == 4
-    assert deployed_at_start(20, squadrons_start_full=True, max_size=12, free_parking=100) == 12
-    assert deployed_at_start(8, squadrons_start_full=True, max_size=12, free_parking=3) == 3
+    assert (
+        deployed_at_start(4, squadrons_start_full=False, max_size=12, free_parking=100)
+        == 4
+    )
+    assert (
+        deployed_at_start(4, squadrons_start_full=True, max_size=12, free_parking=100)
+        == 4
+    )
+    assert (
+        deployed_at_start(20, squadrons_start_full=True, max_size=12, free_parking=100)
+        == 12
+    )
+    assert (
+        deployed_at_start(8, squadrons_start_full=True, max_size=12, free_parking=3)
+        == 3
+    )
     # Without a preset number: full when squadrons start full, else none.
-    assert deployed_at_start(0, squadrons_start_full=True, max_size=12, free_parking=100) == 12
-    assert deployed_at_start(0, squadrons_start_full=False, max_size=12, free_parking=100) == 0
+    assert (
+        deployed_at_start(0, squadrons_start_full=True, max_size=12, free_parking=100)
+        == 12
+    )
+    assert (
+        deployed_at_start(0, squadrons_start_full=False, max_size=12, free_parking=100)
+        == 0
+    )
 
 
 # --- Bomber detachments (T3) ---------------------------------------------------
@@ -372,7 +390,14 @@ def test_bombers_go_only_to_an_off_map_base() -> None:
     assert plan.placements == [] and plan.warnings == []
     # Off-map bases aren't airfields for the other groups.
     plan = _placer([_off_map("Edge")], [EAGLE]).resolve(
-        _preset([{"base": "airfield", "squadrons": [{"aircraft": ["Eagle"], "primary": "BARCAP"}]}])
+        _preset(
+            [
+                {
+                    "base": "airfield",
+                    "squadrons": [{"aircraft": ["Eagle"], "primary": "BARCAP"}],
+                }
+            ]
+        )
     )
     assert plan.placements == []
 
@@ -392,3 +417,103 @@ def test_builtin_bomber_detachments_only_in_air_force_presets() -> None:
         "usaf_aef_1991",
         "usaf_aef_2005",
     ]
+
+
+# --- By location -------------------------------------------------------------
+
+
+def _located(bases: list[Any]) -> tuple[Any, Any]:
+    game, coalition = _game_and_coalition(bases, [HORNET, EAGLE, TANKER])
+    game.theater.conflicts = lambda: []  # no ground war: the enemy bases
+    for base in bases:
+        base.is_dynamic_farp = False
+    return game, coalition
+
+
+def test_bases_are_ranked_closest_to_farthest_from_the_battle() -> None:
+    from game.campaignloader.airwingpreset import Band, BaseKind, ranked_bases
+
+    carrier = _base("CVN", 0, Player.BLUE, carrier=True)
+    airfields = [_base(f"AB{x}", x * 1000, Player.BLUE) for x in (10, 90, 50)]
+    enemy = _base("Enemy", 100_000, Player.RED)
+    game, coalition = _located([carrier, *airfields, enemy])
+    ranked = ranked_bases(game, coalition)
+    assert [r.base.name for r in ranked] == ["CVN", "AB90", "AB50", "AB10"]
+    assert ranked[0].kind is BaseKind.CARRIER and ranked[0].rank is None
+    assert [r.band for r in ranked[1:]] == [Band.FRONT, Band.MIDDLE, Band.REAR]
+    assert ranked[1].label == "#1 Front · AB90 (10 km from the battle)"
+    assert ranked[0].label.startswith("Carrier · CVN")
+
+
+def test_a_base_is_offered_the_presets_made_for_it() -> None:
+    from game.campaignloader.airwingpreset import (
+        base_presets_for,
+        ranked_bases,
+    )
+
+    carrier = _base("CVN", 0, Player.BLUE, carrier=True)
+    front = _base("Front", 90_000, Player.BLUE)
+    rear = _base("Rear", 0, Player.BLUE)
+    enemy = _base("Enemy", 100_000, Player.RED)
+    game, coalition = _located([carrier, front, rear, enemy])
+    preset = _preset(
+        [
+            {
+                "base": "carrier",
+                "squadrons": [{"aircraft": ["Hornet"], "primary": "BARCAP"}],
+            },
+            {
+                "base": "airfield",
+                "placement": "front",
+                "squadrons": [{"aircraft": ["Eagle"], "primary": "BARCAP"}],
+            },
+            {
+                "base": "airfield",
+                "placement": "rear",
+                "squadrons": [{"aircraft": ["Tanker"], "primary": "BARCAP"}],
+            },
+        ]
+    )
+    by_name = {r.base.name: r for r in ranked_bases(game, coalition)}
+
+    def offered(name: str) -> list[str]:
+        return [
+            b.group.squadrons[0].aircraft[0]
+            for b in base_presets_for([preset], by_name[name], 2000)
+        ]
+
+    assert offered("CVN") == ["Hornet"]
+    assert offered("Front") == ["Eagle"]
+    assert offered("Rear") == ["Tanker"]
+
+
+def test_a_base_preset_puts_every_squadron_on_that_base() -> None:
+    from game.campaignloader.airwingpreset import (
+        BasePresetPlacer,
+        base_presets_for,
+        ranked_bases,
+    )
+
+    near = _base("Near", 90_000, Player.BLUE)
+    far = _base("Far", 0, Player.BLUE)
+    middle = _base("Middle", 50_000, Player.BLUE)
+    enemy = _base("Enemy", 100_000, Player.RED)
+    game, coalition = _located([near, middle, far, enemy])
+    coalition.air_wing.squadrons = {}
+    preset = _preset(
+        [
+            {
+                "base": "airfield",
+                "placement": "any",
+                "squadrons": [
+                    {"aircraft": ["Eagle"], "primary": "BARCAP"},
+                    {"aircraft": ["Tanker"], "primary": "BARCAP"},
+                ],
+            }
+        ]
+    )
+    ranked = next(r for r in ranked_bases(game, coalition) if r.base is far)
+    (base_preset,) = base_presets_for([preset], ranked, 2000)
+    plan = BasePresetPlacer(game, coalition, far).resolve(base_preset.as_preset())
+    assert plan.warnings == []
+    assert [p.base for p in plan.placements] == [far, far]

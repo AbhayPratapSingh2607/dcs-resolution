@@ -44,7 +44,13 @@ from game.campaignloader.campaignairwingconfig import (
 )
 from game.coalition import Coalition
 from game.dcs.aircrafttype import AircraftType
-from game.campaignloader.airwingpreset import apply_preset, preset_from_air_wing
+from game.campaignloader.airwingpreset import (
+    BaseKind,
+    RankedBase,
+    apply_preset,
+    preset_from_air_wing,
+    ranked_bases,
+)
 from game.persistency import airwing_dir, airwing_presets_dir
 from game.squadrons import AirWing, Pilot, Squadron
 from game.squadrons.squadrondef import SquadronDef
@@ -115,7 +121,8 @@ class SquadronBaseSelector(QComboBox):
     """A combo box for selecting a squadrons home air base.
 
     The combo box will automatically be populated with all air bases compatible with the
-    squadron.
+    squadron. Given the side's ranked bases, they are listed ships first, then
+    airfields closest to farthest from the battle, each labelled with its rank.
     """
 
     def __init__(
@@ -123,17 +130,27 @@ class SquadronBaseSelector(QComboBox):
         bases: Iterable[ControlPoint],
         selected_base: Optional[ControlPoint],
         aircraft_type: Optional[AircraftType],
+        ranked: Optional[list[RankedBase]] = None,
     ) -> None:
         super().__init__()
         self.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         # Player-built FARPs only host detachments, which are managed from the
         # FARP's base menu.
         self.bases = [base for base in bases if not base.is_dynamic_farp]
+        self.labels: dict[ControlPoint, str] = {}
+        if ranked is not None:
+            order = {r.base: i for i, r in enumerate(ranked)}
+            self.labels = {r.base: r.label for r in ranked}
+            self.bases.sort(key=lambda b: order.get(b, len(order)))
         self.set_aircraft_type(aircraft_type)
 
         if selected_base:
-            self.setCurrentText(selected_base.name)
-        # TODO can we get a prefered base if none is selected?
+            self.select_base(selected_base)
+
+    def select_base(self, base: ControlPoint) -> None:
+        index = self.findData(base)
+        if index >= 0:
+            self.setCurrentIndex(index)
 
     def set_aircraft_type(self, aircraft_type: Optional[AircraftType]):
         self.clear()
@@ -143,8 +160,9 @@ class SquadronBaseSelector(QComboBox):
                     base, Airfield
                 ):
                     continue
-                self.addItem(base.name, base)
-            self.model().sort(0)
+                self.addItem(self.labels.get(base, base.name), base)
+            if not self.labels:
+                self.model().sort(0)
             self.setEnabled(True)
         else:
             self.addItem("Select aircraft type first", None)
@@ -297,6 +315,7 @@ class SquadronConfigurationBox(QGroupBox):
             game.theater.control_points_for(squadron.player),
             squadron.location,
             squadron.aircraft,
+            ranked_bases(game, coalition),
         )
         self.base_selector.currentIndexChanged.connect(self.relocate_squadron)
         left_column.addWidget(self.base_selector)
@@ -358,7 +377,7 @@ class SquadronConfigurationBox(QGroupBox):
             self.max_size_selector.setValue(self.squadron.max_size)
             self.buy_selector.setMaximum(self.squadron.max_size)
             self.buy_selector.setValue(self.squadron.preset_purchase)
-            self.base_selector.setCurrentText(self.squadron.location.name)
+            self.base_selector.select_base(self.squadron.location)
             self.player_list.setText(
                 "<br />".join(p.name for p in self.claim_players_from_squadron())
             )
@@ -779,7 +798,7 @@ class AirWingConfigurationTab(QWidget):
         popup = SquadronConfigPopup(
             selected_aircraft,
             possible_aircrafts,
-            bases,
+            ranked_bases(self.game, self.coalition),
             self.coalition.air_wing.squadron_defs,
         )
         if popup.exec_() != QDialog.DialogCode.Accepted:
@@ -905,6 +924,14 @@ class AirWingConfigurationDialog(QDialog):
                 "carrier air wing or a coalition task force."
             )
             preset_button.clicked.connect(lambda state: self.apply_preset())
+            base_preset_button = QPushButton("Presets by Base...")
+            base_preset_button.setProperty("style", "btn-primary")
+            base_preset_button.setToolTip(
+                "Fill one base from a preset made for it: carrier air wings for a "
+                "carrier, ARG squadrons for an LHA, and front, middle or rear "
+                "groups for airfields ranked by their distance to the battle."
+            )
+            base_preset_button.clicked.connect(lambda state: self.apply_base_preset())
             save_preset_button = QPushButton("Save as Preset...")
             save_preset_button.setProperty("style", "btn-primary")
             save_preset_button.setToolTip(
@@ -912,6 +939,7 @@ class AirWingConfigurationDialog(QDialog):
             )
             save_preset_button.clicked.connect(lambda state: self.save_preset())
             load_save_layout.addWidget(preset_button)
+            load_save_layout.addWidget(base_preset_button)
             load_save_layout.addWidget(save_preset_button)
         layout.addLayout(load_save_layout)
 
@@ -1049,6 +1077,35 @@ class AirWingConfigurationDialog(QDialog):
             f"Added {len(created)} squadron(s) from {dialog.plan.preset.name}.",
         )
 
+    def apply_base_preset(self) -> None:
+        from game.campaignloader.airwingpreset import apply_base_preset
+        from qt_ui.windows.BasePresetDialog import BasePresetDialog
+
+        tab = self.current_tab()
+        # Keep edits made to the squadrons at other bases.
+        tab.apply()
+        tab.revert()
+        dialog = BasePresetDialog(self.game, tab.coalition, self.aircraft_present, self)
+        if dialog.exec_() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        ranked = dialog.selected_base
+        if ranked is None:
+            return
+        created = apply_base_preset(
+            dialog.plan,
+            self.game,
+            tab.coalition,
+            ranked.base,
+            dialog.replace_at_base,
+        )
+        tab.revert()
+        QMessageBox.information(
+            self,
+            "Preset applied",
+            f"Added {len(created)} squadron(s) at {ranked.base.name} from "
+            f"{dialog.plan.preset.name}.",
+        )
+
     def save_preset(self) -> None:
         tab = self.current_tab()
         fd = QFileDialog(
@@ -1132,7 +1189,11 @@ class SquadronDefSelector(QComboBox):
         self.allow_random = allow_random
         self.set_aircraft_type(aircraft)
 
-    def set_aircraft_type(self, aircraft: Optional[AircraftType]):
+    def set_aircraft_type(
+        self, aircraft: Optional[AircraftType], base: Optional[ControlPoint] = None
+    ):
+        """Lists the free squadrons of the aircraft; given a base, only those
+        that fly from that kind of base (carrier, LHA or shore)."""
         self.clear()
         if self.allow_random:
             self.addItem("None (Random)", None)
@@ -1140,6 +1201,8 @@ class SquadronDefSelector(QComboBox):
             for squadron_def in sorted(
                 self.squadron_defs[aircraft], key=lambda squadron_def: squadron_def.name
             ):
+                if base is not None and not squadron_def.operates_from(base):
+                    continue
                 if not squadron_def.claimed:
                     squadron_name = squadron_def.name
                     if squadron_def.nickname:
@@ -1149,45 +1212,56 @@ class SquadronDefSelector(QComboBox):
 
 
 class SquadronConfigPopup(QDialog):
+    """Adds a squadron, picked by location: the base first (ships, then
+    airfields closest to farthest from the battle), then the aircraft and
+    squadrons that can fly from it. A carrier lists carrier aircraft, an LHA
+    LHA aircraft."""
+
     def __init__(
         self,
         selected_aircraft: Optional[str],
         types: set[AircraftType],
-        bases: list[ControlPoint],
+        bases: list[RankedBase],
         squadron_defs: dict[AircraftType, list[SquadronDef]],
     ) -> None:
         super().__init__()
 
         self.setWindowTitle(f"Add new Squadron")
+        self.types = types
+        self.selected_aircraft = selected_aircraft
 
         self.column = QVBoxLayout()
         self.setLayout(self.column)
 
-        self.column.addWidget(QLabel("Aircraft:"))
-        self.aircraft_type_selector = SquadronAircraftTypeSelector(
-            types, selected_aircraft
+        self.column.addWidget(QLabel("Base:"))
+        self.squadron_base_selector = QComboBox()
+        self.squadron_base_selector.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToContents
         )
+        for ranked in bases:
+            if any(ranked.base.can_operate(t) for t in types):
+                self.squadron_base_selector.addItem(ranked.label, ranked.base)
+        start = self._first_base_for(bases, selected_aircraft)
+        if start is not None:
+            self.squadron_base_selector.setCurrentIndex(
+                self.squadron_base_selector.findData(start)
+            )
+        self.squadron_base_selector.currentIndexChanged.connect(self.on_base_selection)
+        self.column.addWidget(self.squadron_base_selector)
+
+        self.column.addWidget(QLabel("Aircraft:"))
+        self.aircraft_type_selector = SquadronAircraftTypeSelector(set(), None)
         self.aircraft_type_selector.currentIndexChanged.connect(
             self.on_aircraft_selection
         )
         self.column.addWidget(self.aircraft_type_selector)
 
         self.column.addWidget(QLabel("Primary task:"))
-        self.primary_task_selector = PrimaryTaskSelector(
-            self.aircraft_type_selector.currentData()
-        )
+        self.primary_task_selector = PrimaryTaskSelector(None)
         self.column.addWidget(self.primary_task_selector)
 
-        self.column.addWidget(QLabel("Base:"))
-        self.squadron_base_selector = SquadronBaseSelector(
-            bases, None, self.aircraft_type_selector.currentData()
-        )
-        self.column.addWidget(self.squadron_base_selector)
-
-        self.column.addWidget(QLabel("Preset:"))
-        self.squadron_def_selector = SquadronDefSelector(
-            squadron_defs, self.aircraft_type_selector.currentData()
-        )
+        self.column.addWidget(QLabel("Squadron:"))
+        self.squadron_def_selector = SquadronDefSelector(squadron_defs, None)
         self.column.addWidget(self.squadron_def_selector)
 
         self.column.addStretch()
@@ -1197,12 +1271,42 @@ class SquadronConfigPopup(QDialog):
 
         self.accept_button = QPushButton("Accept")
         self.accept_button.clicked.connect(lambda state: self.accept())
-        self.update_accept_button()
         self.button_layout.addWidget(self.accept_button)
 
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(lambda state: self.reject())
         self.button_layout.addWidget(self.cancel_button)
+        self.on_base_selection()
+
+    def _first_base_for(
+        self, bases: list[RankedBase], aircraft_name: Optional[str]
+    ) -> Optional[ControlPoint]:
+        # The aircraft selected in the list: the first base that flies it.
+        aircraft = next(
+            (t for t in self.types if t.display_name == aircraft_name), None
+        )
+        if aircraft is None:
+            return None
+        return next((r.base for r in bases if r.base.can_operate(aircraft)), None)
+
+    def aircraft_for(self, base: Optional[ControlPoint]) -> set[AircraftType]:
+        if base is None:
+            return set()
+        return {t for t in self.types if base.can_operate(t)}
+
+    def on_base_selection(self) -> None:
+        base = self.squadron_base_selector.currentData()
+        current = self.aircraft_type_selector.currentData()
+        wanted = current.display_name if current else self.selected_aircraft
+        selector = self.aircraft_type_selector
+        old_state = selector.blockSignals(True)
+        selector.clear()
+        for aircraft in sorted(self.aircraft_for(base), key=lambda t: t.display_name):
+            selector.addItem(aircraft.display_name, aircraft)
+        if wanted and selector.findText(wanted) >= 0:
+            selector.setCurrentText(wanted)
+        selector.blockSignals(old_state)
+        self.on_aircraft_selection()
 
     def update_accept_button(self) -> None:
         enabled = (
@@ -1213,15 +1317,11 @@ class SquadronConfigPopup(QDialog):
         self.accept_button.setEnabled(enabled)
 
     def on_aircraft_selection(self) -> None:
-        self.squadron_base_selector.set_aircraft_type(
-            self.aircraft_type_selector.currentData()
-        )
+        aircraft = self.aircraft_type_selector.currentData()
         self.squadron_def_selector.set_aircraft_type(
-            self.aircraft_type_selector.currentData()
+            aircraft, self.squadron_base_selector.currentData()
         )
-        self.primary_task_selector.set_aircraft(
-            self.aircraft_type_selector.currentData()
-        )
+        self.primary_task_selector.set_aircraft(aircraft)
         self.update_accept_button()
         self.update()
 
