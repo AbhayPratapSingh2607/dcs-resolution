@@ -48,6 +48,7 @@ function StationSymbol(props: FlightPlanProps) {
         weight: 2,
         dashArray: "3 3",
         fillOpacity: 0.15,
+        opacity: props.flight.elsewhere ? 0.35 : 1.0,
         interactive: interactive,
       }}
       eventHandlers={
@@ -117,7 +118,13 @@ function FlightPlanPath(props: FlightPlanProps) {
   return (
     <Polyline
       positions={points}
-      pathOptions={{ color: color, interactive: interactive }}
+      // Packages outside the bubble (fought by the combat model) are dimmed.
+      pathOptions={{
+        color: color,
+        interactive: interactive,
+        opacity: props.flight.elsewhere && !props.selected ? 0.3 : 1.0,
+        dashArray: props.flight.elsewhere && !props.selected ? "6 6" : undefined,
+      }}
       ref={polylineRef}
       eventHandlers={
         interactive

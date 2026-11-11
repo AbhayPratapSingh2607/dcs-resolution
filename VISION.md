@@ -49,9 +49,9 @@ What a campaign looks like when this is done, and where each step stands today.
 | 6 | **The commander plans 6 hours:** routine lines all period, strike waves, and a main push as long as the mission duration. | Exists (M1, 2026-11-10). | M1 |
 | 7 | **You get a flight** from the plan, by your preferred squadron or mission type. You can pick another, or plan your own package. | Exists (M2, 2026-11-10). | M2 |
 | 8 | **Fly.** The mission starts at your startup. Everything earlier is already fought: flights in the air are where they would be, and earlier strikers are heading home. | Exists (M2). Weapons expended past the TOT; to be flown in M6. | M2 |
-| 9 | **Only the flights you are likely to meet are in DCS.** The rest of the war is fought by the combat model at the same time. | Missing. Only ground units are culled. | M3 |
+| 9 | **Only the flights you are likely to meet are in DCS.** The rest of the war is fought by the combat model at the same time. | Exists (M3, 2026-11-10): the bubble. | M3 |
 | 10 | **You quit.** The combat model fights what is left of the 6 hours. | Exists (M2): unfinished flights continue from the quit time, then the held-back packages. | M2 |
-| 11 | **Debrief:** your mission first, then the rest of the war. | Partly. "How the plan went" is split into the mission, before and after it (M1). "Elsewhere" needs M3. | M1, M3 |
+| 11 | **Debrief:** your mission first, then the rest of the war. | Exists. "How the plan went" is split into before, the mission, elsewhere during it, and after. | M1, M3 |
 | 12 | **The commander plans the next turn.** Phases move from OCA, SEAD and DEAD to strike and CAS. | Exists | |
 | 13 | **The campaign ends** on the win condition Retribution has today. | Exists | |
 
@@ -178,8 +178,8 @@ replaces, and then `TODO.md` and the memory notes are brought in line.
 
 ## 6. Roadmap
 
-**Current milestone: M3.** M1 and M2 closed 2026-11-10 (W1–W8, P1–P7; W7's bands are
-recorded in `TODO.md`). One milestone at a time. The game stays playable after each one. The items are
+**Current milestone: M4.** M1, M2 and M3 closed 2026-11-10 (W1–W8, P1–P7, B1–B8; W7's
+bands and B7's distortion are recorded in `TODO.md`). One milestone at a time. The game stays playable after each one. The items are
 in `TODO.md` under the same names.
 
 ### M1. The 6 hour war (app only)

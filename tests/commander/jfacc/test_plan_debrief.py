@@ -192,3 +192,42 @@ def test_finished_packages_removed_from_the_ato_are_still_reported(
     )
     key = plan_debrief(debriefing, name_of=_name).key
     assert [r.result for r in key] == ["1 air kill, all aircraft back"]
+
+
+def test_packages_outside_the_bubble_have_their_own_part(monkeypatch: Any) -> None:
+    import game.commander.jfacc.planner as planner
+
+    monkeypatch.setattr(planner, "counts_toward_target", lambda p: True)
+    mission = _package(
+        FlightType.STRIKE, SimpleNamespace(name="Bridge", is_dead=False), minutes=20
+    )
+    away = _package(
+        FlightType.STRIKE, SimpleNamespace(name="Depot", is_dead=False), minutes=30
+    )
+    away.deferred_reason = "elsewhere"
+    away_late = _package(
+        FlightType.BAI, SimpleNamespace(name="Convoy", is_dead=False), minutes=150
+    )
+    away_late.deferred_reason = "elsewhere"
+    game = _windowed_game([mission, away, away_late])
+    remainder = _debriefing(
+        [],
+        game=game,
+        simulated=True,
+        flights_flown=[away.flights[0], away_late.flights[0]],
+        combat_credits=[SimpleNamespace(flight=away.flights[0], kind="strike_success")],
+    )
+    debriefing = _debriefing([], game=game, remainder=remainder)
+    result = plan_debrief(debriefing, name_of=_name)
+    assert [p.name for p in result.parts] == [
+        "Before the mission",
+        "The mission",
+        "Elsewhere during the mission",
+        "After the mission",
+    ]
+    by_part = {p.name: p for p in result.parts}
+    assert [r.name for r in by_part["The mission"].key] == ["Strike Bridge"]
+    elsewhere = by_part["Elsewhere during the mission"]
+    assert elsewhere.simulated and [r.name for r in elsewhere.key] == ["Strike Depot"]
+    assert elsewhere.title == "Elsewhere during the mission (combat model, 12:00–13:00)"
+    assert [r.name for r in by_part["After the mission"].key] == ["BAI Convoy"]

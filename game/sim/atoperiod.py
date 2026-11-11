@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from game import Game
@@ -332,11 +332,18 @@ def resolve_remainder(
     period_bounds = period(game)
     if bounds is None or period_bounds is None:
         return None
-    when = quit_time(game, debriefing) if debriefing is not None else bounds[1]
+    from .bubble import is_elsewhere
+
+    quit = quit_time(game, debriefing) if debriefing is not None else None
+    when = quit if quit is not None else bounds[1]
     continued = unfinished_packages(game, debriefing, when) if when < bounds[1] else []
     restored = restore_deferred(game)
     if not restored and not continued:
         return None
+    # Packages outside the bubble (M3) fly the mission's time here: they
+    # carry on from where the fighting before the window left them.
+    elsewhere = [p for p in restored if is_elsewhere(p)]
+    saved_states = {id(f): f.state for p in elsewhere for f in p.flights}
     from game.debriefing import Debriefing
     from game.sim.aircraftsimulation import AircraftSimulation
     from game.sim.missionresultsprocessor import MissionResultsProcessor
@@ -344,34 +351,47 @@ def resolve_remainder(
     from game.unitmap import UnitMap
 
     # Only the held-back and the unfinished packages fly: everything else
-    # already did.
-    flying = {id(p) for p in restored} | {id(p) for p in continued}
+    # already did. The unfinished ones join at the quit.
+    flying = {id(p) for p in restored}
+    pending = {id(p) for p in continued}
     others: dict[bool, list[Package]] = {}
+    joining: dict[bool, list[Package]] = {}
     for coalition in (game.blue, game.red):
         keep = [p for p in coalition.ato.packages if id(p) not in flying]
-        others[coalition.player.is_blue] = keep
+        others[coalition.player.is_blue] = [p for p in keep if id(p) not in pending]
+        joining[coalition.player.is_blue] = [p for p in keep if id(p) in pending]
         for package in keep:
             coalition.ato.packages.remove(package)
 
-    # The unfinished flights were flown in DCS up to the quit: move them
-    # along their plans without fighting until then, then fight on.
-    start = bounds[0] if continued else bounds[1]
+    # With packages elsewhere the combat model starts at the window start;
+    # otherwise at the quit (or the window end when the player flew it all).
+    if elsewhere:
+        start = bounds[0]
+    elif continued:
+        start = when
+    else:
+        start = bounds[1]
     end = period_bounds[1] + RECOVERY
     simulation = AircraftSimulation(game)
     simulation.ground_war_enabled = False
     simulation.begin_simulation(start)
-    simulation.combat_enabled = not continued
+    _restore_states(saved_states, game, start)
     time = start
+    joined = not continued
+    if not joined and when <= start:
+        _join(game, joining, when, simulation)
+        joined = True
     with_events = events
     try:
         while time < end:
             time += TICK
-            if not simulation.combat_enabled and time >= when:
-                simulation.combat_enabled = True
+            if not joined and time >= when:
+                _join(game, joining, when, simulation)
+                joined = True
             simulation.on_game_tick(
                 with_events, time, TICK, CombatResolutionMethod.RESOLVE, True
             )
-            if simulation.combat_enabled and not simulation.has_activity():
+            if joined and not simulation.has_activity():
                 break
         debriefing_out = Debriefing({"mission_ended": True}, game, UnitMap())
         debriefing_out.merge_simulation_results(simulation.results)
@@ -379,9 +399,59 @@ def resolve_remainder(
         simulation.results.forget_undo()
     finally:
         for coalition in (game.blue, game.red):
-            coalition.ato.packages.extend(others[coalition.player.is_blue])
+            side = coalition.player.is_blue
+            coalition.ato.packages.extend(others[side])
+            if not joined:
+                coalition.ato.packages.extend(joining[side])
     logging.info(
-        f"Resolved {len(continued)} packages from {when:%H:%M} and {len(restored)} "
-        "held back after the DCS window"
+        f"Resolved {len(continued)} packages from {when:%H:%M}, {len(elsewhere)} "
+        f"outside the bubble and {len(restored) - len(elsewhere)} held back after "
+        "the DCS window"
     )
     return debriefing_out
+
+
+def _restore_states(saved: dict[int, Any], game: Game, start: datetime) -> None:
+    """Give the packages outside the bubble back the states the fighting
+    before the window left them in (begin_simulation reset them), so a
+    flight killed before the mission stays dead."""
+    from game.ato.flightstate import Uninitialized
+
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            for flight in package.flights:
+                state = saved.get(id(flight))
+                if state is None or isinstance(state, Uninitialized):
+                    continue
+                flight.set_state(state)
+
+
+def _join(
+    game: Game,
+    joining: dict[bool, list[Package]],
+    when: datetime,
+    simulation: Any,
+) -> None:
+    """The flights that hadn't finished when the player quit join the
+    combat model at the quit, where their plans put them by then."""
+    for coalition in (game.blue, game.red):
+        for package in joining[coalition.player.is_blue]:
+            coalition.ato.packages.append(package)
+            for flight in list(package.flights):
+                place_at(flight, when)
+                simulation.results.flights_flown.append(flight)
+
+
+def place_at(flight: Flight, when: datetime) -> None:
+    """Put a flight where its plan has it at ``when``, moved along its
+    route without fighting."""
+    from game.ato.flightstate import Uninitialized
+    from game.ato.flightstate.onstation import advance_to
+
+    flight.set_state(Uninitialized(flight, flight.squadron.settings))
+    startup = flight.flight_plan.startup_time()
+    if startup >= when:
+        flight.state.reinitialize(when)
+        return
+    flight.state.reinitialize(startup)
+    advance_to(flight, startup, when)

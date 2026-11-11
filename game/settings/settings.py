@@ -1008,6 +1008,34 @@ class Settings:
             "the next turn. The mission only model gets no new features."
         ),
     )
+    bubble_enabled: bool = boolean_option(
+        "Full turn: only what you'd meet is in DCS (the bubble)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=True,
+        detail=(
+            "Full turns with a player flight. On (the default): the DCS mission "
+            "holds your package, your tanker and AWACS, the SEAD on your route, "
+            "pinned packages, and the packages of both sides you are likely to "
+            "meet; the combat model fights the rest over the same time. Off: "
+            "every package flying during the mission is in DCS."
+        ),
+    )
+    bubble_package_target: int = bounded_int_option(
+        "Full turn: packages per side in DCS (guidance)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        HQ_AUTOMATION_SECTION,
+        default=10,
+        min=2,
+        max=60,
+        detail=(
+            "With the bubble on: roughly how many packages of each side, besides "
+            "the ones always in (yours, your tanker and AWACS, your SEAD "
+            "corridor, pinned), go into the DCS mission, the most likely to meet "
+            "you first. A CAP and the raid it would fight go in together, so a "
+            "side can go past it."
+        ),
+    )
     focused_lead_in_min: int = bounded_int_option(
         "Mission only: lead-in (minutes)",
         CAMPAIGN_MANAGEMENT_PAGE,

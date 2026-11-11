@@ -60,6 +60,18 @@ class YourFlightCard(QGroupBox):
         self.preference.clicked.connect(self._on_preference)
         row.addWidget(self.preference)
         layout.addLayout(row)
+        bubble_row = QHBoxLayout()
+        self.bubble = QLabel()
+        self.bubble.setWordWrap(True)
+        self.bubble.setStyleSheet("color: #9fb4c8;")
+        bubble_row.addWidget(self.bubble, 1)
+        self.bubble_button = QPushButton("Bubble…")
+        self.bubble_button.setToolTip(
+            "Which packages will be in your DCS mission, and why"
+        )
+        self.bubble_button.clicked.connect(self._on_bubble)
+        bubble_row.addWidget(self.bubble_button)
+        layout.addLayout(bubble_row)
         self.refresh()
 
     # --------------------------------------------------------------- data
@@ -126,6 +138,12 @@ class YourFlightCard(QGroupBox):
                 break
         self.offers.setEnabled(self.offers.count() > 0)
         self.take.setEnabled(self.offers.count() > 0)
+        from qt_ui import atopresentation as ap
+
+        text = ap.bubble_text(game)  # type: ignore[arg-type]
+        self.bubble.setText(text or "")
+        self.bubble.setVisible(bool(text))
+        self.bubble_button.setVisible(bool(text))
 
     # ------------------------------------------------------------ actions
 
@@ -148,11 +166,42 @@ class YourFlightCard(QGroupBox):
         if game is None or flight is None:
             return
         if not frag(game, flight):
-            QMessageBox.warning(self, "No pilot", "That flight has no pilot to give you.")
+            QMessageBox.warning(
+                self, "No pilot", "That flight has no pilot to give you."
+            )
             return
         EventStream.put_nowait(GameUpdateEvents().update_flight(flight))
         GameUpdateSignal.get_instance().updateGame(game)
         self.package_selected.emit(flight.package)
+
+    def _on_bubble(self) -> None:
+        from PySide6.QtWidgets import QDialog, QDialogButtonBox, QTextBrowser
+
+        from qt_ui import atopresentation as ap
+
+        game = self.game
+        body = ap.bubble_html(game) if game is not None else None
+        if not body:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Your mission's bubble")
+        dialog.resize(640, 640)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel(
+            "Only these packages are in the DCS mission. The combat model fights "
+            "the rest over the same time; the debriefing reports them as "
+            "<i>Elsewhere during the mission</i>. Pin a package with "
+            "<i>Keep in my mission</i> to bring it in."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        text = QTextBrowser()
+        text.setHtml(body)
+        layout.addWidget(text, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec()
 
     def _on_preference(self) -> None:
         from game.commander.jfacc.seat import auto_frag, auto_frag_enabled, unfrag

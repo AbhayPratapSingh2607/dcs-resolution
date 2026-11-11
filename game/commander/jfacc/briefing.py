@@ -86,7 +86,9 @@ class TurnSummary:
         if self.routine:
             lines.append("Also: " + ", ".join(self.routine) + ".")
         if self.threats:
-            lines.append("Enemy expected (our intelligence): " + ", ".join(self.threats) + ".")
+            lines.append(
+                "Enemy expected (our intelligence): " + ", ".join(self.threats) + "."
+            )
         return "\n".join(lines)
 
 
@@ -221,9 +223,7 @@ def expected_enemy(game: Game, blue: bool, side: Any) -> list[str]:
                 axes.append((axis.mass, f"{axis.heading:03.0f} at {cp.name}"))
         axes.sort(key=lambda a: -a[0])
         if axes:
-            found.append(
-                "air activity from " + ", ".join(text for _, text in axes[:2])
-            )
+            found.append("air activity from " + ", ".join(text for _, text in axes[:2]))
     except Exception:
         pass
     return found
@@ -395,9 +395,15 @@ def _outcome(debriefing: object, blue: bool) -> _Outcome:
     return out
 
 
-def _window_parts(game: object, simulated: bool) -> list[DebriefPart]:
-    """The parts of the turn: three around the DCS window, or one when the
-    whole turn was fought by the combat model (or there is no period)."""
+ELSEWHERE_PART = "Elsewhere during the mission"
+
+
+def _window_parts(
+    game: object, simulated: bool, elsewhere: bool = False
+) -> list[DebriefPart]:
+    """The parts of the turn: three around the DCS window (four with
+    packages outside the bubble, M3), or one when the whole turn was fought
+    by the combat model (or there is no period)."""
     from game.sim import atoperiod
 
     period = atoperiod.period(game)  # type: ignore[arg-type]
@@ -410,6 +416,8 @@ def _window_parts(game: object, simulated: bool) -> list[DebriefPart]:
     if w0 > start:
         parts.append(DebriefPart("Before the mission", (start, w0), True))
     parts.append(DebriefPart("The mission", (w0, w1), False))
+    if elsewhere:
+        parts.append(DebriefPart(ELSEWHERE_PART, (w0, w1), True))
     if w1 < end:
         parts.append(DebriefPart("After the mission", (w1, end), True))
     return parts
@@ -484,16 +492,26 @@ def plan_debrief(
         FlightType.AEWC: "AWACS",
         FlightType.REFUELING: "tanker",
     }
-    parts = _window_parts(game, outcome.simulated)
+    from game.sim.bubble import is_elsewhere
+
+    parts = _window_parts(
+        game, outcome.simulated, any(is_elsewhere(p) for p in outcome.packages)
+    )
+    elsewhere_part = next((p for p in parts if p.name == ELSEWHERE_PART), None)
 
     def part_of(package: Package) -> DebriefPart:
         tot = package.time_over_target
-        for part in parts:
+        if elsewhere_part is not None and is_elsewhere(package):
+            assert elsewhere_part.span is not None
+            if tot < elsewhere_part.span[1]:
+                return elsewhere_part
+        timed = [p for p in parts if p.name != ELSEWHERE_PART]
+        for part in timed:
             if part.span is None:
                 return part
             if part.span[0] <= tot < part.span[1]:
                 return part
-        return parts[-1] if tot >= (parts[-1].span or (tot, tot))[0] else parts[0]
+        return timed[-1] if tot >= (timed[-1].span or (tot, tot))[0] else timed[0]
 
     debrief = PlanDebrief(parts=parts)
     key_packages = [p for p in outcome.packages if not _is_routine(p)]

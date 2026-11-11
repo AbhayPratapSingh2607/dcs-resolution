@@ -321,6 +321,27 @@ the CAPs, AWACS, tankers and ground alerts planned for you and leaves the strike
 packages are key packages in the briefing and the debrief. **Keep in my mission** on a package
 pins it for the DCS mission.
 
+## The bubble
+
+In a full turn with a player flight, the DCS mission holds only what you are likely to meet.
+Always in: your package, the nearest tanker and AWACS on station, SEAD and DEAD striking on
+your route just before or during the mission, and packages you pinned with **Keep in my
+mission**. The rest is scored from the flight plans minute by minute: an enemy CAP whose commit
+region covers your route, an alert pair whose sector does, a package crossing your route within
+15 nm at about the same time, near your target or base. A CAP and the raid it would commit on go
+in together. About **Full turn: packages per side in DCS** packages of each side (10 by default)
+fill the rest, most likely first; it is guidance, not a limit.
+
+The combat model fights the packages elsewhere over the mission's own time, apart from DCS, and
+carries on when you quit. Their aircraft still on the ramp at your base are parked there. The
+Your flight card shows what the mission will hold, **Bubble…** lists every package with its
+reason, the package tooltip gives it too, packages elsewhere fold by group in the list and are
+dimmed on the map, and the debriefing reports them as **Elsewhere during the mission**. Turn it
+off with **Full turn: only what you'd meet is in DCS**.
+
+`resources/tools/bubble_distortion.py SAVE --seeds 5` measures what keeping the two apart costs:
+it fights the save's window whole and split and compares losses.
+
 ## Reading the ATO
 
 A 6 hour plan has dozens of packages, so the list folds it (the **Fold** chip, on by default):

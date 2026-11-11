@@ -76,6 +76,7 @@ class GameLoop:
         """Resolve the ATO period up to the chosen DCS window and hold back
         packages that start after it (game.sim.atoperiod)."""
         from .atoperiod import align_player_packages, defer_after_window
+        from .bubble import hold_back_elsewhere
 
         self.pause()
         if not self.started:
@@ -83,6 +84,9 @@ class GameLoop:
         align_player_packages(self.game, self.sim.time)
         self.sim.advance_to_window(self.events)
         defer_after_window(self.game)
+        # M3: only the bubble goes into DCS; the rest is fought by the combat
+        # model over the mission's time in resolve_remainder.
+        hold_back_elsewhere(self.game)
         self.send_update(rate_limit=False)
 
     def pause_and_generate_miz(self, output: Path) -> None:

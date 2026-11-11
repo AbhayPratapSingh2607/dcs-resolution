@@ -94,6 +94,16 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Bubble]** In a full turn, only what you are likely to meet goes into DCS: your package,
+  your tanker and AWACS, the SEAD on your route, pinned packages, enemy CAPs and alerts covering
+  your route, and the packages crossing it, about 10 packages per side (**Full turn: packages
+  per side in DCS**). A CAP and the raid it would fight go in together. The combat model fights
+  the rest over the same time. The Your flight card and **Bubble…** say what is in and why;
+  tooltips give each package's reason; the map dims the rest; the debriefing has an
+  **Elsewhere during the mission** part. Aircraft of those packages still on the ramp at your
+  base are parked there. Turn it off with **Full turn: only what you'd meet is in DCS**.
+* **[Tools]** `resources/tools/bubble_distortion.py` fights a saved turn's window whole and
+  split into bubble and rest over several seeds and compares the losses.
 * **[Your seat]** Name a squadron or a mission type (the air wing step of a new campaign, or
   **Preference…** on the **Your flight** card). Each turn the commander frags you the best
   match from its plan and the card lists the next offers; **Take** moves you. The plan never

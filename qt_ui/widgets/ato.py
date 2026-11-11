@@ -539,7 +539,11 @@ class QPackagePanel(QGroupBox):
         position = 0
         if proxy.folds:
             folded = proxy.folding
-            rows = ap.folded_rows(packages, ap.main_push(game, blue) if game else None)
+            rows = ap.folded_rows(
+                packages,
+                ap.main_push(game, blue) if game else None,
+                ap.elsewhere_ids(game) if game else None,
+            )
             chip = QPushButton(f"Fold {rows}/{len(packages)}" if folded else "Fold off")
             chip.setCheckable(True)
             chip.setChecked(folded)

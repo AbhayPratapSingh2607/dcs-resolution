@@ -247,6 +247,63 @@ def offset_text(game: Game, when: datetime) -> str:
     return f"{sign}{minutes // 60}:{minutes % 60:02d}"
 
 
+def bubble_preview(game: Game) -> Any:
+    """The bubble the mission will have (game.sim.bubble.preview), or None."""
+    from game.sim import bubble
+
+    if game is None:
+        return None
+    return bubble.preview(game)
+
+
+def elsewhere_ids(game: Game) -> set[int]:
+    from game.sim import bubble
+
+    if game is None:
+        return set()
+    return bubble.elsewhere_ids(game)
+
+
+def bubble_text(game: Game) -> Optional[str]:
+    """One line for the Your flight card: what the mission will hold."""
+    preview = bubble_preview(game)
+    if preview is None:
+        return None
+    blue_in, red_in = len(preview.packages(True)), len(preview.packages(False))
+    out = len(preview.packages(True, False)) + len(preview.packages(False, False))
+    return (
+        f"In your mission: {blue_in} friendly and {red_in} enemy packages, "
+        f"{preview.aircraft()} aircraft. {out} elsewhere, fought by the combat model."
+    )
+
+
+def bubble_html(game: Game) -> Optional[str]:
+    """The bubble, package by package with its reason (B6)."""
+    preview = bubble_preview(game)
+    if preview is None:
+        return None
+    e = html.escape
+    out = []
+    for blue in (True, False):
+        side = "Friendly" if blue else "Enemy"
+        for inside, heading in ((True, "in your mission"), (False, "elsewhere")):
+            packages = sorted(
+                preview.packages(blue, inside), key=lambda p: p.time_over_target
+            )
+            out.append(f"<h3>{side} packages {heading} ({len(packages)})</h3>")
+            if not packages:
+                out.append("<p><i>None.</i></p>")
+                continue
+            out.append("<ul>")
+            for package in packages:
+                out.append(
+                    f"<li><b>{e(title(package))}</b> TOT "
+                    f"{fmt(package.time_over_target)}: {e(preview.reason(package))}</li>"
+                )
+            out.append("</ul>")
+    return "".join(out)
+
+
 def dcs_window(game: Game) -> Optional[tuple[datetime, datetime]]:
     from game.sim import atoperiod
 
@@ -343,7 +400,16 @@ def package_tooltip(game: Game, package: Package) -> str:
     if not info and getattr(package, "planning_rationale", ""):
         lines.append(e(package.planning_rationale))
     window = in_dcs_window(game, package)
-    if window is not None:
+    preview = bubble_preview(game)
+    inside = preview.in_mission(package) if preview is not None else None
+    if inside is not None:
+        reason = e(preview.reason(package))  # type: ignore[union-attr]
+        lines.append(
+            f"In your mission: {reason}"
+            if inside
+            else f"Elsewhere, fought by the combat model: {reason}"
+        )
+    elif window is not None:
         lines.append(
             "Flies in the DCS window"
             if window
@@ -451,16 +517,22 @@ def main_push(game: Game, blue: bool = True) -> Optional[tuple[datetime, datetim
 
 
 def fold_key(
-    package: Package, push: Optional[tuple[datetime, datetime]]
+    package: Package,
+    push: Optional[tuple[datetime, datetime]],
+    elsewhere: Optional[set[int]] = None,
 ) -> Optional[tuple[str, str]]:
     """The fold a package belongs to, as (key, label), or None when it
-    stands on its own: a package with players, or one in the main push."""
+    stands on its own: a package with players, or one in the main push.
+    Packages outside the bubble (M3, ``elsewhere``) fold by group."""
     if package.has_players:
         return None
     line = _line_key(package)
     if line is not None:
         task, name = line
         return f"line:{task.value}:{name}", f"{task.value} — {name}"
+    if elsewhere and id(package) in elsewhere:
+        group = package_group(package)
+        return f"elsewhere:{group.key}", f"{group.label} elsewhere (combat model)"
     if push is None:
         return None
     tot = package.time_over_target
@@ -472,14 +544,16 @@ def fold_key(
 
 
 def folds(
-    packages: Iterable[Package], push: Optional[tuple[datetime, datetime]]
+    packages: Iterable[Package],
+    push: Optional[tuple[datetime, datetime]],
+    elsewhere: Optional[set[int]] = None,
 ) -> dict[int, Fold]:
     """id(package) -> its fold, for every package in a fold of two or more.
     The fold's packages are in TOT order; the first is its representative
     row."""
     by_key: dict[str, Fold] = {}
     for package in packages:
-        found = fold_key(package, push)
+        found = fold_key(package, push, elsewhere)
         if found is None:
             continue
         key, label = found
@@ -495,11 +569,13 @@ def folds(
 
 
 def folded_rows(
-    packages: Iterable[Package], push: Optional[tuple[datetime, datetime]]
+    packages: Iterable[Package],
+    push: Optional[tuple[datetime, datetime]],
+    elsewhere: Optional[set[int]] = None,
 ) -> int:
     """How many rows the list shows with every fold closed."""
     packages = list(packages)
-    table = folds(packages, push)
+    table = folds(packages, push, elsewhere)
     rows = 0
     seen: set[str] = set()
     for package in packages:
@@ -568,7 +644,9 @@ def plan_debrief_html(debriefing: object, blue: bool = True) -> Optional[str]:
         found = []
         for result in results:
             you = " (you)" if result.players else ""
-            colour = "#c0392b" if result.lost else ("#7f8c8d" if not result.flown else "")
+            colour = (
+                "#c0392b" if result.lost else ("#7f8c8d" if not result.flown else "")
+            )
             outcome = e(result.result)
             if colour:
                 outcome = f'<span style="color:{colour}">{outcome}</span>'
@@ -587,7 +665,9 @@ def plan_debrief_html(debriefing: object, blue: bool = True) -> Optional[str]:
             lines.append("Also: " + "; ".join(e(r) for r in debrief.routine) + ".")
         return "<br>".join(lines)
     # The turn by part (W6): the mission first, then before and after it.
-    ordered = sorted(parts, key=lambda p: (p.simulated, p.span[0] if p.span else datetime.min))
+    ordered = sorted(
+        parts, key=lambda p: (p.simulated, p.span[0] if p.span else datetime.min)
+    )
     for part in ordered:
         lines.append(f"<b><u>{e(part.title)}</u></b>")
         lines += package_lines(part.key)

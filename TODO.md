@@ -4,7 +4,7 @@ Read `VISION.md` first. It gives the goal, what is out of scope, the decisions a
 of the work. Before starting an item, apply its scope test (section 8). If this file and
 `VISION.md` disagree, `VISION.md` is right.
 
-**M1 and M2 done 2026-11-10 (W1–W8, P1–P7). Current milestone: M3, the bubble. Next: B1.**
+**M1, M2 and M3 done 2026-11-10 (W1–W8, P1–P7, B1–B8). Current milestone: M4, campaign start. Next: T1.**
 
 How this file is laid out:
 
@@ -223,7 +223,9 @@ around it, before and after included.
 DCS holds only what you are likely to meet. The rest of the war is fought at the same
 time.
 
-- [ ] **B1. Relevance.** For each flight of both sides: how likely you are to meet it
+- [x] **B1. Relevance.** Done 2026-11-10: `game/sim/bubble.py` (`relevance_of`,
+  `player_geometry`, `route_samples`, `commit_region`), `tests/sim/test_bubble.py`.
+  For each flight of both sides: how likely you are to meet it
   during the mission (was F22, part of F34).
   - Inputs: where its flight plan puts it, minute by minute, during the mission; the
     route, target and base of every flight with a player; for red CAPs and alerts, whether
@@ -232,38 +234,57 @@ time.
     target").
   - Ground units keep their own culling (`perf_culling`).
   - A pure function with unit tests.
-- [ ] **B2. Clusters.** Flights that would fight each other during the mission go in or
+- [x] **B2. Clusters.** Done 2026-11-10: `bubble.find_partners` (CAP and alert commit
+  regions against the other side's routes, one step); partners join whatever their score. Flights that would fight each other during the mission go in or
   out together: a package with its escort and SEAD, a CAP with the raid it would commit
   on, an alert pair with the raid that would launch it.
   - Predict the pairs from the combat model's own rules (commit regions, GCI sectors) and
     the flight plans, for the mission's time only.
   - Follow one step of "would fight", not the whole chain, or everything joins one
     cluster.
-- [ ] **B3. Budget** (was F15). About 10 packages per side in DCS. The "packages per side"
+- [x] **B3. Budget** (was F15). Done 2026-11-10: new setting **Full turn: packages per side
+  in DCS** (`bubble_package_target`, default 10) rather than reusing the mission only one;
+  `bubble_enabled` turns the bubble off. Warning over 120 aircraft. About 10 packages per side in DCS. The "packages per side"
   setting becomes this budget. It is guidance, not a hard limit.
   - Always in, outside the budget: your package, your tanker and AWACS, the SEAD corridor
     you fly through, and pinned packages.
   - Fill the rest by cluster score.
   - Warn when the aircraft count goes well over a set number.
-- [ ] **B4. Generate the bubble only.** Packages outside the bubble are held back from the
+- [x] **B4. Generate the bubble only.** Done 2026-11-10: `bubble.hold_back_elsewhere` in
+  `GameLoop.advance_to_window` after `defer_after_window`; `package.deferred_reason =
+  "elsewhere"`. Packages not flying during the mission (alert pairs that haven't scrambled)
+  stay in the .miz, late activated. Checked by generating the peer save's .miz. Packages outside the bubble are held back from the
   .miz the way `atoperiod.defer_after_window` holds back later packages, with the reason
   kept ("elsewhere" or "after").
   - Alert pairs in the bubble stay late activated for the GCI plugin.
   - Done when: a test on the generated mission finds only bubble flights in it.
-- [ ] **B5. Fight the rest.** The combat model fights the flights outside the bubble over
+- [x] **B5. Fight the rest.** Done 2026-11-10: `resolve_remainder` starts at the window
+  start when packages are elsewhere, gives them back the states the fighting before the
+  window left them in, and brings the unfinished DCS flights in at the quit
+  (`atoperiod.place_at`). The combat model fights the flights outside the bubble over
   the mission's own time, then carries on with P6. The results are committed with the
   debrief (`MissionResultsProcessor.commit_resolved_period`).
   - The bubble and the rest don't interact. B7 measures what that costs.
-- [ ] **B6. Show it.**
+- [x] **B6. Show it.** Done 2026-11-10: `bubble.preview` (cached); the Your flight card line
+  and **Bubble…** dialog (`ap.bubble_html`); package tooltips give the reason; packages
+  elsewhere fold by group; `FlightJs.elsewhere` dims them on the map; debrief part
+  "Elsewhere during the mission".
   - List: "In your mission" first, each flight with its reason. "Elsewhere" folded.
   - Map: bubble flights drawn, the rest dimmed.
   - Debrief: an "Elsewhere" part.
-- [ ] **B7. Measure the distortion without DCS.** A tool that fights the same turn twice
+- [x] **B7. Measure the distortion without DCS.** Done 2026-11-10:
+  `resources/tools/bubble_distortion.py SAVE --seeds N`. First measurement (peer save, turn 3,
+  3 seeds): blue lost 0.3 whole / 0.7 split, red 1.3 / 0.0, ground units 10.3 / 9.7. Within
+  the tolerance (25% or 2 aircraft a side). Red losses drop in the split: watch it
+  (fights across the boundary). Not yet in the matrix. A tool that fights the same turn twice
   with the combat model, once whole and once split into bubble and rest, over several
   seeds. It compares losses and target results per side.
   - Set the tolerance from the first measurements and add the number to the matrix.
   - This matters more because nothing is flown in DCS until M6.
-- [ ] **B8. Your base is alive** (was F19). At the base you fly from, and only there:
+- [x] **B8. Your base is alive** (was F19). Done 2026-11-10 in part:
+  `bubble.parked_at_player_bases` and `AircraftGenerator._spawn_parked_elsewhere` park the
+  aircraft of packages held elsewhere that are on the ramp at your base. Not in the unit map
+  (the combat model flies them). Not done: counting them in B3's aircraft total. At the base you fly from, and only there:
   - parked aircraft as statics, taken from the squadrons' real inventory, inside the
     aircraft count of B3;
   - arrivals and departures come from the timeline by themselves.
@@ -509,6 +530,18 @@ default since W8). D11 checks the 6 hour turn.
   plan the rest" and pass a turn. **Expect:** CAPs, AWACS, tankers and ground alerts in the
   plan, no strikes; your own package shows in the briefing and the debrief; "Keep in my
   mission" shows a "pinned" badge.
+- [ ] **D15. The bubble (M3).** Full turn with your flight fragged. Before **Take off**, the
+  Your flight card says "In your mission: N friendly and M enemy packages, K aircraft. X
+  elsewhere"; **Bubble…** lists each package with its reason. **Expect:**
+  - in DCS (F10 map), only those packages, plus parked aircraft at your base for flights
+    elsewhere that haven't left yet; enemy CAPs covering your route are there;
+  - no package far from your route is in the mission;
+  - the debriefing has an **Elsewhere during the mission** part with results for the
+    packages held out;
+  - the map dims routes of packages elsewhere; tooltips say "In your mission: …" or
+    "Elsewhere, fought by the combat model: …";
+  - with the setting **Full turn: only what you'd meet is in DCS** off, every package
+    flying during the window is in DCS.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

@@ -54,7 +54,8 @@ class AtoGroupProxy(QSortFilterProxyModel):
     def refold(self, game: object, packages: list[Package], blue: bool = True) -> None:
         """Recompute the folds for the packages shown."""
         push = ap.main_push(game, blue) if game is not None else None  # type: ignore[arg-type]
-        self.folds = ap.folds(packages, push)
+        elsewhere = ap.elsewhere_ids(game) if game is not None else set()  # type: ignore[arg-type]
+        self.folds = ap.folds(packages, push, elsewhere)
         keys = {fold.key for fold in self.folds.values()}
         self.open_folds &= keys
         self.invalidateFilter()

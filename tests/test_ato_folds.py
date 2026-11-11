@@ -113,3 +113,15 @@ def test_routine_station_for_lines_only() -> None:
     tanker = _flight(FlightType.REFUELING)
     tanker.package.flights.append(SimpleNamespace(flight_type=FlightType.STRIKE, alert=False))
     assert routine_station(tanker) is None
+
+
+def test_packages_outside_the_bubble_fold_by_group() -> None:
+    inside = [_package(FlightType.STRIKE, f"P{i}", 125 + i) for i in range(3)]
+    away = [_package(FlightType.STRIKE, f"A{i}", 130 + i) for i in range(3)]
+    elsewhere = {id(p) for p in away}
+    table = ap.folds(inside + away, PUSH, elsewhere)
+    assert {table[id(p)].key for p in away} == {"elsewhere:strike"}
+    assert table[id(away[0])].label == "Strike elsewhere (combat model)"
+    # The main push packages in the mission stay open.
+    assert all(id(p) not in table for p in inside)
+    assert ap.folded_rows(inside + away, PUSH, elsewhere) == 4

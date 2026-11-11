@@ -533,6 +533,7 @@ export type Flight = {
   routine?: boolean;
   station?: LatLng;
   label?: string;
+  elsewhere?: boolean;
 };
 export type FrontLine = {
   id: string;

@@ -229,6 +229,52 @@ class AircraftGenerator:
                 except NoParkingSlotError:
                     # If we run out of parking, stop spawning aircraft at this base.
                     break
+        self._spawn_parked_elsewhere()
+
+    def _spawn_parked_elsewhere(self) -> None:
+        """B8: the aircraft of packages held outside the bubble that are on
+        the ramp at the player's base, as parked uncontrolled aircraft. They
+        are not in the unit map: the combat model flies (and loses) them."""
+        from game.sim.bubble import parked_at_player_bases
+
+        try:
+            parked = parked_at_player_bases(self.game)
+        except Exception:
+            logging.exception("Could not list the parked aircraft of the bubble")
+            return
+        for squadron, count in parked:
+            if not (
+                isinstance(squadron.location, Airfield)
+                or isinstance(squadron.location, Fob)
+            ):
+                continue
+            country = self.country_assigner.for_squadron(squadron)
+            for _ in range(count):
+                flight = Flight(
+                    Package(squadron.location, self.game.db.flights),
+                    squadron,
+                    1,
+                    FlightType.BARCAP,
+                    StartType.COLD,
+                    divert=None,
+                    claim_inv=False,
+                )
+                flight.state = Completed(flight, self.game.settings)
+                try:
+                    group = FlightGroupSpawner(
+                        flight,
+                        country,
+                        self.mission,
+                        self.helipads,
+                        self.ground_spawns_roadbase,
+                        self.ground_spawns_large,
+                        self.ground_spawns,
+                        self.mission_data,
+                    ).create_idle_aircraft()
+                except NoParkingSlotError:
+                    break
+                if group:
+                    AircraftPainter(flight, group).apply_livery()
 
     def _spawn_unused_for(self, squadron: Squadron, country: Country) -> None:
         assert isinstance(squadron.location, Airfield) or isinstance(

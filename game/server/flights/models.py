@@ -68,6 +68,8 @@ class FlightJs(BaseModel):
     routine: bool = False
     station: LeafletPoint | None = None
     label: str | None = None
+    #: Outside the bubble (M3): fought by the combat model, drawn dimmed.
+    elsewhere: bool = False
 
     class Config:
         title = "Flight"
@@ -106,6 +108,16 @@ class FlightJs(BaseModel):
             blue = True
         else:
             blue = False
+        elsewhere = False
+        if waypoints is not None and game is not None:
+            try:
+                from game.sim.bubble import elsewhere_ids, is_elsewhere
+
+                elsewhere = is_elsewhere(flight.package) or id(
+                    flight.package
+                ) in elsewhere_ids(game)
+            except Exception:
+                elsewhere = False
         return FlightJs(
             id=flight.id,
             blue=blue,
@@ -115,6 +127,7 @@ class FlightJs(BaseModel):
             routine=routine,
             station=station,
             label=label,
+            elsewhere=elsewhere,
         )
 
     @staticmethod
