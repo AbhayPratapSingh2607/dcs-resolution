@@ -251,3 +251,25 @@ def test_old_saves_get_a_fire_plan() -> None:
     plan = fm.FirePlan.__new__(fm.FirePlan)
     plan.__setstate__({})
     assert plan.missions == []
+
+
+def test_strike_labels_for_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
+    from game import opening
+
+    game = _game(turn=0)
+    target = _target()
+    shot = opening.PlannedShot(target, "ewr", 2)
+    monkeypatch.setattr(opening, "planned_salvo", lambda g: [shot])
+    monkeypatch.setattr(opening, "missile_strikes_enabled", lambda g: True)
+    assert fm.strike_labels(game) == {target.id: ["Opening salvo: 2 cruise missiles"]}
+    monkeypatch.setattr(opening, "missile_strikes_enabled", lambda g: False)
+    assert fm.strike_labels(game) == {}
+
+    game = _game(turn=2)
+    blue = fm.plan_mission(game, _launcher(), target, 4, START + timedelta(minutes=70))
+    red = fm.plan_mission(game, _launcher(), _target(x=9), 1, START)
+    red.player_blue = False
+    labels = fm.strike_labels(game)
+    assert labels == {target.id: ["Fire mission 20:10: 4 Tomahawk from SHIP"]}
+    blue.status = fm.FireStatus.FIRED
+    assert fm.strike_labels(game)[target.id][0].startswith("Fired 20:10")

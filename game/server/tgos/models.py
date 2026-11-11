@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -37,6 +37,9 @@ class TgoJs(BaseModel):
     uncertainty_m: float = 0.0
     #: Fog of war: how blue detected this enemy site.
     detection: Optional[str] = None
+    #: Blue's planned strikes at this site: the opening salvo on turn 0, the
+    #: fire missions after that (game.warfare.firemissions.strike_labels).
+    strikes: list[str] = []
 
     class Config:
         title = "Tgo"
@@ -48,7 +51,9 @@ class TgoJs(BaseModel):
         return tgo_view(game_of(tgo), tgo) is not None
 
     @staticmethod
-    def for_tgo(tgo: TheaterGroundObject) -> TgoJs:
+    def for_tgo(
+        tgo: TheaterGroundObject, strikes: Optional[dict[Any, list[str]]] = None
+    ) -> TgoJs:
         import dataclasses
 
         from game.server.fogofwar import detection_summary, game_of, tgo_view
@@ -108,15 +113,17 @@ class TgoJs(BaseModel):
             estimated=estimated,
             uncertainty_m=uncertainty,
             detection=detection,
+            strikes=_strikes_at(game, tgo.id, strikes),
         )
 
     @staticmethod
     def all_in_game(game: Game) -> list[TgoJs]:
         tgos = []
+        strikes = _strike_labels(game)
         for control_point in game.theater.controlpoints:
             for tgo in control_point.connected_objectives:
                 if not tgo.is_control_point and TgoJs.visible(tgo):
-                    tgos.append(TgoJs.for_tgo(tgo))
+                    tgos.append(TgoJs.for_tgo(tgo, strikes))
         tgos.extend(TgoJs.phantoms(game))
         return tgos
 
@@ -186,3 +193,23 @@ class TgoJs(BaseModel):
                 )
             )
         return phantoms
+
+
+def _strike_labels(game: Game) -> dict[Any, list[str]]:
+    try:
+        from game.warfare.firemissions import strike_labels
+
+        return strike_labels(game)
+    except Exception:
+        import logging
+
+        logging.exception("Could not list the planned strikes")
+        return {}
+
+
+def _strikes_at(
+    game: Game, target_id: Any, strikes: Optional[dict[Any, list[str]]]
+) -> list[str]:
+    if strikes is None:
+        strikes = _strike_labels(game)
+    return list(strikes.get(target_id, []))

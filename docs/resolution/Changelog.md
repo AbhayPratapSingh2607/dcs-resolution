@@ -5,6 +5,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Map]** Planned strikes on the map: a red ring around each target, with the strikes in its
+  tooltip. On turn 0 these are the opening salvo's targets; from turn 1 your fire missions.
+  [Guide](Fire-Missions.md#on-the-map)
 * **[Fire missions]** Plan cruise missile, Scud and artillery strikes in regular turns.
   **Fire Missions** in the top bar (or **Plan fire mission…** on an enemy site) picks a
   launcher (Ticonderoga and Arleigh Burke ships, Scud sites, front-line artillery), a target in

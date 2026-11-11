@@ -480,6 +480,7 @@ export type ControlPoint = {
   destination?: LatLng;
   sidc: string;
   dynamic_farp_kind?: string;
+  strikes?: string[];
 };
 export type FarpSiteCheck = {
   valid: boolean;
@@ -568,6 +569,7 @@ export type Tgo = {
   estimated?: boolean;
   uncertainty_m?: number;
   detection?: string | null;
+  strikes?: string[];
 };
 export type SupplyRoute = {
   id: string;

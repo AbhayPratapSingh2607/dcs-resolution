@@ -1,5 +1,6 @@
 import { Tgo as TgoModel } from "../../api/liberationApi";
 import SplitLines from "../splitlines/SplitLines";
+import { StrikeLines } from "../strikemark/StrikeMark";
 import { Icon, Point } from "leaflet";
 import ms from "milsymbol";
 import { Tooltip } from "react-leaflet";
@@ -44,6 +45,7 @@ export function TgoTooltip(props: { tgo: TgoModel }) {
           <i>{props.tgo.detection}</i>
         </>
       )}
+      <StrikeLines strikes={props.tgo.strikes} />
     </Tooltip>
   );
 }

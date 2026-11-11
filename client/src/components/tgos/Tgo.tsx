@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import MobileTgo from "./MobileTgo";
 import { TgoTooltip, iconForTgo, opacityForTgo } from "./shared";
 import { Circle, Marker } from "react-leaflet";
+import { StrikeMark } from "../strikemark/StrikeMark";
 
 interface TgoProps {
   tgo: TgoModel;
@@ -44,6 +45,7 @@ function StaticTgo(props: TgoProps) {
           }}
         />
       )}
+      <StrikeMark position={props.tgo.position} strikes={props.tgo.strikes} />
       <Marker
         position={props.tgo.position}
         icon={iconForTgo(props.tgo)}

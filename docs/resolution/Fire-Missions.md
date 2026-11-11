@@ -36,6 +36,14 @@ that site.
   two to four missiles a target, four at an airfield.
 * **Remove** takes a strike out, unless it has already been fired.
 
+## On the map
+
+Every target of one of your strikes has a red ring around it, and its tooltip lists the
+strikes: time, rounds, weapon and launcher ("Fire mission 21:10: 4 Tomahawk from AARDWOLF",
+"Fired …" once it has gone). On turn 0 the rings mark the opening salvo's targets instead
+("Opening salvo: 3 cruise missiles"), as planned with the current emphasis; they're gone if
+the opening missile strikes are turned off. Red's strikes aren't shown.
+
 ## How they are fired
 
 * **In DCS.** A strike timed inside the DCS window gives its launcher a fire task at that

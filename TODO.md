@@ -780,6 +780,10 @@ default since W8). D11 checks the 6 hour turn.
     defense is now on ground alert.
 
 **Checked in the app (no DCS needed):**
+- [ ] **A7. Strike rings on the map (2026-11-11).** New campaign, turn 0: the opening salvo's
+  targets (the Begin Campaign window's list) have red rings, tooltip "Opening salvo: N cruise
+  missiles"; turning the strikes off in the settings and reloading removes them. From turn 1,
+  planning a fire mission rings its target at once, and removing it clears the ring.
 - [ ] **A5. Turn briefing.** From turn 1, the **Your flight** tab shows the full briefing
   under the card (the turn, phase and main push, the opening, intent, key packages with their
   purpose, routine lines, threats), scrolling in the space left.

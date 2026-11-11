@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -21,12 +21,16 @@ class ControlPointJs(BaseModel):
     destination: LeafletPoint | None
     sidc: str
     dynamic_farp_kind: str | None = None
+    #: Blue's planned strikes at this airfield (game.warfare.firemissions).
+    strikes: list[str] = []
 
     class Config:
         title = "ControlPoint"
 
     @staticmethod
-    def for_control_point(control_point: ControlPoint) -> ControlPointJs:
+    def for_control_point(
+        control_point: ControlPoint, strikes: dict[Any, list[str]] | None = None
+    ) -> ControlPointJs:
         destination = None
         if control_point.target_position is not None:
             destination = control_point.target_position.latlng()
@@ -48,12 +52,17 @@ class ControlPointJs(BaseModel):
             destination=destination,
             sidc=str(control_point.sidc()),
             dynamic_farp_kind=farp_kind.value if farp_kind is not None else None,
+            strikes=_strikes_at(control_point, strikes),
         )
 
     @staticmethod
     def all_in_game(game: Game) -> list[ControlPointJs]:
+        from game.server.tgos.models import _strike_labels
+
+        strikes = _strike_labels(game)
         return [
-            ControlPointJs.for_control_point(cp) for cp in game.theater.controlpoints
+            ControlPointJs.for_control_point(cp, strikes)
+            for cp in game.theater.controlpoints
         ]
 
 
@@ -72,3 +81,13 @@ class NewFarpJs(BaseModel):
 
     class Config:
         title = "NewFarp"
+
+
+def _strikes_at(
+    control_point: ControlPoint, strikes: dict[Any, list[str]] | None
+) -> list[str]:
+    from game.server.tgos.models import _strike_labels
+
+    if strikes is None:
+        strikes = _strike_labels(control_point.coalition.game)
+    return list(strikes.get(control_point.id, []))

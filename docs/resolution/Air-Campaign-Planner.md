@@ -92,7 +92,9 @@ Which planning profile a doctrine uses is set by `planning_profile:` in
   emphasis as you change it. Uncheck **Fire the opening salvo** to open the war without it: the
   enemy's airfields and air defenses are then untouched on turn 1, and the turn 1 report says the
   strikes were turned off. The list is planned against what intelligence knows before Begin
-  Campaign; the pre-war reconnaissance can still add or reorder targets.
+  Campaign; the pre-war reconnaissance can still add or reorder targets. On turn 0 the map
+  marks the same targets with a red ring, and their tooltips say "Opening salvo: N cruise
+  missiles".
 
 Begin Campaign then starts the war at H-hour, puts the enemy in its posture, flies the
 reconnaissance, runs the first strategic intel round, and fires blue's opening missile salvo:
