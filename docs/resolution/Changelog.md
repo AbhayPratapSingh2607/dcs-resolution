@@ -5,6 +5,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Opening]** The Begin Campaign window lists the planned opening missile strikes: each
+  target, its type, the base it is near and the missiles aimed at it, following the opening
+  emphasis as you change it. **Fire the opening salvo** turns the strikes off, and so does the
+  new **Opening missile strikes** setting.
+  [Guide](Air-Campaign-Planner.md#the-opening)
 * **[FARPs]** Setting **FARP maximum distance from front** to 0 removes the limit: FARPs
   can be built any distance behind the front.
 * **[Timeline]** Drag the DCS mission window on the timeline. Grab the shaded band anywhere off

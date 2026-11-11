@@ -87,6 +87,12 @@ Which planning profile a doctrine uses is set by `planning_profile:` in
   in the open, and one alert pair fewer.
 * **Pre-war reconnaissance**: a number of enemy bases (more with better ISR) to look at; each
   raises what intelligence knows within 40 nm. The enemy reconnoitres its own.
+* **Opening missile strikes** (also in the settings): the planned salvo, listed target by
+  target with its type, the base it is near and the missiles aimed at it. The list follows the
+  emphasis as you change it. Uncheck **Fire the opening salvo** to open the war without it: the
+  enemy's airfields and air defenses are then untouched on turn 1, and the turn 1 report says the
+  strikes were turned off. The list is planned against what intelligence knows before Begin
+  Campaign; the pre-war reconnaissance can still add or reorder targets.
 
 Begin Campaign then starts the war at H-hour, puts the enemy in its posture, flies the
 reconnaissance, runs the first strategic intel round, and fires blue's opening missile salvo:

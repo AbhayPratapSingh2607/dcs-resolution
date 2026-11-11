@@ -120,3 +120,34 @@ def test_old_saves_get_an_opening_plan() -> None:
     assert plan.begun and plan.emphasis is Emphasis.BALANCED and plan.shots == []
     game = SimpleNamespace()
     assert opening.opening_of(game).begun is False  # type: ignore[arg-type]
+
+
+def test_planned_salvo_spends_the_missiles_down_the_target_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    airfield = SimpleNamespace(name="Krymsk")
+    sam = SimpleNamespace(name="SA-10")
+    ewr = SimpleNamespace(name="EWR 1")
+    seen: list[Any] = []
+
+    def candidates(game: Any, emphasis: Any = None) -> list[Any]:
+        seen.append(emphasis)
+        return [(5.0, airfield, "airfield"), (4.0, sam, "sam_lorad"), (3.0, ewr, "ewr")]
+
+    monkeypatch.setattr(opening, "salvo_size", lambda g: (8, "8 from the arsenal"))
+    monkeypatch.setattr(opening, "_salvo_candidates", candidates)
+    planned = opening.planned_salvo(SimpleNamespace(), Emphasis.C2)  # type: ignore[arg-type]
+    assert [(p.name, p.missiles) for p in planned] == [("Krymsk", 4), ("SA-10", 3), ("EWR 1", 1)]
+    assert seen == [Emphasis.C2]
+
+    monkeypatch.setattr(opening, "salvo_size", lambda g: (0, "none"))
+    assert opening.planned_salvo(SimpleNamespace()) == []  # type: ignore[arg-type]
+
+
+def test_turned_off_missile_strikes_fire_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(opening, "salvo_size", lambda g: (24, "24 from the 2005 arsenal"))
+    game = SimpleNamespace(
+        opening=OpeningPlan(begun=True),
+        settings=SimpleNamespace(opening_missile_strikes=False),
+    )
+    assert opening.fire_salvo(game, None, None) == []  # type: ignore[arg-type]
+    lines = opening.bda_report(game, [], "24 from the 2005 arsenal")  # type: ignore[arg-type]
+    assert lines == ["No opening missile strikes: they were turned off."]

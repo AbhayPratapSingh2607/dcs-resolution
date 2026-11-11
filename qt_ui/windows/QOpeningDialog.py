@@ -1,6 +1,7 @@
 """The opening choices (M4), shown when you press Begin Campaign: H-hour and
-the opening emphasis (T7), the pre-war reconnaissance areas (T5) and the
-strategic surprise (T8). Begin Campaign resolves them (game.opening)."""
+the opening emphasis (T7), the pre-war reconnaissance areas (T5), the
+strategic surprise (T8) and the planned opening missile strikes (T9), which can
+be turned off. Begin Campaign resolves them (game.opening)."""
 
 from __future__ import annotations
 
@@ -8,6 +9,8 @@ from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -16,6 +19,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
     QVBoxLayout,
     QWidget,
 )
@@ -26,7 +32,9 @@ from game.opening import (
     H_HOURS,
     Surprise,
     commander_recon,
+    missile_strikes_enabled,
     opening_of,
+    planned_salvo,
     recon_candidates,
     recon_tasks,
     salvo_size,
@@ -39,7 +47,7 @@ class QOpeningDialog(QDialog):
         super().__init__(parent)
         self.game = game
         self.setWindowTitle("The opening")
-        self.resize(560, 640)
+        self.resize(620, 820)
         plan = opening_of(game)
         layout = QVBoxLayout(self)
         intro = QLabel(
@@ -80,15 +88,9 @@ class QOpeningDialog(QDialog):
             "aircraft and alert fighters."
         )
         form.addRow("Strategic surprise:", self.surprise)
-        missiles, sized = salvo_size(game)
-        salvo = QLabel(
-            f"Opening missile strikes: {missiles} cruise missiles ({sized})."
-            if missiles
-            else f"No opening missile strikes ({sized})."
-        )
-        salvo.setWordWrap(True)
-        form.addRow(salvo)
         layout.addWidget(choices)
+
+        layout.addWidget(self._salvo_box(), 1)
 
         self.tasks = recon_tasks(game, Player.BLUE)
         recon = QGroupBox(f"Pre-war reconnaissance ({self.tasks} areas)")
@@ -123,6 +125,95 @@ class QOpeningDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    #: How the salvo's target classes read in the list.
+    CLASS_NAMES = {
+        "airfield": "Airfield (runway and parked aircraft)",
+        "sam_lorad": "Long-range SAM",
+        "sam_merad": "Medium-range SAM",
+        "ewr": "Early warning radar",
+        "c2_node": "Command and control",
+        "power": "Power plant",
+        "fuel": "Fuel depot",
+        "ammo": "Ammunition depot",
+        "factory": "Factory",
+        "building": "Building",
+    }
+
+    def _salvo_box(self) -> QGroupBox:
+        missiles, sized = salvo_size(self.game)
+        box = QGroupBox("Opening missile strikes")
+        box_layout = QVBoxLayout(box)
+        self.strikes = QCheckBox("Fire the opening salvo")
+        self.strikes.setChecked(missiles > 0 and missile_strikes_enabled(self.game))
+        self.strikes.setEnabled(missiles > 0)
+        self.strikes.setToolTip(
+            "Unchecked, the war opens without the cruise missile salvo: the "
+            "enemy's airfields and air defenses are untouched on turn 1."
+        )
+        box_layout.addWidget(self.strikes)
+        size = QLabel(
+            f"{missiles} cruise missiles: {sized}."
+            if missiles
+            else f"No opening missile strikes: {sized}."
+        )
+        size.setWordWrap(True)
+        box_layout.addWidget(size)
+        self.salvo_table = QTableWidget(0, 4)
+        self.salvo_table.setHorizontalHeaderLabels(
+            ["Target", "Type", "Near", "Missiles"]
+        )
+        self.salvo_table.verticalHeader().setVisible(False)
+        self.salvo_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.salvo_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        header = self.salvo_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.salvo_table.setVisible(missiles > 0)
+        box_layout.addWidget(self.salvo_table)
+        self.salvo_note = QLabel()
+        self.salvo_note.setWordWrap(True)
+        box_layout.addWidget(self.salvo_note)
+        self.emphasis.currentIndexChanged.connect(lambda *_: self._update_salvo())
+        self.strikes.toggled.connect(lambda *_: self._update_salvo())
+        self._update_salvo()
+        return box
+
+    def _update_salvo(self) -> None:
+        planned = planned_salvo(self.game, self.emphasis.currentData())
+        self.salvo_table.setRowCount(len(planned))
+        for row, shot in enumerate(planned):
+            kind = self.CLASS_NAMES.get(
+                shot.target_class, shot.target_class.replace("_", " ").capitalize()
+            )
+            base = getattr(shot.target, "control_point", None)
+            near = base.name if base is not None else ""
+            for column, text in enumerate((shot.name, kind, near, str(shot.missiles))):
+                item = QTableWidgetItem(text)
+                if column == 3:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.salvo_table.setItem(row, column, item)
+        on = self.strikes.isChecked()
+        self.salvo_table.setEnabled(on)
+        if not self.strikes.isEnabled():
+            self.salvo_note.setText("")
+        elif not on:
+            self.salvo_note.setText(
+                "Turned off: the war opens without the salvo, and these targets "
+                "are left for your air campaign."
+            )
+        elif not planned:
+            self.salvo_note.setText(
+                "Intelligence knows no fixed targets to fire at yet."
+            )
+        else:
+            self.salvo_note.setText(
+                f"{len(planned)} targets, chosen against what intelligence knows "
+                "now and weighted by the opening emphasis. The pre-war "
+                "reconnaissance flown at Begin Campaign can still change the list."
+            )
+
     def _checked(self) -> list[str]:
         return [
             self.areas.item(i).text()
@@ -144,5 +235,7 @@ class QOpeningDialog(QDialog):
         plan.h_hour = self.h_hour.currentData()
         plan.emphasis = self.emphasis.currentData()
         self.game.settings.strategic_surprise = self.surprise.currentData()
+        if self.strikes.isEnabled():
+            self.game.settings.opening_missile_strikes = self.strikes.isChecked()
         plan.recon[True] = self._checked()
         super().accept()

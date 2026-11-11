@@ -1397,6 +1397,18 @@ class Settings:
             "missile strikes hit."
         ),
     )
+    opening_missile_strikes: bool = boolean_option(
+        "Opening missile strikes",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Set before Begin Campaign. When on, your side opens the war with a "
+            "cruise missile salvo at the enemy's fixed targets (airfields, air "
+            "defenses, command posts). The Begin Campaign window lists the "
+            "planned strikes and can turn them off too."
+        ),
+    )
     space_and_agency_intel: bool = boolean_option(
         "Satellites and intelligence agencies",
         page=CAMPAIGN_DOCTRINE_PAGE,

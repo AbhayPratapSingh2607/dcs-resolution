@@ -349,14 +349,56 @@ def salvo_size(game: Game) -> tuple[int, str]:
     return total, ", ".join(parts)
 
 
-def _salvo_candidates(game: Game) -> list[tuple[float, MissionTarget, str]]:
+def missile_strikes_enabled(game: Game) -> bool:
+    """Whether blue fires the opening salvo (the Opening missile strikes
+    setting, also in the Begin Campaign window)."""
+    return bool(getattr(game.settings, "opening_missile_strikes", True))
+
+
+@dataclass(frozen=True)
+class PlannedShot:
+    """One target of the opening salvo, before it is fired."""
+
+    target: MissionTarget
+    target_class: str
+    missiles: int
+
+    @property
+    def name(self) -> str:
+        return self.target.name
+
+
+def planned_salvo(
+    game: Game, emphasis: Optional[Emphasis] = None
+) -> list[PlannedShot]:
+    """The opening salvo's targets and missiles, against blue's current picture,
+    as fire_salvo will fire it. Pre-war reconnaissance flown at Begin Campaign
+    can still add or reorder targets. Empty when the side has no missiles; the
+    plan ignores whether the strikes are turned off."""
+    missiles, _ = salvo_size(game)
+    planned: list[PlannedShot] = []
+    if missiles <= 0:
+        return planned
+    for _, target, target_class in _salvo_candidates(game, emphasis):
+        if missiles <= 0:
+            break
+        n = min(missiles, MISSILES_PER_TARGET.get(target_class, 2))
+        missiles -= n
+        planned.append(PlannedShot(target, target_class, n))
+    return planned
+
+
+def _salvo_candidates(
+    game: Game, emphasis: Optional[Emphasis] = None
+) -> list[tuple[float, MissionTarget, str]]:
     from game.commander.jfacc.targetclass import classify
     from game.theater.controlpoint import ControlPointType
     from game.theater.player import Player
     from game.warfare.intel import is_mobile
 
     picture = game.war_state.picture(game, Player.BLUE)
-    emphasis = opening_of(game).emphasis
+    if emphasis is None:
+        emphasis = opening_of(game).emphasis
     favoured = EMPHASIS_CLASSES.get(emphasis, set())
     found: list[tuple[float, MissionTarget, str]] = []
     for cp in game.theater.control_points_for(Player.RED):
@@ -402,17 +444,18 @@ def fire_salvo(game: Game, events: GameUpdateEvents, rng: random.Random) -> list
     from game.theater import ControlPoint
     from game.theater.player import Player
 
-    missiles, _ = salvo_size(game)
-    if missiles <= 0:
+    if not missile_strikes_enabled(game):
+        return []
+    planned = planned_salvo(game)
+    if not planned:
         return []
     surprise = SURPRISE_HIT[surprise_of(game)]
     picture = game.war_state.picture(game, Player.BLUE)
     shots: list[SalvoShot] = []
-    for weight, target, target_class in _salvo_candidates(game):
-        if missiles <= 0:
-            break
-        n = min(missiles, MISSILES_PER_TARGET.get(target_class, 2))
-        missiles -= n
+    for planned_shot in planned:
+        target = planned_shot.target
+        target_class = planned_shot.target_class
+        n = planned_shot.missiles
         p = BASE_HIT * surprise * _defended(game, target)
         if target_class == "sam_lorad":
             p *= 0.85  # point defense
@@ -481,9 +524,11 @@ def _hit_airfield(
 def bda_report(game: Game, shots: list[SalvoShot], sized: str) -> list[str]:
     from game.theater.player import Player
 
-    isr = game.war_state.picture(game, Player.BLUE).isr
     if not shots:
+        if not missile_strikes_enabled(game) and salvo_size(game)[0] > 0:
+            return ["No opening missile strikes: they were turned off."]
         return [f"No opening missile strikes: {sized}."]
+    isr = game.war_state.picture(game, Player.BLUE).isr
     fired = sum(s.missiles for s in shots)
     lines = [
         f"Opening salvo: {fired} cruise missiles at {len(shots)} targets "
