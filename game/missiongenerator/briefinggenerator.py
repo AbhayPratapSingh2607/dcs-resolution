@@ -7,12 +7,15 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List, TYPE_CHECKING
 
 from dcs.mission import Mission
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
+from game.ato.flighttype import FlightType
 from game.ato.flightwaypoint import FlightWaypoint
+from game.ato.package import Package
 from game.ground_forces.combat_stance import CombatStance
 from game.radio.radios import RadioFrequency
 from game.runways import RunwayData
@@ -20,6 +23,9 @@ from game.theater import ControlPoint, FrontLine
 from .aircraft.flightdata import FlightData
 from .flotgenerator import JtacInfo
 from .missiondata import AwacsInfo, TankerInfo
+
+#: Packages shown as one line per station in the briefing, with their times.
+ROUTINE_TASKS = {FlightType.BARCAP, FlightType.AEWC, FlightType.REFUELING}
 
 if TYPE_CHECKING:
     from game import Game
@@ -151,13 +157,11 @@ class BriefingGenerator(MissionInfoGenerator):
     def __init__(self, mission: Mission, game: Game):
         super().__init__(mission, game)
         self.allied_flights_by_departure: Dict[str, List[FlightData]] = {}
+        # The DCS briefing is plain text: HTML escaping turned "AEW&C" into
+        # "AEW&amp;C".
         env = Environment(
             loader=FileSystemLoader("resources/briefing/templates"),
-            autoescape=select_autoescape(
-                disabled_extensions=("",),
-                default_for_string=True,
-                default=True,
-            ),
+            autoescape=False,
             trim_blocks=True,
             lstrip_blocks=True,
         )
@@ -169,6 +173,7 @@ class BriefingGenerator(MissionInfoGenerator):
         """Generate the mission briefing"""
         self._generate_frontline_info()
         self.generate_allied_flights_by_departure()
+        self.ally_packages, self.ally_lines = self._ally_packages()
         self.turn_summary = self._turn_summary()
         self.mission.set_description_text(self.template.render(vars(self)))
         self.mission.add_picture_blue(
@@ -186,6 +191,58 @@ class BriefingGenerator(MissionInfoGenerator):
             logging.exception("Could not build the turn summary for the briefing")
             return ""
         return summary.as_text() if summary is not None else ""
+
+    def _ally_packages(self) -> tuple[list[str], list[str]]:
+        """Friendly AI packages in the mission, for the briefing: combat
+        packages one block each by time over target, and the routine lines
+        (CAP stations, AWACS, tankers) one line each with their times."""
+        start = self.mission.start_time
+        packages: list[Package] = []
+        flights: dict[int, list[FlightData]] = {}
+        for flight in self.flights:
+            if flight.client_units or not flight.friendly.is_blue:
+                continue
+            if id(flight.package) not in flights:
+                flights[id(flight.package)] = []
+                packages.append(flight.package)
+            flights[id(flight.package)].append(flight)
+
+        def composition(package: Package) -> str:
+            return ", ".join(
+                f"{f.flight_type.value} {f.size}x {f.units[0].type}"
+                for f in flights[id(package)]
+            )
+
+        blocks: list[tuple[datetime, str]] = []
+        lines: dict[str, list[Package]] = {}
+        for package in packages:
+            if package.primary_task in ROUTINE_TASKS:
+                lines.setdefault(package.target.name, []).append(package)
+                continue
+            members = flights[id(package)]
+            bases = sorted({f.departure.airfield_name for f in members})
+            first = min(f.departure_delay for f in members)
+            when = (
+                "airborne or starting up at mission start"
+                if first.total_seconds() <= 0
+                else f"takes off {start + first:%H:%M}"
+            )
+            tot = package.time_over_target
+            blocks.append(
+                (
+                    tot,
+                    f"{tot:%H:%M} {package.target.name}: {composition(package)}\n"
+                    f"      from {', '.join(bases)}, {when}",
+                )
+            )
+        routine: list[str] = []
+        for name, line in lines.items():
+            line.sort(key=lambda p: p.time_over_target)
+            times = ", ".join(f"{p.time_over_target:%H:%M}" for p in line)
+            routine.append(f"{name}: {composition(line[0])}, on station {times}")
+        return [text for _, text in sorted(blocks, key=lambda b: b[0])], sorted(
+            routine
+        )
 
     def _generate_frontline_info(self) -> None:
         """Build FrontLineInfo objects from FrontLine type and append to briefing."""

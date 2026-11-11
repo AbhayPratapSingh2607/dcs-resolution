@@ -83,17 +83,23 @@ Freq : {{ flight|intra_flight_channel }}
 
 {% endif %}
 
-{%- if allied_flights_by_departure|length > 0 %}
-Planned ally flights:
+{%- if ally_packages|length > 0 or ally_lines|length > 0 %}
+Friendly packages in this mission:
 ====================
-{% for dep in allied_flights_by_departure %}
-{{ dep }}
----------------------------------------------------
-{% for flight in allied_flights_by_departure[dep] %}
-{{ flight.flight_type }} {{ flight.units[0].type }} x {{flight.size}}, departing in {{ flight.departure_delay }}, {{ flight.package.target.name}}, TOT: {{ flight.package.time_over_target }}
+{% if ally_packages|length > 0 %}
+By time over target:
+{% for block in ally_packages %}
+{{ block }}
 {% endfor %}
 
+{% endif %}
+{% if ally_lines|length > 0 %}
+CAP stations, AWACS and tankers:
+{% for line in ally_lines %}
+{{ line }}
 {% endfor %}
+
+{% endif %}
 {% endif %}
 
 {%- if dynamic_runways|length > 0 %}
@@ -129,7 +135,7 @@ TANKERS:
 {%- if jtacs|length > 0 %}
 JTACS [F-10 Menu] :
 ====================
-{% for jtac in jtacs %}Frontline {{ jtac.region }} -- Code : {{ jtac.code }}, Freq : {{ jtac.freq.mhz }}
+{% for jtac in jtacs %}{{ jtac.region }} -- Code : {{ jtac.code }}, Freq : {{ jtac.freq.mhz }}
 {% endfor %}
 
 {% endif %}
