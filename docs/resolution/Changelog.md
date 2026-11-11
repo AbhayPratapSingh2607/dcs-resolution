@@ -221,6 +221,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Fast forward]** "Fast-forward the turn" from the No player flight dialog fights the whole
+  turn with the combat model whatever the "Fast forward until" setting is. With any setting
+  but "Simulate entire turn", the simulation stopped on its first tick (there was no player
+  to wait for) and the results showed no combat at all.
 * **[Planner]** A jet flying its second sortie of the turn flies with the crew of its first,
   instead of booking a fresh pilot for the seat. Squadrons ran out of pilots well before they
   ran out of aircraft: on the PG test save VFA-41's 16 pilots were all booked with 4 jets still

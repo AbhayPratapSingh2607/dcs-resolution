@@ -35,9 +35,14 @@ class MissionSimulation:
         self.completed = False
         self.time = self.game.conditions.start_time
         self.miz_generated_at: float = 0.0
+        #: The whole turn is fought by the combat model: set by the "Simulate
+        #: entire turn" setting, or for one turn by "Fast-forward the turn"
+        #: (no player flight) whatever the setting.
+        self.whole_turn = False
 
     def begin_simulation(self) -> None:
         self.time = self.game.conditions.start_time
+        self.whole_turn = False
         self.aircraft_simulation.begin_simulation()
 
     def tick(
@@ -50,7 +55,7 @@ class MissionSimulation:
         if self.completed:
             raise RuntimeError("Simulation already completed")
         stop_condition = self.game.settings.fast_forward_stop_condition
-        if stop_condition is FastForwardStopCondition.END_OF_TURN:
+        if self.whole_turn or stop_condition is FastForwardStopCondition.END_OF_TURN:
             # The whole turn is fought by the combat model; nothing can pause it.
             self.aircraft_simulation.on_game_tick(
                 events, self.time, TICK, CombatResolutionMethod.RESOLVE, True

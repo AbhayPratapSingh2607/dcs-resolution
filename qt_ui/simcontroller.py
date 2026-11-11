@@ -95,6 +95,11 @@ class SimController(QObject):
     ) -> bool:
         return self.game_loop.run_to_first_contact(should_stop)
 
+    def simulate_whole_turn(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
+        return self.game_loop.simulate_whole_turn(should_stop)
+
     def advance_to_window(
         self, should_stop: Optional[Callable[[], bool]] = None
     ) -> bool:

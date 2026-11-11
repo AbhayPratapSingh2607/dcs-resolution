@@ -477,7 +477,7 @@ class QTopPanel(QFrame):
             with logged_duration("Simulating entire turn"):
                 busy.run(
                     "Fighting the whole turn with the combat model…",
-                    lambda: self.sim_controller.run_to_first_contact(
+                    lambda: self.sim_controller.simulate_whole_turn(
                         busy.should_stop
                     ),
                 )

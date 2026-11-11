@@ -80,6 +80,19 @@ class GameLoop:
             self.tick(suppress_events=False)
         return True
 
+    def simulate_whole_turn(
+        self, should_stop: Optional[Callable[[], bool]] = None
+    ) -> bool:
+        """Fight the whole turn with the combat model, whatever the fast
+        forward setting says (otherwise, with a "player startup" setting and
+        no player flight, the sim stops on its first tick having fought
+        nothing)."""
+        self.pause()
+        if not self.started:
+            self.start()
+        self.sim.whole_turn = True
+        return self.run_to_first_contact(should_stop)
+
     def advance_to_window(
         self, should_stop: Optional[Callable[[], bool]] = None
     ) -> bool:
