@@ -756,9 +756,9 @@ default since W8). D11 checks the 6 hour turn.
     defense is now on ground alert.
 
 **Checked in the app (no DCS needed):**
-- [ ] **A5. Turn briefing.** From turn 1, a line above the package list gives the turn, phase
-  and main push; **Briefing…** opens the full briefing (the opening, intent, key packages
-  with their purpose, routine lines, threats) in a window.
+- [ ] **A5. Turn briefing.** From turn 1, the **Your flight** tab shows the full briefing
+  under the card (the turn, phase and main push, the opening, intent, key packages with their
+  purpose, routine lines, threats), scrolling in the space left.
   Assign yourself to a package: it moves to the top marked "(you)" after the next update.
 - [ ] **A6. Debrief that follows the plan.** After a turn (fast forward or DCS), the
   debriefing window starts with **How the plan went**. Each key package shows its goal and

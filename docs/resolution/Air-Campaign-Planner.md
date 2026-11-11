@@ -57,9 +57,9 @@ Which planning profile a doctrine uses is set by `planning_profile:` in
 3. **You get a flight.** The **Your flight** card offers flights from the real plan, ranked by
    your squadron and mission type preference; the plan never bends to it. Or plan your own
    packages by hand. See [Your seat](#your-seat).
-4. **Read the plan.** The line above the package list names the turn, phase and main push;
-   **Briefing…** opens the full briefing on the period: the phase and intent, the main push,
-   your package, and what the enemy is expected to do. The ATO list folds routine lines and
+4. **Read the plan.** The **Your flight** tab shows the full briefing on the period under
+   your flight: the turn, the phase and intent, the main push, your package, and what the
+   enemy is expected to do. The ATO list folds routine lines and
    waves; the timeline shows the main push in amber and the DCS window in blue. See
    [Reading the ATO](#reading-the-ato).
 5. **Take off.** The DCS mission starts when your flight starts up. Everything earlier in the

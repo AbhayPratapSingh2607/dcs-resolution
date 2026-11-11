@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QMessageBox,
     QCheckBox,
-    QDialog,
     QTabWidget,
     QTextBrowser,
     QWidget,
@@ -682,24 +681,14 @@ class QAirTaskingOrderPanel(QSplitter):
         self.pre_war_note = QLabel(PRE_WAR_NOTE)
         self.pre_war_note.setWordWrap(True)
         self.pre_war_note.setStyleSheet("color: #e0b050;")
-        # The turn briefing (F13): phase, intent, key packages, threats. Only
-        # its first line shows here; the rest opens in a window.
-        self.turn_briefing = QLabel()
-        self.turn_briefing.setWordWrap(True)
-        self.turn_briefing.setTextFormat(Qt.TextFormat.RichText)
-        self.turn_briefing_button = QPushButton("Briefing…")
-        self.turn_briefing_button.setToolTip(
+        # The turn briefing (F13): phase, intent, key packages, threats, in
+        # full on the Your flight tab under the card.
+        self.turn_briefing = QTextBrowser()
+        self.turn_briefing.setOpenExternalLinks(False)
+        self.turn_briefing.setToolTip(
             "The turn briefing: the opening, the phase and intent, the main push, "
             "key packages, routine lines and the expected threats."
         )
-        self.turn_briefing_button.clicked.connect(self.open_turn_briefing)
-        self._turn_briefing_text = ""
-        self.turn_briefing_dialog: Optional[QDialog] = None
-        self.turn_briefing_row = QWidget()
-        briefing_row = QHBoxLayout(self.turn_briefing_row)
-        briefing_row.setContentsMargins(0, 0, 0, 0)
-        briefing_row.addWidget(self.turn_briefing, 1)
-        briefing_row.addWidget(self.turn_briefing_button)
         # Your flight (P3): the flight the plan fragged you to, and the other
         # offers.
         from .yourflight import YourFlightCard
@@ -727,8 +716,7 @@ class QAirTaskingOrderPanel(QSplitter):
         your_tab = QWidget()
         your_layout = QVBoxLayout(your_tab)
         your_layout.addWidget(self.your_flight)
-        your_layout.addWidget(self.turn_briefing_row)
-        your_layout.addStretch(1)
+        your_layout.addWidget(self.turn_briefing, 1)
         self.tabs = QTabWidget()
         self.tabs.addTab(packages, "Packages")
         self.tabs.addTab(your_tab, "Your flight")
@@ -765,38 +753,8 @@ class QAirTaskingOrderPanel(QSplitter):
                 text = ap.turn_briefing(game)  # type: ignore[arg-type]
             except Exception:
                 logging.exception("Could not build the turn briefing")
-        self._turn_briefing_text = text or ""
-        # The headline: "Turn N: phase · main push HH:MM-HH:MM".
-        self.turn_briefing.setText(self._turn_briefing_text.split("<br>", 1)[0])
-        self.turn_briefing_row.setVisible(bool(text))
-        if self.turn_briefing_dialog is not None:
-            self._fill_turn_briefing()
-
-    def open_turn_briefing(self) -> None:
-        """Opens (or raises) the non-modal turn briefing window."""
-        if self.turn_briefing_dialog is None:
-            dialog = QDialog(self.window())
-            dialog.setWindowTitle("Turn briefing")
-            dialog.resize(640, 720)
-            layout = QVBoxLayout(dialog)
-            browser = QTextBrowser()
-            browser.setOpenExternalLinks(False)
-            layout.addWidget(browser)
-            close = QPushButton("Close")
-            close.clicked.connect(dialog.close)
-            layout.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
-            dialog.browser = browser  # type: ignore[attr-defined]
-            self.turn_briefing_dialog = dialog
-        self._fill_turn_briefing()
-        self.turn_briefing_dialog.show()
-        self.turn_briefing_dialog.raise_()
-        self.turn_briefing_dialog.activateWindow()
-
-    def _fill_turn_briefing(self) -> None:
-        dialog = self.turn_briefing_dialog
-        if dialog is None:
-            return
-        dialog.browser.setHtml(self._turn_briefing_text)  # type: ignore[attr-defined]
+        self.turn_briefing.setHtml(text or "")
+        self.turn_briefing.setVisible(bool(text))
 
     def _enforce_fog(self, _game: object = None) -> None:
         if self.red_ato_checkbox.isChecked() and not self._opfor_allowed():
