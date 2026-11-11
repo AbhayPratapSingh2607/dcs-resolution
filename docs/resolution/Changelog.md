@@ -228,6 +228,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Debrief]** After a turn fought by the combat model, "How the plan went" lists every package
+  again. The model takes each flight off its package as it lands, so the report saw empty
+  packages and showed only the tanker and CAP still airborne at the end. On the PG test
+  save it now lists the 4 strike packages and all 24 support packages. "AWACSs" reads "AWACS".
 * **[Fast forward]** "Fast-forward the turn" from the No player flight dialog fights the whole
   turn with the combat model whatever the "Fast forward until" setting is. With any setting
   but "Simulate entire turn", the simulation stopped on its first tick (there was no player

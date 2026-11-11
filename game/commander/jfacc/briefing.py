@@ -448,12 +448,29 @@ def plan_debrief(
     put back while the report is made."""
     turn_flights = getattr(debriefing, "turn_flights", None)
     if not isinstance(turn_flights, dict):
-        return _plan_debrief(debriefing, blue, name_of)
+        turn_flights = {}
+    # The flights each package had: the snapshot taken when the mission
+    # ended, plus every flight that flew. A turn fought by the combat model
+    # takes each flight off its package as it lands, before the debriefing
+    # (and its snapshot) exists, so its packages would show no flights.
+    had: dict[int, tuple[Package, list[Any]]] = {
+        key: (package, list(flights))
+        for key, (package, flights) in turn_flights.items()
+    }
+    for flight in list(getattr(debriefing, "flights_flown", None) or []):
+        package = getattr(flight, "package", None)
+        if package is None:
+            continue
+        _, flights = had.setdefault(id(package), (package, list(package.flights)))
+        if flight not in flights:
+            flights.append(flight)
     swapped: list[tuple[Package, list[Any]]] = []
-    for package, flights in turn_flights.values():
-        if len(package.flights) < len(flights):
+    for package, flights in had.values():
+        if any(f not in package.flights for f in flights):
             swapped.append((package, package.flights))
-            package.flights = list(flights)
+            package.flights = list(package.flights) + [
+                f for f in flights if f not in package.flights
+            ]
     try:
         return _plan_debrief(debriefing, blue, name_of)
     finally:
@@ -526,7 +543,8 @@ def _plan_debrief(
             n = len(group)
             lost_total = sum(r.lost for r in group)
             kills = sum(r.air_kills for r in group)
-            text = f"{n} {label}{'' if n == 1 else 's'}: "
+            plural = "" if n == 1 or label.endswith("S") else "s"
+            text = f"{n} {label}{plural}: "
             text += f"{lost_total} aircraft lost" if lost_total else "no losses"
             if kills:
                 text += f", {kills} air kill{'' if kills == 1 else 's'}"

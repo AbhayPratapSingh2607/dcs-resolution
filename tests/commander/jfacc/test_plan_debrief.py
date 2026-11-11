@@ -45,7 +45,9 @@ def _debriefing(packages: list[Any], game: Any = None, **kwargs: Any) -> Any:
         flights_flown=[],
         air_losses=SimpleNamespace(player=[], enemy=[]),
         combat_credits=[],
-        ground_losses=SimpleNamespace(enemy_ground_objects=[], player_ground_objects=[]),
+        ground_losses=SimpleNamespace(
+            enemy_ground_objects=[], player_ground_objects=[]
+        ),
         simulated=False,
     )
     data.update(kwargs)
@@ -119,11 +121,21 @@ def test_turn_is_reported_by_part_around_the_dcs_window(monkeypatch: Any) -> Non
 
     monkeypatch.setattr(planner, "counts_toward_target", lambda p: True)
     # Window 12:00-13:00 of a 10:00-16:00 period.
-    before = _package(FlightType.DEAD, SimpleNamespace(name="EWR", is_dead=False), minutes=-60)
-    mission = _package(FlightType.STRIKE, SimpleNamespace(name="Bridge", is_dead=False), minutes=20)
-    after = _package(FlightType.BAI, SimpleNamespace(name="Convoy", is_dead=False), minutes=150)
-    cap_early = _package(FlightType.BARCAP, SimpleNamespace(name="Station"), minutes=-90, count=2)
-    cap_late = _package(FlightType.BARCAP, SimpleNamespace(name="Station"), minutes=200, count=2)
+    before = _package(
+        FlightType.DEAD, SimpleNamespace(name="EWR", is_dead=False), minutes=-60
+    )
+    mission = _package(
+        FlightType.STRIKE, SimpleNamespace(name="Bridge", is_dead=False), minutes=20
+    )
+    after = _package(
+        FlightType.BAI, SimpleNamespace(name="Convoy", is_dead=False), minutes=150
+    )
+    cap_early = _package(
+        FlightType.BARCAP, SimpleNamespace(name="Station"), minutes=-90, count=2
+    )
+    cap_late = _package(
+        FlightType.BARCAP, SimpleNamespace(name="Station"), minutes=200, count=2
+    )
     game = _windowed_game([before, mission, after, cap_early, cap_late])
     # The DCS results: the strike flew (not simulated), nothing lost.
     # The combat model fought the DEAD before the window (a loss) and the
@@ -134,7 +146,9 @@ def test_turn_is_reported_by_part_around_the_dcs_window(monkeypatch: Any) -> Non
         game=game,
         simulated=True,
         flights_flown=[after.flights[0], cap_late.flights[0]],
-        combat_credits=[SimpleNamespace(flight=after.flights[0], kind="strike_success")],
+        combat_credits=[
+            SimpleNamespace(flight=after.flights[0], kind="strike_success")
+        ],
     )
     debriefing = _debriefing(
         [],
@@ -151,7 +165,10 @@ def test_turn_is_reported_by_part_around_the_dcs_window(monkeypatch: Any) -> Non
     ]
     by_part = {p.name: p for p in result.parts}
     assert [r.name for r in by_part["Before the mission"].key] == ["DEAD EWR"]
-    assert by_part["Before the mission"].key[0].result == "no effect reported, 1 of 4 aircraft lost"
+    assert (
+        by_part["Before the mission"].key[0].result
+        == "no effect reported, 1 of 4 aircraft lost"
+    )
     assert by_part["Before the mission"].simulated
     assert by_part["Before the mission"].routine == ["1 CAP station: no losses"]
     assert [r.name for r in by_part["The mission"].key] == ["Strike Bridge"]
@@ -160,7 +177,10 @@ def test_turn_is_reported_by_part_around_the_dcs_window(monkeypatch: Any) -> Non
     assert [r.result for r in by_part["After the mission"].key] == [
         "1 successful attack, all aircraft back"
     ]
-    assert by_part["After the mission"].title == "After the mission (combat model, 13:00–16:00)"
+    assert (
+        by_part["After the mission"].title
+        == "After the mission (combat model, 13:00–16:00)"
+    )
     # The flat lists still hold everything.
     assert len(result.key) == 3
     assert result.routine == ["2 CAP stations: no losses"]
@@ -172,7 +192,9 @@ def test_fast_forwarded_turn_is_one_part(monkeypatch: Any) -> None:
     monkeypatch.setattr(planner, "counts_toward_target", lambda p: True)
     strike = _package(FlightType.STRIKE, SimpleNamespace(name="Bridge", is_dead=False))
     game = _windowed_game([strike])
-    debriefing = _debriefing([], game=game, simulated=True, flights_flown=[strike.flights[0]])
+    debriefing = _debriefing(
+        [], game=game, simulated=True, flights_flown=[strike.flights[0]]
+    )
     result = plan_debrief(debriefing, name_of=_name)
     assert [p.name for p in result.parts] == ["The turn"]
     assert result.parts[0].simulated
@@ -255,3 +277,27 @@ def test_report_uses_the_turn_as_it_was_when_the_mission_ended() -> None:
     assert results == {"DEAD SA-11 site": "target destroyed, all aircraft back"}
     # The flights processing took off stay off.
     assert dead.flights == []
+
+
+def test_a_turn_fought_by_the_combat_model_reports_its_landed_packages(
+    monkeypatch: Any,
+) -> None:
+    """The combat model takes each flight off its package as it lands, before
+    the debriefing snapshots the turn: the flights that flew are put back
+    while the report is made."""
+    import game.commander.jfacc.planner as planner
+
+    monkeypatch.setattr(planner, "counts_toward_target", lambda p: True)
+    strike = _package(FlightType.STRIKE, SimpleNamespace(name="Depot"))
+    flown = list(strike.flights)
+    strike.flights.clear()
+    debriefing = _debriefing(
+        [],
+        simulated=True,
+        flights_flown=flown,
+        turn_packages={True: [], False: []},
+        turn_flights={},
+    )
+    key = plan_debrief(debriefing, name_of=_name).key
+    assert [r.name for r in key] == ["Strike Depot"]
+    assert strike.flights == []
