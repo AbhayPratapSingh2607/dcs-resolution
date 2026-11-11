@@ -5,6 +5,15 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Air wing]** A new **Air Wing Setup** window for new campaigns, built around presets. For
+  each base you pick a preset from a list made for that base: ships first, then airfields
+  closest to farthest from the battle. You can then add more of the faction's aircraft, save
+  or load the result as a config, and apply. Every faction now has its own presets, made from
+  its aircraft: carrier air wings, LHA assault groups, front-line, middle and rear airfield
+  wings, and off-map bombers. The 134 built-in factions get up to 17 presets each (all but the
+  three without aircraft). The historical presets are listed after them. The old
+  squadron-by-squadron editor is still there as **Advanced editor…**.
+  [Guide](Air-Wing-Presets.md#setting-up-the-air-wing-of-a-new-campaign)
 * **[Air wing]** Presets and squadrons by location. **Presets by Base...** in the Air Wing
   Configuration window fills one base from a preset made for it: carrier air wings for a
   carrier, ARG squadrons for an LHA, and front, middle or rear groups for airfields, which are

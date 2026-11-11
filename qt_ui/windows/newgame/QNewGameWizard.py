@@ -7,7 +7,6 @@ from PySide6 import QtGui, QtWidgets
 from game.campaignloader.campaign import Campaign
 from game.dcs.aircrafttype import AircraftType
 from game.theater.start_generator import GameGenerator, GeneratorSettings, ModSettings
-from qt_ui.windows.AirWingConfigurationDialog import AirWingConfigurationDialog
 from qt_ui.windows.newgame.WizardPages.QFactionSelection import FactionSelection
 from qt_ui.windows.newgame.WizardPages.QGeneratorSettings import GeneratorOptions
 from qt_ui.windows.newgame.WizardPages.QNewGameSettings import NewGameSettings
@@ -164,7 +163,10 @@ class NewGameWizard(QtWidgets.QWizard):
         )
         self.generatedGame = generator.generate()
 
-        AirWingConfigurationDialog(
+        # Presets per base first; the squadron editor is a button away in it.
+        from qt_ui.windows.airwingsetup import AirWingSetupDialog
+
+        AirWingSetupDialog(
             self.generatedGame, generator.generator_settings.squadrons_start_full, self
         ).exec_()
 

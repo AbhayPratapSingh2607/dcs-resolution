@@ -844,6 +844,51 @@ class AirWingConfigurationTab(QWidget):
         self.update()
 
 
+def air_wing_config_data(coalition: Coalition) -> dict:
+    """The coalition's air wing as a campaign air wing config (squadrons by
+    base), the format Load Config and campaign files read."""
+    squadrons: dict[Any, list[dict[str, Any]]] = {}
+    for ac, sqs in coalition.air_wing.squadrons.items():
+        for s in sqs:
+            if s.is_detachment:
+                continue
+            cp = s.location.at
+            if isinstance(cp, Point):
+                key = s.location.full_name
+            else:
+                key = cp.id
+            name = (
+                s.name
+                if s.name in [x.name for x in coalition.air_wing.squadron_defs[ac]]
+                else s.aircraft.variant_id
+            )
+            entry = {
+                "primary": s.primary_task.value,
+                "secondary": [
+                    sec.value
+                    for sec in s.auto_assignable_mission_types
+                    if sec.value != s.primary_task.value
+                ],
+                "aircraft": [name],
+                "aircraft_type": s.aircraft.display_name,
+                "size": s.max_size,
+            }
+            squadrons.setdefault(key, []).append(entry)
+    return squadrons
+
+
+def load_air_wing_config_data(coalition: Coalition, airwing: dict[str, Any]) -> None:
+    """Replaces the coalition's air wing with a saved air wing config."""
+    for s in coalition.air_wing.squadrons.values():
+        for squadron in s:
+            coalition.air_wing.unclaim_squadron_def(squadron)
+    coalition.air_wing.squadrons = defaultdict(list)
+    config = CampaignAirWingConfig.from_campaign_data(airwing, coalition.game.theater)
+    coalition.configure_default_air_wing(config)
+    if coalition.game.turn != 0:
+        coalition.initialize_turn(False)
+
+
 class AirWingConfigurationDialog(QDialog):
     """Dialog window for air wing configuration."""
 
@@ -985,36 +1030,7 @@ class AirWingConfigurationDialog(QDialog):
     def _build_air_wing(self) -> dict:
         w = self.tab_widget.currentWidget()
         assert isinstance(w, AirWingConfigurationTab)
-        squadrons = {}
-        for ac, sqs in w.coalition.air_wing.squadrons.items():
-            for s in sqs:
-                cp = s.location.at
-                if isinstance(cp, Point):
-                    key = s.location.full_name
-                else:
-                    key = cp.id
-                name = (
-                    s.name
-                    if s.name
-                    in [x.name for x in w.coalition.air_wing.squadron_defs[ac]]
-                    else s.aircraft.variant_id
-                )
-                entry = {
-                    "primary": s.primary_task.value,
-                    "secondary": [
-                        sec.value
-                        for sec in s.auto_assignable_mission_types
-                        if sec.value != s.primary_task.value
-                    ],
-                    "aircraft": [name],
-                    "aircraft_type": s.aircraft.display_name,
-                    "size": s.max_size,
-                }
-                if squadrons.get(key):
-                    squadrons[key].append(entry)
-                else:
-                    squadrons[key] = [entry]
-        return squadrons
+        return air_wing_config_data(w.coalition)
 
     def load_config(self) -> None:
         result = QMessageBox.information(
@@ -1041,16 +1057,8 @@ class AirWingConfigurationDialog(QDialog):
     def _construct_air_wing_tab(self, airwing: dict[str, Any]) -> None:
         w = self.tab_widget.currentWidget()
         assert isinstance(w, AirWingConfigurationTab)
-        c = w.coalition
-        for s in c.air_wing.squadrons.values():
-            for squadron in s:
-                c.air_wing.unclaim_squadron_def(squadron)
-        c.air_wing.squadrons = defaultdict(list)
-        config = CampaignAirWingConfig.from_campaign_data(airwing, c.game.theater)
-        c.configure_default_air_wing(config)
+        load_air_wing_config_data(w.coalition, airwing)
         w.revert()
-        if c.game.turn != 0:
-            c.initialize_turn(False)
 
     def current_tab(self) -> AirWingConfigurationTab:
         w = self.tab_widget.currentWidget()
