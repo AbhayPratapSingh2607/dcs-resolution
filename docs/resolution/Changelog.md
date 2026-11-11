@@ -211,6 +211,23 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[ATO]** The ATO timeline redraws as soon as a package's timings change (TOT, flights added
+  or removed), not at the next turn.
+* **[UI]** **Take off** and fast-forward show a progress dialog with the elapsed time while the
+  mission is generated or the turn is resolved; before, the window froze and looked stuck.
+* **[Mission Generation]** DCS no longer rejects the mission with "All waypoints have locked
+  speed and surrounded by waypoints ... with locked time" for a CAP whose racetrack start is
+  already behind it at mission start.
+* **[Briefing]** The DCS briefing is plain text ("AEW&C", not "AEW&amp;C"). Friendly packages
+  are listed by time over target, each with its flights, base and take-off time; CAP stations,
+  AWACS and tankers are one line each with their times on station.
+* **[Auto Planner]** Against a dense IADS (Iran 2015) blue planned no offensive packages at all:
+  the rollback openers were judged on the straight-line threat, which put one SAM site inside
+  the normal allowance, while every planned route was heavier. When the first offensive pass
+  attacks no SAM site, the lightest ones are now opened on anyway. The SAM part of the risk
+  estimate is refitted to the combat model as it is now: it was 5–12 times too high (a
+  package through route SAM weight ~20 was estimated at 42% per sortie and lost 5%).
+
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs
   reported 0% while losing 2–4% per sortie to SAMs. The estimate counts SAM sites near the station
   and is fitted to what the combat model does to CAPs. CAPs no longer get SEAD escorts added.

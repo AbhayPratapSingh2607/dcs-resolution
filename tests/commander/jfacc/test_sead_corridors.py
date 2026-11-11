@@ -128,3 +128,21 @@ def test_no_openers_outside_rollback_phases() -> None:
     planner = _opener_planner([14.0, 11.0], rollback=False)
     planner._choose_rollback_openers()
     assert planner.composer.opener_targets == set()
+
+
+def test_openers_are_forced_when_no_sam_site_was_attacked() -> None:
+    # The straight-line threat put one site inside the normal allowance, but
+    # its planned route was heavier and the first pass attacked nothing.
+    planner = _opener_planner([14.0, 6.0, 9.0])
+    planner.suppressed = {}
+    planner._choose_rollback_openers()
+    assert planner._rollback_stalled()
+    planner._choose_rollback_openers(force=True)
+    assert planner.composer.opener_targets == {"sam1", "sam2"}
+    assert not planner._rollback_stalled()
+
+
+def test_no_forced_openers_once_a_sam_site_was_attacked() -> None:
+    planner = _opener_planner([14.0, 6.0])
+    planner.suppressed = {"sam1": TOT}
+    assert not planner._rollback_stalled()

@@ -398,6 +398,12 @@ class JfaccPlanner:
             with tracer.trace("JFACC offensive packages"):
                 self._choose_rollback_openers()
                 self._plan_jiptl()
+                if self._rollback_stalled():
+                    # The straight-line threat said the normal allowance
+                    # could start the rollback, but every SAM site's planned
+                    # route was heavier: open on the lightest ones anyway.
+                    self._choose_rollback_openers(force=True)
+                    self._plan_jiptl()
             self.apportionment.begin_overflow()
             with tracer.trace("JFACC overflow"):
                 self._plan_cas()
@@ -1455,13 +1461,26 @@ class JfaccPlanner:
             return None if value is None else int(value)
         return self.WAVE_PREFERENCE.get(category)
 
-    def _choose_rollback_openers(self) -> None:
+    def _rollback_stalled(self) -> bool:
+        """Rollback is allowed, no openers were named and no SAM site was
+        attacked this period."""
+        return (
+            self.composer.rollback_allowed
+            and not self.composer.opener_targets
+            and not self.suppressed
+        )
+
+    def _choose_rollback_openers(self, force: bool = False) -> None:
         """Item 6: against a dense IADS even the outermost SAM sites are
         beyond the rollback allowance's route weight, so no DEAD is ever
         acceptable and the IADS is never thinned. When that happens, the
         least-defended sites (``opener_packages``, by route threat) may be
         attacked up to ``opener_limit``: the rollback has to start
-        somewhere."""
+        somewhere.
+
+        The check uses the straight-line route; the planned routes are often
+        heavier. ``force`` names the openers without the check, for when the
+        first offensive pass attacked no SAM site at all."""
         from game.theater.theatergroundobject import SamGroundObject
 
         self.composer.opener_targets = set()
@@ -1482,7 +1501,7 @@ class JfaccPlanner:
         if not weighed:
             return
         weighed.sort(key=lambda pair: pair[0])
-        if weighed[0][0] <= max_weight:
+        if not force and weighed[0][0] <= max_weight:
             # The normal allowance can start the rollback.
             return
         self.composer.opener_targets = {t.id for _, t in weighed[:count]}

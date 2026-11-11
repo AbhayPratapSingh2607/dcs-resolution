@@ -24,9 +24,15 @@ from .threat import RouteThreat
 #: SAM exposure per sortie is SAM_EXPOSURE * w * (1 + w) for route SAM weight
 #: w: overlapping sites don't just add, they engage the same package from
 #: several directions and longer. Fitted to the fast-forward combat model
-#: (Western package with SEAD against a modern Russian IADS, Caucasus):
-#: weight 4 -> ~7% per sortie, 8 -> ~20%, 12 -> ~40%, 20 -> ~80%.
-SAM_EXPOSURE = 0.007
+#: after its historical calibration (USA 2005 vs Iran 2015, Caucasus, blue
+#: flying every package regardless of risk, 2 seeds x 3 turns, about 10 SEAD
+#: aircraft per package): route weight 0-8 lost 0.5% per sortie (1/190),
+#: 8-16 0% (0/134), 16-24 5.3% (8/152), 24-32 21% (5/24). Desert Storm-like
+#: runs agree (DEAD 6/572 lost, 1.0%, against 5.6% estimated). The fit stays above the
+#: losses: those runs re-estimated give 0.4%, 3%, 7% and 33%.
+#: (The earlier 0.007 predated the combat model's historical calibration and
+#: overestimated 5-12x, so a dense IADS was never attacked at all.)
+SAM_EXPOSURE = 0.001
 #: Most suppression a full SEAD package buys: shooters only fire at emitting
 #: radars, and sites that stay dark until the package is close still engage.
 MAX_SEAD_SUPPRESSION = 0.5

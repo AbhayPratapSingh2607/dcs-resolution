@@ -375,6 +375,16 @@ if the user asks.
   - Turns per phase, and whether the phase thresholds still fit.
   - Whether money piles up or the AI over-buys.
   - Whether CAS and interdiction still match the ground model.
+  - First run 2026-11-11 (87 min, 6 workers; iraq 1-5 and iran 1 before V3), 1 of 4 in band:
+    - iraq FAIL: exchange ratio 3.0-7.8 (median ~4.6, need >= 5 each seed), red took 0 bases.
+      Blue lost 32 to SAMs, 7 to ground fire, 3 air-to-air; BARCAP 26, CAS 7, DEAD 6.
+      Scrubs: SEAD Escort not free (1606), Escort (331), attrition (262).
+    - iran FAIL: ratio 2.3-11.0 (median 5.5). Blue flew only BARCAP, tankers and AEW&C:
+      6358 scrubs for expected attrition, no offensive package in any run. Red flew 54-81
+      sorties per run.
+    - peer FAIL: median ratio 2.35 in band (0.5-2.5), but seed 5 blue took 2 bases (need <= 1).
+      Blue lost 83 air-to-air, 26 to SAMs; BARCAP 68, fighter sweep 18. Scrubs: attrition 4603.
+    - red_wins PASS 5/5.
 - [ ] **V2. Planner leftovers.** Only where a band fails or a symptom is named, one at a
   time:
   - idle strike aircraft get the next-best target (item 3);
@@ -382,6 +392,23 @@ if the user asks.
   - a CAP station's estimate counts the enemy sweeps that can reach it (item 8);
   - client alert sectors pulled under the SAM umbrella (item 9);
   - why Iran's ground alerts rarely scramble (item 6).
+  - **Open item 1 (iran FAIL, no offensive packages).** Two causes, both fixed 2026-11-11:
+    - The rollback openers were judged on the straight-line threat (lightest site 7.4, inside
+      the allowance's 8), so none were named, while every planned route weighed 18-46: no
+      SAM site qualified for either allowance. Now, when the first offensive pass attacks no
+      SAM site, the two lightest are named openers and the pass runs again.
+    - The SAM risk term overestimated the combat model 5-12x (fitted before the combat model's
+      historical calibration). Measured with blue flying every package (Iran, 2 seeds x 3
+      turns, 157 packages): route weight 0-8 lost 0.5% per sortie against 2.6% estimated,
+      8-16 0% against 20%, 16-24 5.3% against 42%, 24-32 21% against 94%; iraq DEAD 1.0%
+      against 5.6%. `SAM_EXPOSURE` 0.007 -> 0.001.
+    - Before: the V1 run above. After (84 min), still 1 of 4 in band:
+      - iraq: ratio 2.7-8.2 (median 6.7, was ~4.6), blue took 3 bases (was 2); seeds 3 and 5
+        under 5 (13 blue lost each).
+      - iran: blue flies 1000+ sorties per run (was ~250, all defensive) and takes 2-3 bases;
+        ratio 4.2-25.5 (median 6.4); only seed 1 under 5.
+      - peer: median 1.73 (was 2.35), but blue took 2 bases in 3 of 5 runs (was 1 of 5).
+      - red_wins 5/5.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):
