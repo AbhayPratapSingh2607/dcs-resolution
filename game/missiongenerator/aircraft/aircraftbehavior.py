@@ -247,6 +247,15 @@ class AircraftBehavior:
         self.configure_behavior(flight, group, rtb_winchester=ammo_type)
 
     def configure_cas(self, group: FlyingGroup[Any], flight: Flight) -> None:
+        from game.commander.jfacc.faca import fac_capable, is_fac
+
+        if is_fac(flight) and fac_capable(flight):
+            # FAC(A): controls the CAS on the front instead of attacking.
+            group.task = AFAC.name
+            self.configure_behavior(
+                flight, group, rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided
+            )
+            return
         self.configure_task(flight, group, CAS, [AFAC, AntishipStrike])
         self.configure_ground_attack_behavior(
             flight, group, rtb_winchester=OptRTBOnOutOfAmmo.Values.Unguided

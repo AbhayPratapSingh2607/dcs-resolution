@@ -97,6 +97,13 @@ mission type can't use go to the others, in the order set in the profile.
   F/A-18C much less). Windows are tasked until the expected kills reach the desired effect for the
   period: 30% of the estimated enemy at the front, 40% in the ground offensive, 50% in defense.
   Kill boxes beyond the front get BAI or armed reconnaissance when they hold known targets.
+* **FAC(A).** With a western doctrine, each CAS package over the main effort takes an optional
+  second CAS element as its airborne forward air controller, when a type that can fly the DCS
+  AFAC task is free. It flies with the CAS under the same escort, finds and marks targets and
+  talks the CAS on instead of attacking. In DCS it gets the AFAC task and a FAC task on its
+  flight frequency, and it is listed on the kneeboard with the JTACs. In the combat model,
+  CAS on that front while the FAC(A) is overhead hits more often with visual, rocket and laser
+  weapons (laser weapons count as designated). The package's rationale names the FAC(A).
 * **Air assault (Phase IV).** Helicopter-borne troops seize enemy bases ahead of the main effort.
   An objective is chosen only when all of these hold:
   * the ground offensive phase is active,

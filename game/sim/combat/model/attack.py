@@ -27,6 +27,9 @@ from .airdefense import engage_site, fire_arms, site_for
 from .aircrew import LossCause
 from .airframe import AirframeState, WeaponStore
 from .engine import CombatModel, clamp, distance_km
+
+#: Hit chance factor with a FAC(A) on station (V3; game.commander.jfacc.faca).
+FAC_BONUS = 1.25
 from .profiles import Guidance, SHIP_HIT_POINTS, Warhead, WeaponRole
 
 if TYPE_CHECKING:
@@ -184,6 +187,8 @@ class AttackRun:
         self._roe_caution = False
         #: Accuracy penalty for a rushed pass at the edge of range.
         self._fuel_factor = 1.0
+        #: A FAC(A) is on station over this front (V3).
+        self._fac = False
 
     # ------------------------------------------------------------------ entry
 
@@ -194,6 +199,14 @@ class AttackRun:
         flight_type = self.flight.flight_type
         if flight_type is FlightType.AIR_ASSAULT:
             return self.report
+        from game.commander.jfacc.faca import fac_capable, fac_on_station, is_fac
+
+        if is_fac(self.flight) and fac_capable(self.flight):
+            # FAC(A): marks and talks the CAS on; it does not attack itself.
+            return self.report
+        self._fac = self._is_front_line() and fac_on_station(
+            self.model.game, self.flight.squadron.player, self.target
+        )
 
         if flight_type in (
             FlightType.SEAD,
@@ -645,7 +658,7 @@ class AttackRun:
         env = self.model.env
         if guidance is Guidance.LASER:
             factor = env.laser_factor(altitude)
-            if not self._designated(airframe):
+            if not self._designated(airframe) and not self._fac:
                 factor *= 0.3
             return factor
         if guidance is Guidance.TV:
@@ -729,6 +742,11 @@ class AttackRun:
                     p_hit *= 0.8
                 if weapon.guidance is Guidance.ANTISHIP:
                     p_hit *= self._ship_defense(point)
+                if self._fac and (
+                    weapon.guidance in VISUAL_DELIVERY
+                    or weapon.guidance is Guidance.LASER
+                ):
+                    p_hit *= FAC_BONUS
                 if weapon.guidance in VISUAL_DELIVERY and self._roe_caution:
                     # Careful release near towns: higher, slower, fewer hits.
                     p_hit *= 0.8

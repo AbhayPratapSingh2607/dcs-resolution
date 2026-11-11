@@ -382,9 +382,17 @@ if the user asks.
   - a CAP station's estimate counts the enemy sweeps that can reach it (item 8);
   - client alert sectors pulled under the SAM umbrella (item 9);
   - why Iran's ground alerts rarely scramble (item 6).
-- [ ] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
+- [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
-  the DCS AI can do with its FAC task.
+  the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):
+  not a separate line, which on black_sea was always scrubbed for want of its own SEAD escort,
+  but an optional second CAS element in each main effort CAS package (doctrine
+  `ground_support.fac_a_line`, western only), flagged `fac_a` when its type has the DCS AFAC
+  task. In DCS: AFAC main task, FAC enroute task at the CAS ingress on the flight's
+  frequency, JTAC kneeboard entry. In the combat model: it does not attack; CAS on the front
+  while it is airborne within 40 nm gets x1.25 on visual, rocket and laser hits, and laser
+  counts as designated. Checked on the T3 black_sea save: an A-10C pair as FAC(A) with the
+  main effort CAS, AFAC and FAC in the .miz.
 - [ ] **V4. CSAR, FARP and parking in the period** (was F33, F32). CSAR packages, FARP
   setup and resupply flights and air assaults in a 6 hour turn and in the bubble, and
   parking at busy bases and on carrier decks.
@@ -574,6 +582,13 @@ default since W8). D11 checks the 6 hour turn.
   - in the first mission, targets the salvo hit show wrecks, and a cratered runway at a hit
     airfield;
   - with surprise "None", enemy SAMs are not where the map first showed them.
+- [ ] **D17. FAC(A) (V3).** Western side with troops in contact on the main effort; frag
+  yourself on its CAS package. **Expect:**
+  - the package has a second CAS element whose rationale says FAC(A);
+  - the kneeboard JTAC list has it, with its frequency;
+  - in DCS, on that frequency, the AI FAC(A) checks you in and talks you onto targets (smoke
+    or laser marks); it does not drop its own bombs;
+  - check that the AI actually works the front: if it only orbits, note what it does.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

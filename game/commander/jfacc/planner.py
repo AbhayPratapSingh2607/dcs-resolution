@@ -40,6 +40,7 @@ from .profile import (
     category_for_task,
     load_profile,
 )
+from .faca import is_fac, mark_fac
 from .scheduler import Timeline, patrol_end
 from .sorties import SortieLedger, role_for
 from .targets import TargetNomination, TargetNominator, snapshot
@@ -1264,9 +1265,29 @@ class JfaccPlanner:
             if tasked.get(id(front), 0.0) >= wanted.get(id(front), 0.0):
                 continue
             threat = threats[id(front)]
+            # FAC(A) (V3): over the main effort, an optional second element
+            # that finds and marks targets and talks the CAS on.
+            fac = (
+                bool(gs.get("fac_a_line", False))
+                and effort is not None
+                and front is effort.front
+            )
+            fac_request = (
+                [
+                    FlightRequest(
+                        FlightType.CAS,
+                        int(gs.get("fac_a_flight_size", 2)),
+                        required=False,
+                        note="FAC(A)",
+                    )
+                ]
+                if fac
+                else []
+            )
             request = PackageRequest(
                 target=front,
                 flights=[FlightRequest(FlightType.CAS, size)]
+                + fac_request
                 + self.composer.support_for(threat, size),
                 category_name="cas",
                 reason=(
@@ -1283,10 +1304,12 @@ class JfaccPlanner:
             composed = self._commit(request, tot, Category.CAS)
             if composed is not None:
                 planned_tots.add((tot, id(front)))
+                if fac:
+                    self._mark_fac_a(composed)
                 kills = sum(
                     flight_kills_or_fallback(f, armor[id(front)])
                     for f in composed.package.flights
-                    if f.flight_type is FlightType.CAS
+                    if f.flight_type is FlightType.CAS and not is_fac(f)
                 )
                 tasked[id(front)] = tasked.get(id(front), 0.0) + kills
                 composed.package.planning_rationale += (
@@ -1294,6 +1317,26 @@ class JfaccPlanner:
                 )
         self._cas_tots = planned_tots
         self._cas_kills = tasked
+
+    @staticmethod
+    def _mark_fac_a(composed: ComposedPackage) -> None:
+        """Flags the second CAS element of a main effort package as its
+        FAC(A), if it was placed and its type can fly the AFAC task."""
+        package = composed.package
+        cas = [f for f in package.flights if f.flight_type is FlightType.CAS]
+        info = package.planning_info if package.planning_info is not None else {}
+        package.planning_info = info
+        notes: list[str] = info.setdefault("notes", [])  # type: ignore[assignment]
+        if len(cas) < 2:
+            return
+        if mark_fac(cas[-1]):
+            package.planning_rationale += (
+                f" | FAC(A): {cas[-1].unit_type.display_name} finds and marks "
+                "targets, talks the CAS on"
+            )
+            notes.append("FAC(A): controls the CAS on this front")
+        else:
+            notes.append("FAC(A) type cannot fly AFAC in DCS: flies as CAS")
 
     # ======================================================= air assault
 

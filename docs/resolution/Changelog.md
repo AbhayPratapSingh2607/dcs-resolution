@@ -94,6 +94,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[Planner]** FAC(A): western CAS packages over the main effort take an airborne forward
+  air controller (AFAC and FAC tasks in DCS, on the kneeboard with the JTACs); CAS with a FAC(A)
+  overhead hits more often in the combat model.
 * **[Campaign start]** Squadrons and detachments start with their aircraft, for both sides;
   nothing is bought at turn 0 (a preset's buy number is now the number deployed, and squadrons
   start full by default). Turn 0 spends the budget on ground forces.

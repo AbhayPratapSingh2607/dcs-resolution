@@ -414,6 +414,10 @@ ground_support:
   # Main effort fronts get this many more CAS lines than supporting fronts.
   main_effort_cas_lines: 2
   supporting_cas_lines: 1
+  # FAC(A): CAS packages over the main effort take an optional second
+  # element that finds and marks targets and talks the CAS on (V3).
+  fac_a_line: true
+  fac_a_flight_size: 2
   # Air assault: helicopter-borne troops seize enemy bases ahead of the main
   # effort. Only in phases with the air_assault flag, with air superiority,
   # and only into landing zones outside known radar SAM coverage.
