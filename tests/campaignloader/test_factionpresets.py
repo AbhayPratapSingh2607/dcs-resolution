@@ -118,3 +118,20 @@ def test_a_helicopter_only_base_gets_helicopter_presets(faction: Any) -> None:
         c.base_preset.preset.name for c in presets_for_base(faction, helipad, 2005)
     ]
     assert names == ["Helicopter base"]
+
+
+def test_a_mod_aircraft_removed_from_the_faction_is_not_offered(faction: Any) -> None:
+    """Without the Super Hornet mod its tanker is removed from the faction's
+    sets after all_aircrafts may have been cached: the presets read the sets."""
+    hornet_tanker = SimpleNamespace(variant_id="F/A-18E Tanker")
+    live = [a for a in faction.all_aircrafts]
+    stale = SimpleNamespace(
+        name="Stale",
+        all_aircrafts=live + [hornet_tanker],
+        aircraft=set(live),
+        awacs=set(),
+        tankers=set(),
+    )
+    from game.campaignloader.factionpresets import faction_aircraft
+
+    assert hornet_tanker not in faction_aircraft(stale)  # type: ignore[arg-type]

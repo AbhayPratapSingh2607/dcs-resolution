@@ -383,7 +383,21 @@ def ranked_for_role(
 
 
 def faction_aircraft(faction: Faction) -> list[AircraftType]:
-    return [a for a in faction.all_aircrafts if isinstance(a, AircraftType)]
+    # The live sets, not the cached all_aircrafts: the mod settings remove
+    # aircraft (the Super Hornet tanker without its mod) after it may have
+    # been read.
+    found: list[AircraftType] = []
+    for group in (
+        getattr(faction, "aircraft", None),
+        getattr(faction, "awacs", None),
+        getattr(faction, "tankers", None),
+    ):
+        for a in group or ():
+            if isinstance(a, AircraftType) and a not in found:
+                found.append(a)
+    if not found:
+        found = [a for a in faction.all_aircrafts if isinstance(a, AircraftType)]
+    return found
 
 
 def build(template: Template, aircraft: list[AircraftType]) -> Optional[PresetGroup]:

@@ -53,6 +53,7 @@ from game.campaignloader.airwingpreset import (
 )
 from game.campaignloader.factionpresets import (
     BaseChoice,
+    faction_aircraft,
     faction_presets,
     presets_for_base,
 )
@@ -317,7 +318,7 @@ class SideSetupPage(QWidget):
         faction = coalition.faction
         header = QLabel(
             f"<b>{html.escape(faction.name)}</b> — "
-            f"{len([a for a in faction.all_aircrafts if isinstance(a, AircraftType)])} "
+            f"{len(faction_aircraft(faction))} "
             "aircraft types"
         )
         layout.addWidget(header)
@@ -409,11 +410,7 @@ class SideSetupPage(QWidget):
                 widget.deleteLater()
         self.rows = []
         year = self.game.date.year
-        aircraft = [
-            a
-            for a in self.coalition.faction.all_aircrafts
-            if isinstance(a, AircraftType)
-        ]
+        aircraft = faction_aircraft(self.coalition.faction)
         unusable: list[str] = []
         for ranked in ranked_bases(self.game, self.coalition):
             if not self.squadrons_at(ranked.base) and not any(
@@ -478,9 +475,8 @@ class SideSetupPage(QWidget):
         ranked = ranked_bases(self.game, self.coalition)
         types = {
             a
-            for a in self.coalition.faction.all_aircrafts
-            if isinstance(a, AircraftType)
-            and any(r.base.can_operate(a) for r in ranked)
+            for a in faction_aircraft(self.coalition.faction)
+            if any(r.base.can_operate(a) for r in ranked)
         }
         popup = SquadronConfigPopup(
             None, types, ranked, self.coalition.air_wing.squadron_defs

@@ -237,6 +237,8 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Air wing]** Presets and the Air Wing Setup window only offer the faction's aircraft as its
+  mod settings leave them. Without the Super Hornet mod, carrier wings take the S-3B tanker.
 * **[Air wing]** The faction carrier presets now include a tanker and SH-60B Seahawks. The S-3B
   tanker's refueling priority of 0 had been read as "can't refuel", and the helicopter slot
   took the best air-assault helicopter (a CH-47F). Carrier wings now have a ship's helicopter
