@@ -449,6 +449,28 @@ if the user asks.
     over 5 runs (was 45); iran PASS 9.8-24.5 (was 5.2-18.7); peer FAIL, median 1.18, and
     blue now takes 2 bases in all 5 runs (was 1 of 5): jet CAS works where the Hueys died;
     red_wins PASS 5/5.
+  - **Open item 5 (peer FAIL, blue takes 2 bases in every run).** Red's front at Sochi-Adler
+    falls from 60 vehicles to ~10 by turn 3, Sochi-Adler on turn 4, FOB Sochi on turn 6-7.
+    Verbose peer turn 2: blue CAS killed 26 at the front, red CAS 7, the ground battle 1-2 each
+    (both sides defensive). The CAS kill estimates are close (A-10C 0.98 per aircraft
+    estimated, 1.25 flown; Hornet 1.8 and 2.5), so the volume is the doctrine's: Phase I sizes
+    CAS to destroy `cas_attrition` 0.3 of the enemy at the front per 6 h period, and the
+    overflow pass gives it up to its 30% ceiling (50 CAS-package sorties against a quota of
+    12), although blue's ground stance is hold. Fix: `cas_attrition` 0.15 in posture,
+    strategic and sead_rollback (hold phases: support to troops in contact); battlefield prep
+    0.3, ground offensive 0.4, defense 0.5 unchanged. Matrix after: stopped at 16 of 20 runs
+    (system low on memory; peer 4-5 and red_wins 4-5 missing):
+      - iraq: ratios 8.0, 20.5, 4.9, 11.8, 12.0 (1 of 5 under 5, was 3); blue lost 21 (was 32).
+      - iran: 5.8, 9.2, 8.8, 4.1, 9.0 (1 of 5 under 5, was 0); blue lost 33 (was 20). With
+        5-10 blue losses per run one or two aircraft decide the band (see item 6).
+      - peer: 3 runs, blue took 0, 1 and 1 bases (was 2 in all 5); ratio 1.03-1.68.
+      - red_wins: red took Gudauta in 3 of 3.
+      - To do: rerun the full matrix with fewer workers.
+  - **Open item 6 (iraq band).** The lopsided bands count only aircraft lost in the air.
+    Desert Storm's ratio came from the ground: about 36-44 Iraqi aircraft lost in the air
+    against about 42 coalition combat losses (almost all to ground fire), and some 250 more
+    destroyed in shelters and on airfields. campaign_e2e doesn't record parked aircraft
+    destroyed; add it and count it in the exchange ratio.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

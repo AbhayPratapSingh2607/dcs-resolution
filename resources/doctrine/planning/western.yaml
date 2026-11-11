@@ -134,7 +134,12 @@ procurement:
 #   air_assault        helicopter assaults may be planned (ground_support.air_assault)
 #   cas_attrition      CAS is sized until the expected kills of the CAS flights
 #                      (from their actual loadouts, casestimate.py) reach this
-#                      share of the estimated enemy at the front in one period
+#                      share of the estimated enemy at the front in one period.
+#                      While the ground stance is hold (posture, Phases I and II)
+#                      CAS supports the troops in contact (0.15); wearing the
+#                      enemy army down is battlefield preparation's job (0.3).
+#                      At 0.3 in every phase, blue CAS destroyed a peer front in
+#                      three turns of Phase I (V2 item 5).
 phases:
   min_turns: 2
   start: posture
@@ -156,7 +161,7 @@ phases:
         interdiction: {share: 0.05, min: 0.0, max: 0.1}
         cas:          {share: 0.1, min: 0.0, max: 0.4}
       target_weights: {iads: 0.6, air: 0.2, c2: 0.2, pol: 0.1, loc: 0.1, fielded: 0.4, naval: 0.3}
-      flags: {ground_stance: hold, strategic_reach: true, cas_attrition: 0.3}
+      flags: {ground_stance: hold, strategic_reach: true, cas_attrition: 0.15}
       transitions:
         - to: strategic
           when: {moe: war_started, eq: true}
@@ -179,7 +184,7 @@ phases:
         strategic_reach: true
         risk_multiplier: 1.5
         rollback_allowance: true
-        cas_attrition: 0.3
+        cas_attrition: 0.15
       transitions:
         - to: sead_rollback
           when:
@@ -205,7 +210,7 @@ phases:
         ground_stance: hold
         risk_multiplier: 1.25
         rollback_allowance: true
-        cas_attrition: 0.3
+        cas_attrition: 0.15
       transitions:
         - to: battlefield_prep
           when:

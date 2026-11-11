@@ -238,6 +238,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   (MANPADS, AAA, small arms), and front-line attack missions go to the least exposed squadrons
   first. Before, the nearest squadron flew them, often UH-1H gunships with rockets, which lost
   about 1 in 10 sorties while estimated under 1%.
+* **[Auto Planner]** Western CAS in the phases where blue holds on the ground (posture, Phases
+  I and II) is sized to support the troops in contact, half of what it was; wearing the enemy
+  army down starts with battlefield preparation. Before, Phase I CAS destroyed a peer front in
+  three turns.
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs
   reported 0% while losing 2–4% per sortie to SAMs. The estimate counts SAM sites near the station
