@@ -162,7 +162,7 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
   Turns still advance 6 hours, so day and night cycle, and there's no window to pick. In a peer
   test blue planned 12 packages instead of 25. The 6 hour period is still available with the
-  setting off. [Guide](Air-Campaign-Planner.md#focused-turns)
+  setting off. [Guide](Air-Campaign-Planner.md#mission-only)
 
 * **[Plugins]** New **Parking cleanup** plugin, on by default. It removes AI aircraft 10 minutes
   after they land and shut down, so ramps and carrier decks stay free and frame rate holds up.

@@ -408,8 +408,14 @@ if the user asks.
     aircraft) cold on deck at the start: whether DCS fits them is D18. Many "Not enough
     helipads" warnings are idle helicopters at FOBs, which are skipped (as before).
   - Resupply flights: there are none for dynamic FARPs (upkeep is paid in money).
-- [ ] **V5. Docs and tests** (was F37, F38). Rewrite the planner guide for the turn model,
-  the main push, your flight and the bubble. Settings descriptions and the changelog.
+- [x] **V5. Docs and tests** (was F37, F38). Rewrite the planner guide for the turn model,
+  the main push, your flight and the bubble. Settings descriptions and the changelog. Done
+  2026-11-10: `docs/resolution/Air-Campaign-Planner.md` now opens with the turn (settings,
+  "A turn, start to finish", the opening, your seat, the DCS window, the bubble, after the
+  mission, reading the ATO), then "How the commander plans", mission only and the tools. The
+  bubble and surprise settings are in its settings table; every new setting has a detail
+  text. Tests: each item added its own (`test_bubble`, `test_opening`, `test_faca`,
+  `test_offmission`, the turn switch tests); the matrix bands are V1's.
 
 ### M6. The DCS pass
 
