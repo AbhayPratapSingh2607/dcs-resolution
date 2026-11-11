@@ -1,0 +1,68 @@
+"""A busy dialog for slow work started from the UI (Take off, fast-forward):
+the work runs on a worker thread while a modal progress dialog keeps the
+window responsive and shows what is happening.
+
+The game state isn't locked; the dialog is application modal, so nothing in
+the UI can change it meanwhile. The simulation already ticks on a background
+timer thread and reaches the UI through queued signals, so the work done here
+behaves the same way."""
+
+from __future__ import annotations
+
+import threading
+import time
+from typing import Callable, Optional, TypeVar
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QProgressDialog, QWidget
+
+T = TypeVar("T")
+
+
+class BusyDialog:
+    """Runs steps one after another behind one progress dialog."""
+
+    def __init__(self, parent: Optional[QWidget], title: str) -> None:
+        self.dialog = QProgressDialog("", "", 0, 0, parent)
+        self.dialog.setWindowTitle(title)
+        self.dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.dialog.setCancelButton(None)  # type: ignore[arg-type]
+        self.dialog.setMinimumDuration(0)
+        self.dialog.setMinimumWidth(420)
+        self.dialog.setAutoClose(False)
+        self.dialog.setAutoReset(False)
+        self.started = time.monotonic()
+
+    def __enter__(self) -> "BusyDialog":
+        self.dialog.show()
+        QApplication.processEvents()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.dialog.close()
+
+    def run(self, text: str, work: Callable[[], T]) -> T:
+        """Runs ``work`` on a worker thread, showing ``text``, and returns its
+        result (or raises its exception) once it is done."""
+        result: list[T] = []
+        error: list[BaseException] = []
+
+        def target() -> None:
+            try:
+                result.append(work())
+            except BaseException as ex:  # re-raised on the UI thread
+                error.append(ex)
+
+        thread = threading.Thread(target=target, name="busy-work", daemon=True)
+        thread.start()
+        while thread.is_alive():
+            elapsed = int(time.monotonic() - self.started)
+            self.dialog.setLabelText(
+                f"{text}\n\n{elapsed // 60}:{elapsed % 60:02d} elapsed"
+            )
+            QApplication.processEvents()
+            thread.join(0.05)
+        QApplication.processEvents()
+        if error:
+            raise error[0]
+        return result[0]

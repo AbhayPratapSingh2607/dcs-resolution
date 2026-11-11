@@ -3,13 +3,11 @@ from typing import List, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QMessageBox,
-    QProgressDialog,
     QPushButton,
 )
 
@@ -31,6 +29,7 @@ from qt_ui.widgets.QBudgetBox import QBudgetBox
 from qt_ui.widgets.QConditionsWidget import QConditionsWidget
 from qt_ui.widgets.QFactionsInfos import QFactionsInfos
 from qt_ui.widgets.QIntelBox import QIntelBox
+from qt_ui.widgets.busy import BusyDialog
 from qt_ui.widgets.clientslots import MaxPlayerCount
 from qt_ui.widgets.simspeedcontrols import SimSpeedControls
 from qt_ui.windows.AirWingDialog import AirWingDialog
@@ -370,8 +369,13 @@ class QTopPanel(QFrame):
 
                 if not QDcsWindowDialog(self.game, self).exec():
                     return
-            with logged_duration("Resolving the ATO period before the DCS window"):
-                self.sim_controller.advance_to_window()
+            with BusyDialog(self, "Take off") as busy:
+                with logged_duration("Resolving the ATO period before the DCS window"):
+                    busy.run(
+                        "Fighting the period up to your mission with the combat "
+                        "model…",
+                        self.sim_controller.advance_to_window,
+                    )
 
         negative_starts = self.negative_start_packages(
             self.sim_controller.current_time_in_sim
@@ -380,15 +384,22 @@ class QTopPanel(QFrame):
             if not self.confirm_negative_start_time(negative_starts):
                 return
 
-        if self.game.settings.fast_forward_stop_condition not in [
-            FastForwardStopCondition.DISABLED,
-            FastForwardStopCondition.MANUAL,
-        ]:
-            with logged_duration("Simulating to first contact"):
-                self.sim_controller.run_to_first_contact()
-        self.sim_controller.generate_miz(
-            persistency.mission_path_for("retribution_nextturn.miz")
-        )
+        with BusyDialog(self, "Take off") as busy:
+            if self.game.settings.fast_forward_stop_condition not in [
+                FastForwardStopCondition.DISABLED,
+                FastForwardStopCondition.MANUAL,
+            ]:
+                with logged_duration("Simulating to first contact"):
+                    busy.run(
+                        "Simulating to first contact…",
+                        self.sim_controller.run_to_first_contact,
+                    )
+            busy.run(
+                "Generating the DCS mission…",
+                lambda: self.sim_controller.generate_miz(
+                    persistency.mission_path_for("retribution_nextturn.miz")
+                ),
+            )
 
         waiting = QWaitingForMissionResultWindow(self.game, self.sim_controller, self)
         waiting.exec_()
@@ -450,19 +461,15 @@ class QTopPanel(QFrame):
         """Fights the whole turn with the combat model instead of DCS."""
         if self.check_no_missing_pilots():
             return
-        progress = QProgressDialog("Simulating the turn...", "", 0, 0, self)
-        progress.setWindowTitle("Simulating")
-        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
-        progress.setCancelButton(None)
-        progress.setMinimumDuration(0)
-        progress.show()
-        QApplication.processEvents()
-        try:
+        with BusyDialog(self, "Fast-forward") as busy:
             with logged_duration("Simulating entire turn"):
-                self.sim_controller.run_to_first_contact()
-                debriefing = self.sim_controller.debrief_simulated()
-        finally:
-            progress.close()
+                busy.run(
+                    "Fighting the whole turn with the combat model…",
+                    self.sim_controller.run_to_first_contact,
+                )
+                debriefing = busy.run(
+                    "Collecting the results…", self.sim_controller.debrief_simulated
+                )
         waiting = QWaitingForMissionResultWindow(
             self.game, self.sim_controller, self, simulated=debriefing
         )
