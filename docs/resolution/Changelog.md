@@ -10,8 +10,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   side's ISR, gains 20% with a SEAD element in the package (most decoys don't radiate), and
   falls off with the real site's distance from the decoy; it is 0 beyond 20 km and at most 85%.
   A package that sees through the decoy attacks the real site; one that doesn't bombs the decoy.
-  DCS and the combat model follow the same call: in DCS the AI's attack tasks become a bombing
-  task on the decoy, and the decoys stand there as inert copies of the site's vehicles. The
+  DCS and the combat model follow the same call: in DCS the decoys are inert vehicle groups of
+  the site's own types (radars off, weapons held), and the AI's own attack tasks are pointed at
+  the decoy group, with the same weapons and release settings. The
   debrief says which happened. Target marks of every flight now sit where its side believes
   the target is (the map's marker), not on the real site.
 * **[CSAR]** Turn-based combat search and rescue. Downed pilots appear on the map and survive for a
@@ -220,6 +221,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Mission Generation]** An AI package that takes the decoy attacks the decoy group with its
+  usual attack tasks. A bombing task on the decoy's point had the SHOEBILL Hornets release all 8
+  JSOWs about 100 km out (PG, turn 3); they fell 45 km short of the decoy and the flight
+  turned home.
 * **[UI]** The settings window is easier to read. Each setting has its title and control on one
   row, its description in full width below in smaller type, and a divider before the next. A
   search box filters every page by title and description, and the page list shows the

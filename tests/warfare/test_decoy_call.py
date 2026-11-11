@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from dcs.mapping import Point
-from dcs.task import AttackGroup, Bombing, OptFormation
+from dcs.task import AttackGroup, Bombing, Expend, OptFormation, WeaponType
 from dcs.terrain import PersianGulf
 
 from game.ato.flighttype import FlightType
@@ -60,43 +60,86 @@ def test_a_sead_element_and_a_close_site_help() -> None:
     assert "ELINT from the SEAD element" in reasons
 
 
-def _builder(call: Any, client_count: int = 0) -> Any:
+def _builder(call: Any, client_count: int = 0, decoy_in_mission: bool = True) -> Any:
     builder: Any = object.__new__(PydcsWaypointBuilder)
     builder.package = MagicMock()
     builder.package.decoy_call = call
-    builder.package.target.name = "SHOEBILL"
+    target = builder.package.target
+    target.name = "SHOEBILL"
+    target.position = Point(100000.0, 25000.0, TERRAIN)
+    target.groups = [
+        SimpleNamespace(group_name="sam"),
+        SimpleNamespace(group_name="pd"),
+    ]
     builder.flight = MagicMock()
     builder.flight.flight_type = FlightType.DEAD
     builder.flight.client_count = client_count
-    builder.mission = SimpleNamespace(terrain=TERRAIN)
+    groups = {
+        "sam": SimpleNamespace(id=9, name="sam", units=[SimpleNamespace(id=91)]),
+        "pd": SimpleNamespace(id=10, name="pd", units=[SimpleNamespace(id=101)]),
+        "Decoy SHOEBILL 2": SimpleNamespace(id=50, name="Decoy SHOEBILL 2", units=[]),
+    }
+    if not decoy_in_mission:
+        del groups["Decoy SHOEBILL 2"]
+    builder.mission = SimpleNamespace(terrain=TERRAIN, find_group=groups.get)
     return builder
 
 
 def _waypoint() -> Any:
     waypoint = MagicMock()
-    waypoint.tasks = [OptFormation.finger_four_open(), AttackGroup(9), AttackGroup(9)]
+    waypoint.tasks = [
+        OptFormation.finger_four_open(),
+        AttackGroup(9, weapon_type=WeaponType.ARM, expend=Expend.All),
+        AttackGroup(10, weapon_type=WeaponType.ARM, expend=Expend.All),
+        AttackGroup(9, weapon_type=WeaponType.GuidedBombs),
+        AttackGroup(10, weapon_type=WeaponType.GuidedBombs),
+    ]
     return waypoint
 
 
 def _call(spotted: bool) -> DecoyCall:
+    # Decoy index 1: the decoy group "Decoy SHOEBILL 2".
     return DecoyCall(MagicMock(), 1, 113001.0, 37882.0, 0.46, spotted, [])
 
 
-def test_an_ai_flight_that_took_the_decoy_bombs_it() -> None:
+def test_an_ai_flight_that_took_the_decoy_attacks_the_decoy_group() -> None:
     waypoint = _waypoint()
     assert _builder(_call(spotted=False)).redirect_to_decoy(waypoint)
-    attacks = [t for t in waypoint.tasks if isinstance(t, (AttackGroup, Bombing))]
-    assert len(attacks) == 1 and isinstance(attacks[0], Bombing)
-    assert round(attacks[0].params["x"]) == 113001
-    assert round(attacks[0].params["y"]) == 37882
-    # Non-attack tasks stay.
+    attacks = [t for t in waypoint.tasks if isinstance(t, AttackGroup)]
+    # Its own tasks, with the same weapons, at the decoy, once each.
+    assert [t.params["groupId"] for t in attacks] == [50, 50]
+    assert [t.params["weaponType"] for t in attacks] == [
+        WeaponType.ARM.value,
+        WeaponType.GuidedBombs.value,
+    ]
     assert any(isinstance(t, OptFormation) for t in waypoint.tasks)
+
+
+def test_a_point_attack_moves_to_the_decoy() -> None:
+    waypoint = MagicMock()
+    waypoint.tasks = [Bombing(Point(100000.0, 25000.0, TERRAIN))]
+    assert _builder(_call(spotted=False)).redirect_to_decoy(waypoint)
+    assert round(waypoint.tasks[0].params["x"]) == 113001
+    assert round(waypoint.tasks[0].params["y"]) == 37882
+
+
+def test_without_the_decoy_in_the_mission_it_attacks_the_real_site() -> None:
+    waypoint = _waypoint()
+    assert not _builder(_call(spotted=False), decoy_in_mission=False).redirect_to_decoy(
+        waypoint
+    )
+    assert {
+        t.params["groupId"] for t in waypoint.tasks if isinstance(t, AttackGroup)
+    } == {
+        9,
+        10,
+    }
 
 
 def test_a_flight_that_saw_through_it_attacks_the_real_site() -> None:
     waypoint = _waypoint()
     assert not _builder(_call(spotted=True)).redirect_to_decoy(waypoint)
-    assert sum(isinstance(t, AttackGroup) for t in waypoint.tasks) == 2
+    assert sum(isinstance(t, AttackGroup) for t in waypoint.tasks) == 4
 
 
 def test_players_make_their_own_call() -> None:
@@ -104,7 +147,7 @@ def test_players_make_their_own_call() -> None:
     assert not _builder(_call(spotted=False), client_count=1).redirect_to_decoy(
         waypoint
     )
-    assert sum(isinstance(t, AttackGroup) for t in waypoint.tasks) == 2
+    assert sum(isinstance(t, AttackGroup) for t in waypoint.tasks) == 4
 
 
 def test_the_debrief_reports_the_call() -> None:

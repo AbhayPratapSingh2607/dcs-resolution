@@ -753,9 +753,11 @@ default since W8). D11 checks the 6 hour turn.
   your picture holds as a decoy gets one roll at Take off (`dcs.log`/app log: "takes the decoy
   for the site" or "sees through the decoy", with the chance and why). **Expect:**
   - the target marks of every flight in the package sit on the map's marker, not the real site;
-  - inert copies of the site's vehicles stand at the decoy;
-  - an AI package that took the decoy bombs it (Tacview), one that saw through it attacks the
-    real site;
+  - an inert group of the site's vehicles ("Decoy <site> N", radars off) stands at the decoy;
+  - an AI package that took the decoy attacks it with its usual weapons from the usual range
+    (Tacview: the JSOWs reach the decoy), one that saw through it attacks the real site;
+  - symptom 2026-11-11 (fixed): with a point bombing task the SHOEBILL Hornets released all 8
+    JSOWs ~100 km out and they fell 45 km short;
   - the debriefing's plan report says which ("took a decoy for the target and bombed it" or
     "saw through a decoy and attacked the real site").
 - [ ] **D8. Things that already existed, worth checking while in DCS.**

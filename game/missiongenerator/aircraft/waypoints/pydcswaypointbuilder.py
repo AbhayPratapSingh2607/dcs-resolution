@@ -112,19 +112,20 @@ class PydcsWaypointBuilder:
 
     def redirect_to_decoy(self, waypoint: MovingPoint) -> bool:
         """An AI package that took the decoy for its target (the decoy call,
-        game.warfare.deception, made before the mission) bombs the decoy:
-        its attack tasks on the real site become one on the decoy's spot.
-        Returns True when the tasks were changed."""
-        from dcs.mapping import Point as DcsPoint
+        game.warfare.deception, made before the mission) attacks the decoy:
+        its own attack tasks on the real site are pointed at the decoy group
+        (game.missiongenerator.decoygenerator), with the same weapons and
+        release settings. A point Bombing task on the decoy instead had the
+        Hornets' JSOWs released 100 km out, 45 km short of anything (PG,
+        turn 3). Returns True when the tasks were changed."""
         from dcs.task import (
             AttackGroup,
             AttackMapObject,
             AttackUnit,
             Bombing,
             CarpetBombing,
-            Expend,
-            WeaponType as DcsWeaponType,
         )
+        from game.missiongenerator.decoygenerator import decoy_group_name
         from game.warfare.deception import _attack_types
 
         call = getattr(self.package, "decoy_call", None)
@@ -132,23 +133,67 @@ class PydcsWaypointBuilder:
             return False
         if self.flight.flight_type not in _attack_types():
             return False
-        attacks = (AttackGroup, AttackUnit, AttackMapObject, Bombing, CarpetBombing)
-        kept = [t for t in waypoint.tasks if not isinstance(t, attacks)]
-        if len(kept) == len(waypoint.tasks):
-            return False
-        point = DcsPoint(call.x, call.y, self.mission.terrain)
-        kept.append(
-            Bombing(
-                point,
-                weapon_type=DcsWeaponType.Auto,
-                expend=Expend.All,
-                group_attack=True,
+        target = self.package.target
+        decoy = self.mission.find_group(decoy_group_name(target.name, call.decoy_index))
+        if decoy is None:
+            logging.warning(
+                f"{self.flight}: took the decoy for {target.name}, but the decoy "
+                "isn't in the mission; it attacks the real site"
             )
-        )
-        waypoint.tasks = kept
+            return False
+        real_groups: set[int] = set()
+        real_units: set[int] = set()
+        for group in getattr(target, "groups", []):
+            miz_group = self.mission.find_group(group.group_name)
+            if miz_group is not None:
+                real_groups.add(miz_group.id)
+                real_units.update(u.id for u in miz_group.units)
+        dx = call.x - target.position.x
+        dy = call.y - target.position.y
+        changed = False
+        seen: set[str] = set()
+        tasks = []
+        for task in waypoint.tasks:
+            params = task.params
+            if isinstance(task, AttackGroup) and params.get("groupId") in real_groups:
+                params["groupId"] = decoy.id
+                changed = True
+            elif isinstance(task, AttackUnit) and params.get("unitId") in real_units:
+                # The same weapons at the decoy group.
+                retarget = AttackGroup(decoy.id)
+                for key in (
+                    "weaponType",
+                    "expend",
+                    "attackQty",
+                    "attackQtyLimit",
+                    "directionEnabled",
+                    "direction",
+                    "altitudeEnabled",
+                    "altitude",
+                ):
+                    if key in params:
+                        retarget.params[key] = params[key]
+                task = retarget
+                changed = True
+            elif isinstance(task, (Bombing, CarpetBombing, AttackMapObject)):
+                if "x" in params and "y" in params:
+                    params["x"] += dx
+                    params["y"] += dy
+                    changed = True
+            if isinstance(task, AttackGroup) and task.params.get("groupId") == decoy.id:
+                # A site of several groups (SAM and point defence) gives the
+                # same attack once per group; the decoy needs it once.
+                key = repr(sorted(task.params.items()))
+                if key in seen:
+                    continue
+                seen.add(key)
+            tasks.append(task)
+        if not changed:
+            return False
+        waypoint.tasks = tasks
         logging.info(
-            f"{self.flight}: took the decoy for {self.package.target.name}; "
-            f"bombing it at ({call.x:.0f}, {call.y:.0f})"
+            f"{self.flight}: took the decoy for {target.name}; attacking the decoy "
+            f"group {decoy.name}"
         )
         return True
 

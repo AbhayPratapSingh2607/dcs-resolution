@@ -361,7 +361,8 @@ Sides whose profile manages its IADS (`iads.manage`, every profile except `weste
   a SEAD element in the package, less the farther the real site (none beyond 20 km), at most
   85%. Seen through, the package attacks the real site; otherwise it bombs the decoy, and the
   crews may report the site destroyed. DCS and the combat model follow the same call; in DCS the
-  decoys are inert copies of the site's vehicles. The target marks of every flight sit where
+  decoys are inert vehicle groups of the site's types (radars off, weapons held), and the AI's
+  attack tasks point at the decoy group. The target marks of every flight sit where
   its side believes the target is.
 
 ## Ground alert and GCI
