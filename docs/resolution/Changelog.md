@@ -237,6 +237,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Parking]** Jets can no longer overfill an airfield that also has helicopters (Gudauta
+  at 40/31). Jets were checked only against the jet spots, but helicopters may park on those
+  spots too. Free parking for jets is now also limited by the base's total, so the starting
+  deployment, the **+** buy button and the AI's purchases all stop at the base's capacity.
+  A save already over capacity is trimmed back when it loads.
 * **[Air wing]** A base preset now fits the base's parking. Squadrons are placed in order and
   each is trimmed to the spots left; one that would be left with fewer than 2 aircraft is left
   out. The row says what was trimmed, in place of a "not enough parking" warning.

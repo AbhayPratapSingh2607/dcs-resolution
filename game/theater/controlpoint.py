@@ -1071,10 +1071,23 @@ class ControlPoint(MissionTarget, SidcDescribable, ABC):
     def can_operate(self, aircraft: AircraftType) -> bool: ...
 
     def unclaimed_parking(self, parking_type: ParkingType) -> int:
-        return (
+        free = (
             self.total_aircraft_parking(parking_type)
             - self.allocated_aircraft(parking_type).total
         )
+        if not parking_type.include_rotary_wing:
+            # Jets only count jets against the jet spots, but helicopters may
+            # park on those spots too: the base's total has to hold both, or
+            # jets added after the helicopters overfill it (40/31).
+            everything = ParkingType(
+                fixed_wing=True, fixed_wing_stol=True, rotary_wing=True
+            )
+            free = min(
+                free,
+                self.total_aircraft_parking(everything)
+                - self.allocated_aircraft(everything).total,
+            )
+        return free
 
     @abstractmethod
     def active_runway(
