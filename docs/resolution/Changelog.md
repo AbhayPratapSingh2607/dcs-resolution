@@ -211,6 +211,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** The debriefing window opens at 1280x940 (at most 90% of the screen) in two columns:
+  how the plan went and the after-action report on the left, the loss lists and pilots on the
+  right. In one column every box was squeezed to a few lines.
 * **[UI]** The mission results window grows to fit the fast-forward combat log (900 px, at
   most 90% of the screen). At its old 570 px the log squeezed the mission status rows and
   hid the log under the buttons.

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -70,8 +71,11 @@ class ScrollingCasualtyReportContainer(QGroupBox):
         )
         super().__init__(f"{country}'s lost units:")
         scroll_content = QWidget()
-        scroll_content.setLayout(LossGrid(debriefing, player))
+        grid = LossGrid(debriefing, player)
+        grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        scroll_content.setLayout(grid)
         scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_content)
         layout = QVBoxLayout()
         layout.addWidget(scroll_area)
@@ -86,6 +90,7 @@ class AfterActionReportBox(QGroupBox):
         super().__init__("After-action report:")
         label = QLabel(report.to_html())
         label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -104,6 +109,7 @@ class PlanReport(QGroupBox):
         super().__init__("How the plan went:")
         label = QLabel(html)
         label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -215,35 +221,55 @@ class QDebriefingWindow(QDialog):
         header.setGeometry(0, 0, 655, 106)
         pixmap = QPixmap("./resources/ui/debriefing.png")
         header.setPixmap(pixmap)
-        layout.addWidget(header)
+        layout.addWidget(header, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        # Two columns: what the plan did and why on the left, the loss lists
+        # and pilots on the right. One column squeezed every box into a few
+        # lines on a 1080p screen.
+        columns = QHBoxLayout()
+        layout.addLayout(columns, 1)
+        left = QVBoxLayout()
+        right = QVBoxLayout()
+        columns.addLayout(left, 3)
+        columns.addLayout(right, 2)
 
         plan = make_plan_report(debriefing)
         if plan:
-            layout.addWidget(PlanReport(plan))
-
-        title = QLabel("<b>Casualty report</b>")
-        layout.addWidget(title)
-
-        player_lost_units = ScrollingCasualtyReportContainer(
-            debriefing, player=Player.BLUE
-        )
-        layout.addWidget(player_lost_units)
-
-        enemy_lost_units = ScrollingCasualtyReportContainer(
-            debriefing, player=Player.RED
-        )
-        layout.addWidget(enemy_lost_units, 1)
+            left.addWidget(PlanReport(plan), 3)
 
         report = AfterActionReport.from_debriefing(debriefing)
         if getattr(debriefing, "simulation_log", None) and not report.empty:
-            layout.addWidget(AfterActionReportBox(report))
+            left.addWidget(AfterActionReportBox(report), 2)
 
-        layout.addWidget(RescueReport(debriefing))
-        layout.addWidget(CaptureReport(debriefing))
+        right.addWidget(QLabel("<b>Casualty report</b>"))
+        right.addWidget(
+            ScrollingCasualtyReportContainer(debriefing, player=Player.BLUE), 1
+        )
+        right.addWidget(
+            ScrollingCasualtyReportContainer(debriefing, player=Player.RED), 2
+        )
+        right.addWidget(RescueReport(debriefing))
+        right.addWidget(CaptureReport(debriefing))
+        if left.count() == 0:
+            # Nothing for the left column: the losses take the whole width.
+            columns.setStretch(0, 0)
 
         okay = QPushButton("Okay")
         okay.clicked.connect(self.close)
         layout.addWidget(okay)
+        self._fit_to_screen()
+
+    #: Preferred size, capped to 90% of the screen.
+    PREFERRED_SIZE = (1280, 940)
+
+    def _fit_to_screen(self) -> None:
+        width, height = self.PREFERRED_SIZE
+        screen = self.screen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            width = min(width, int(area.width() * 0.9))
+            height = min(height, int(area.height() * 0.9))
+        self.resize(width, height)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         super().closeEvent(event)
