@@ -113,3 +113,39 @@ def test_each_ship_of_a_group_gets_a_missile_first() -> None:
         assert task.params["groupAttack"] is False
         assert task.params["attackQtyLimit"] is True
         assert task.params["attackQty"] == 1
+
+
+def test_attack_bearing_clears_the_other_ships() -> None:
+    """PG turn 2 from Tacview: LORIKEET's two boats side by side, 2 km apart,
+    and TAURUS's group 17 km beyond them on TAURUS's line of attack. Each
+    ship gets a bearing with no other ship in the way."""
+    from game.missiongenerator.aircraft.waypoints.antishipingress import (
+        attack_bearing,
+        blocking_ships,
+    )
+
+    ships = {
+        "LORIKEET 1": (75245.0, 43447.0),
+        "LORIKEET 2": (76062.0, 45050.0),
+        "TAURUS 1": (92544.0, 46844.0),
+        "TAURUS 2": (93361.0, 48447.0),
+    }
+    ingress = {"LORIKEET": (-1751.0, 75339.0), "TAURUS": (14827.0, 76723.0)}
+    bearings = {}
+    for name, position in ships.items():
+        others = [p for n, p in ships.items() if n != name]
+        bearing = attack_bearing(position, ingress[name.split()[0]], others)
+        assert bearing is not None
+        assert blocking_ships(position, bearing, others) == 0
+        bearings[name] = bearing
+    # The two ships of a group are attacked from different bearings.
+    assert bearings["LORIKEET 1"] != bearings["LORIKEET 2"]
+    assert bearings["TAURUS 1"] != bearings["TAURUS 2"]
+
+
+def test_a_lone_ship_in_the_clear_keeps_the_ingress_bearing() -> None:
+    from game.missiongenerator.aircraft.waypoints.antishipingress import (
+        attack_bearing,
+    )
+
+    assert attack_bearing((0.0, 0.0), (-80000.0, 0.0), [(0.0, 70000.0)]) is None

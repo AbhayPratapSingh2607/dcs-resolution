@@ -721,7 +721,12 @@ default since W8). D11 checks the 6 hour turn.
     target with their take-off time, and CAP, AWACS and tanker stations one line each.
 - [ ] **D20. Anti-ship spread and culling (fixes 2026-11-11).** Culling on. **Expect:**
   - an anti-ship flight against a two ship group fires at both ships (Tacview: missiles to
-    each hull), then the rest at whichever survives;
+    each hull), then the rest at whichever survives. Each ship's AttackUnit has its own
+    attack bearing (from the ship toward the attacker; MOOSE calls it the "ingress direction
+    from the target to the attacking unit"): check the AI comes in from those bearings and
+    that no missile ends on another group's ship. If the AI ignores the bearing for
+    missiles, or reads it the other way round, say so: the 2026-11-11 PG Tacview had
+    LORIKEET's 3 Harpoons all on its first boat and TAURUS's 2 on LORIKEET's second;
   - on the F10 map, no parked red aircraft or missile launchers at bases far from your route
     and the mission's targets (long range EWRs whose radar covers the area stay); your own
     base and its ramp are full.

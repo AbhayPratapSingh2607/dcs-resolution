@@ -226,9 +226,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   say "assessed … when planned": that figure is the BDA when the package was planned, not the
   result.
 * **[Mission Generation]** Anti-ship flights fire at every ship of a group. Each aircraft first
-  puts one missile on each ship, then spends the rest on the group. Before, the whole flight's
-  missiles went to the first ship DCS picked and the second ship of a two ship group was left
-  untouched.
+  puts one missile on each ship, then spends the rest on the group. Each ship is attacked from a
+  bearing with no other ship in the way, since an anti-ship missile locks the first ship its
+  seeker finds: a ship of the same group side by side, or another group's ship near the line of
+  attack. Before, the whole flight's missiles went to the first ship, and a second flight's
+  Harpoons sank the first group's remaining boat instead of their own target.
 * **[Mission Generation]** With culling on, the mission only keeps ground units near what is
   actually in it. The culling zones are recomputed once packages outside the mission window and
   the bubble are held back, and they include the player's route. Parked untasked aircraft at

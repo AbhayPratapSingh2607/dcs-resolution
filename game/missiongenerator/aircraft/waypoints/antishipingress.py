@@ -1,11 +1,76 @@
 import logging
-from typing import List
+import math
+from typing import Iterable, List, Optional, Sequence
 
 from dcs.point import MovingPoint
 from dcs.task import AttackGroup, AttackUnit, Expend, OptFormation, WeaponType
 
 from game.theater import NavalControlPoint, TheaterGroundObject
 from .pydcswaypointbuilder import PydcsWaypointBuilder
+
+#: Anti-ship missiles lock the first ship their seeker finds on the way in,
+#: not necessarily the one they were fired at (Tacview, PG turn 2: TAURUS's
+#: Harpoons sank a LORIKEET boat 7.6 km off their path, 15 km short of their
+#: own target; LORIKEET's three went to the first of two boats side by side,
+#: 2 km apart). A ship is in the way of an attack from a bearing when it is
+#: within ``CORRIDOR_M`` of the attack line, on the attacker's side of the
+#: target or abeam it (less than ``BEHIND_M`` behind), and within ``REACH_M``.
+CORRIDOR_M = 12_000.0
+BEHIND_M = 500.0
+REACH_M = 60_000.0
+#: Bearings tried each side of the ingress bearing, at most this far off.
+BEARING_STEP = 10.0
+MAX_SHIFT = 90.0
+
+
+def _bearing(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Bearing from a to b in degrees, DCS axes (x north, y east)."""
+    return math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 360
+
+
+def blocking_ships(
+    target: tuple[float, float],
+    bearing: float,
+    others: Iterable[tuple[float, float]],
+) -> int:
+    """How many of the other ships are in the way of an attacker coming in
+    from ``bearing`` (from the target toward the attacker)."""
+    ux, uy = math.cos(math.radians(bearing)), math.sin(math.radians(bearing))
+    count = 0
+    for ship in others:
+        dx, dy = ship[0] - target[0], ship[1] - target[1]
+        if math.hypot(dx, dy) < 1.0:
+            continue
+        along = dx * ux + dy * uy
+        across = abs(dx * uy - dy * ux)
+        if -BEHIND_M < along < REACH_M and across < CORRIDOR_M:
+            count += 1
+    return count
+
+
+def attack_bearing(
+    target: tuple[float, float],
+    ingress: tuple[float, float],
+    others: Sequence[tuple[float, float]],
+) -> Optional[float]:
+    """The attack bearing for one ship (from the ship toward the attacker):
+    the one nearest the bearing to the ingress point with no other ship in
+    the way, else the one with the fewest. None when nothing is in the way
+    on the ingress bearing (no need to force a direction)."""
+    base = _bearing(target, ingress)
+    if blocking_ships(target, base, others) == 0:
+        return None
+    best: Optional[tuple[int, float, float]] = None
+    for k in range(1, int(MAX_SHIFT / BEARING_STEP) + 1):
+        for sign in (1, -1):
+            bearing = (base + sign * k * BEARING_STEP) % 360
+            blocked = blocking_ships(target, bearing, others)
+            if blocked == 0:
+                return bearing
+            key = (blocked, k * BEARING_STEP, bearing)
+            if best is None or key < best:
+                best = key
+    return best[2] if best is not None else None
 
 
 class AntiShipIngressBuilder(PydcsWaypointBuilder):
@@ -59,23 +124,52 @@ class AntiShipIngressBuilder(PydcsWaypointBuilder):
                 group_names or "no groups",
             )
 
+    def _enemy_ships(self) -> list[tuple[int, tuple[float, float]]]:
+        """(unit id, position) of every enemy ship in the mission."""
+        enemy = "red" if self.flight.blue.is_blue else "blue"
+        ships: list[tuple[int, tuple[float, float]]] = []
+        coalition = self.mission.coalition.get(enemy)
+        if coalition is None:
+            return ships
+        for country in coalition.countries.values():
+            for group in country.ship_group:
+                for unit in group.units:
+                    ships.append((unit.id, (unit.position.x, unit.position.y)))
+        return ships
+
     def add_attack_unit_tasks(
         self, waypoint: MovingPoint, group_names: List[str]
     ) -> int:
-        """An AttackUnit for each ship of a group of two or more: one attack
-        run, one anti-ship missile, every aircraft for itself."""
+        """An AttackUnit for each ship of the target (one attack run, one
+        anti-ship missile, every aircraft for itself), each from a bearing
+        with no other ship in the way: the seeker locks the first ship it
+        finds, so a salvo down one line all goes to the nearest ship."""
         added = 0
+        try:
+            ships = self._enemy_ships()
+        except Exception:
+            logging.exception("Could not list the enemy ships for the attack bearings")
+            ships = []
+        ingress = (waypoint.position.x, waypoint.position.y)
         for group_name in group_names:
             miz_group = self.mission.find_group(group_name)
-            if miz_group is None or len(miz_group.units) < 2:
+            if miz_group is None:
                 continue
-            for unit in miz_group.units:
+            units = list(miz_group.units)
+            for unit in units:
+                position = (unit.position.x, unit.position.y)
+                others = [p for uid, p in ships if uid != unit.id]
+                bearing = attack_bearing(position, ingress, others)
+                if len(units) < 2 and bearing is None:
+                    continue
                 waypoint.tasks.append(
                     AttackUnit(
                         unit.id,
                         attack_limit=1,
                         weapon_type=WeaponType.Antiship,
                         group_attack=False,
+                        direction_enabled=bearing is not None,
+                        direction=math.radians(bearing) if bearing is not None else 0,
                         expend=Expend.One,
                     )
                 )
