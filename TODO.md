@@ -509,7 +509,7 @@ if the user asks.
 ### M6. The DCS pass
 
 Every open item under "Checks in DCS", flown in one pass (decision 8). Then the fixes,
-then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D20 and
+then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D21 and
 A1–A6 grouped into five sessions, is `DCS-PASS.md`.
 
 ## Parked
@@ -716,6 +716,10 @@ default since W8). D11 checks the 6 hour turn.
   - on the F10 map, no parked red aircraft or missile launchers at bases far from your route
     and the mission's targets (long range EWRs whose radar covers the area stay); your own
     base and its ramp are full.
+- [ ] **D21. The debriefing's plan report (fix 2026-11-11).** After a DCS mission, the
+  debriefing window lists **this** turn's packages and window (yours marked "(you)"): what
+  you and the AI killed in DCS shows as "target destroyed" or "N units hit at the target",
+  and the parts before and after the mission show what the combat model did.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, TypeVar
+from typing import Callable, Dict, Optional, TypeVar
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap, QCloseEvent
@@ -182,6 +182,22 @@ class CaptureReport(QGroupBox):
             layout.addWidget(QLabel("No pilots were captured."), 0, 0)
 
 
+def make_plan_report(debriefing: Debriefing) -> Optional[str]:
+    """The plan report for the debriefing window, made once and kept on the
+    debriefing. Make it before the turn passes (it reads the ATO and the
+    mission window)."""
+    if not debriefing.plan_report_made:
+        try:
+            from qt_ui.atopresentation import plan_debrief_html
+
+            debriefing.plan_report = plan_debrief_html(debriefing, blue=True)
+        except Exception:
+            logging.exception("Could not summarize the plan's results")
+            debriefing.plan_report = None
+        debriefing.plan_report_made = True
+    return debriefing.plan_report
+
+
 class QDebriefingWindow(QDialog):
     def __init__(self, debriefing: Debriefing):
         super(QDebriefingWindow, self).__init__()
@@ -201,13 +217,7 @@ class QDebriefingWindow(QDialog):
         header.setPixmap(pixmap)
         layout.addWidget(header)
 
-        try:
-            from qt_ui.atopresentation import plan_debrief_html
-
-            plan = plan_debrief_html(debriefing, blue=True)
-        except Exception:
-            logging.exception("Could not summarize the plan's results")
-            plan = None
+        plan = make_plan_report(debriefing)
         if plan:
             layout.addWidget(PlanReport(plan))
 

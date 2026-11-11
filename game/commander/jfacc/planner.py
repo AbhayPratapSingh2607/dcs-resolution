@@ -1168,7 +1168,7 @@ class JfaccPlanner:
         reason = (
             f"JIPTL #{nomination.rank} {nomination.target_class.replace('_', ' ')} "
             f"({nomination.status}, desired effect {nomination.desired_effect:.0%}, "
-            f"assessed {nomination.assessed_effect:.0%})"
+            f"assessed {nomination.assessed_effect:.0%} when planned)"
         )
         return PackageRequest(
             target=target,

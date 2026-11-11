@@ -355,7 +355,13 @@ def _outcome(debriefing: object, blue: bool) -> _Outcome:
     out = _Outcome(simulated=bool(getattr(debriefing, "simulated", False)))
     # Packages: those still in the ATO plus any flown or lost whose flights
     # finished and were removed from it.
-    out.packages = list(coalition.ato.packages)
+    # The turn's packages as they were when the mission ended, when the
+    # debriefing kept them; else the ATO as it is now.
+    turn_packages = getattr(debriefing, "turn_packages", None)
+    if isinstance(turn_packages, dict) and blue in turn_packages:
+        out.packages = list(turn_packages[blue])
+    else:
+        out.packages = list(coalition.ato.packages)
     seen = {id(p) for p in out.packages}
     flown_flights = list(getattr(debriefing, "flights_flown", None) or [])
     air_losses = getattr(debriefing, "air_losses")
@@ -431,7 +437,31 @@ def plan_debrief(
     """The side's packages this turn, key packages first, with what each
     achieved and lost, from the debriefing; and the same by part of the
     turn (W6). Packages the combat model fought after the DCS window come
-    from ``debriefing.remainder`` (game.sim.atoperiod.resolve_remainder)."""
+    from ``debriefing.remainder`` (game.sim.atoperiod.resolve_remainder).
+
+    Processing the results takes finished flights off their packages; the
+    flights each package had when the mission ended (``turn_flights``) are
+    put back while the report is made."""
+    turn_flights = getattr(debriefing, "turn_flights", None)
+    if not isinstance(turn_flights, dict):
+        return _plan_debrief(debriefing, blue, name_of)
+    swapped: list[tuple[Package, list[Any]]] = []
+    for package, flights in turn_flights.values():
+        if len(package.flights) < len(flights):
+            swapped.append((package, package.flights))
+            package.flights = list(flights)
+    try:
+        return _plan_debrief(debriefing, blue, name_of)
+    finally:
+        for package, flights in swapped:
+            package.flights = flights
+
+
+def _plan_debrief(
+    debriefing: object,
+    blue: bool,
+    name_of: Callable[[Package], str],
+) -> PlanDebrief:
     game = getattr(debriefing, "game")
     outcome = _outcome(debriefing, blue)
     remainder = getattr(debriefing, "remainder", None)

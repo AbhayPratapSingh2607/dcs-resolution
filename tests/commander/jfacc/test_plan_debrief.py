@@ -231,3 +231,27 @@ def test_packages_outside_the_bubble_have_their_own_part(monkeypatch: Any) -> No
     assert elsewhere.simulated and [r.name for r in elsewhere.key] == ["Strike Depot"]
     assert elsewhere.title == "Elsewhere during the mission (combat model, 12:00–13:00)"
     assert [r.name for r in by_part["After the mission"].key] == ["BAI Convoy"]
+
+
+def test_report_uses_the_turn_as_it_was_when_the_mission_ended() -> None:
+    """Processing the results takes finished flights off their packages and
+    the packages out of the ATO, and passing the turn plans the next one:
+    the report reads the packages and flights the debriefing kept."""
+    sam = SimpleNamespace(name="SA-11 site", is_dead=True)
+    dead = _package(FlightType.DEAD, sam)
+    flights = list(dead.flights)
+    next_turn = _package(FlightType.ANTISHIP, SimpleNamespace(name="Frigate"))
+    hit = SimpleNamespace(theater_unit=SimpleNamespace(ground_object=sam))
+    debriefing = _debriefing(
+        [next_turn],
+        ground_losses=SimpleNamespace(
+            enemy_ground_objects=[hit], player_ground_objects=[]
+        ),
+        turn_packages={True: [dead], False: []},
+        turn_flights={id(dead): (dead, flights)},
+    )
+    dead.flights.clear()
+    results = {r.name: r.result for r in plan_debrief(debriefing, name_of=_name).key}
+    assert results == {"DEAD SA-11 site": "target destroyed, all aircraft back"}
+    # The flights processing took off stay off.
+    assert dead.flights == []

@@ -32,6 +32,7 @@ from game.server import EventStream
 from game.sim import GameUpdateEvents
 from qt_ui.simcontroller import SimController
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
+from qt_ui.windows.QDebriefingWindow import make_plan_report
 from qt_ui.windows.farplosses import report_lost_farps
 
 
@@ -266,6 +267,9 @@ class QWaitingForMissionResultWindow(QDialog):
             try:
                 with logged_duration("Turn processing"):
                     self.sim_controller.process_results(self.debriefing)
+                    # The plan report reads this turn's ATO and mission
+                    # window; pass_turn replaces both with the next turn's.
+                    make_plan_report(self.debriefing)
                     self.game.pass_turn()
 
                     GameUpdateSignal.get_instance().sendDebriefing(self.debriefing)

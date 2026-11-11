@@ -250,12 +250,40 @@ class Debriefing:
         #: id(pilot) like ejected_pilot_positions (aircrew.AirLossDetail).
         self.air_loss_details: list[Any] = []
         self.air_loss_by_pilot: Dict[int, Any] = {}
+        #: The plan report (HTML) for the debriefing window, made before the
+        #: turn passes: after it, the ATO and the mission window are the next
+        #: turn's. None when not made yet.
+        self.plan_report: Optional[str] = None
+        self.plan_report_made = False
+        #: Each side's packages this turn (keyed by is_blue) when the mission
+        #: ended, held-back ones included: processing the results removes
+        #: finished packages from the ATO before the plan report is made.
+        self.turn_packages: Dict[bool, list[Any]] = {
+            c.player.is_blue: self._turn_packages(c) for c in (game.blue, game.red)
+        }
+        #: id(package) -> (package, its flights when the mission ended).
+        self.turn_flights: Dict[int, tuple[Any, list[Any]]] = {
+            id(p): (p, list(p.flights))
+            for packages in self.turn_packages.values()
+            for p in packages
+        }
         self.ejected_pilot_positions = self._ejected_pilot_positions()
         #: Downed pilots recovered this mission, keyed by their DownedPilot id so
         #: repeated state.json polls (and the AI-flight fallback added later by
         #: MissionResultsProcessor) can't double-count the same rescue.
         self.rescued_pilots: Dict[UUID, RescuedPilot] = {}
         self._collect_reported_rescues()
+
+    def _turn_packages(self, coalition: Any) -> list[Any]:
+        packages = list(coalition.ato.packages)
+        state = getattr(self.game, "air_campaign", None)
+        held = getattr(state, "deferred_packages", None) or {}
+        seen = {id(p) for p in packages}
+        for package in held.get(coalition.player.is_blue, []):
+            if id(package) not in seen:
+                packages.append(package)
+                seen.add(id(package))
+        return packages
 
     def _collect_reported_rescues(self) -> None:
         """Records rescues confirmed in-mission and reported via state.json."""

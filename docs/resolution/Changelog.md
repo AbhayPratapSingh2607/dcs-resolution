@@ -211,6 +211,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Debriefing]** The plan report in the debriefing window shows the turn that was just flown.
+  It was made after the next turn was planned, so it listed the next turn's packages and mission
+  window, all with "no effect reported", while the kills of the mission flown were missing.
+  Packages whose flights had finished and were taken off them were also dropped. Goal lines now
+  say "assessed … when planned": that figure is the BDA when the package was planned, not the
+  result.
 * **[Mission Generation]** Anti-ship flights fire at every ship of a group. Each aircraft first
   puts one missile on each ship, then spends the rest on the group. Before, the whole flight's
   missiles went to the first ship DCS picked and the second ship of a two ship group was left
