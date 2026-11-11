@@ -203,7 +203,11 @@ class TheaterState(WorldState["TheaterState"]):
         ]
 
         aewc_targets = [cp for cp in finder.friendly_control_points() if cp.is_carrier]
-        aewc_targets.append(finder.farthest_friendly_control_point())
+        farthest = finder.farthest_friendly_control_point()
+        # The farthest friendly point is often the carrier itself; listed twice,
+        # the air campaign planner flew two AEW&C lines side by side over it.
+        if farthest not in aewc_targets:
+            aewc_targets.append(farthest)
 
         barcaps_needed = {
             cp: 2 * barcap_rounds if cp.is_fleet else barcap_rounds
