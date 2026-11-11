@@ -615,6 +615,12 @@ default since W8). D11 checks the 6 hour turn.
     FARP is established after the turn (message "… established");
   - an AI air assault outside your mission on an undefended base: the base changes hands
     after the turn.
+- [ ] **D19. Mission loads and the briefing reads (fixes 2026-11-10).** **Expect:**
+  - the mission opens in DCS without "All waypoints … have locked speed and surrounded by
+    waypoints … with locked time" (it hit a CAP already on its racetrack at mission start);
+    that CAP flies its station;
+  - the briefing says "AEW&C", not "AEW&amp;C"; friendly packages are listed by time over
+    target with their take-off time, and CAP, AWACS and tanker stations one line each.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.
