@@ -423,6 +423,18 @@ if the user asks.
       - iran PASS: ratio 5.0-22.5, blue took 2-3 bases.
       - peer FAIL: median 1.63 (1.07-2.14) in band; 2 bases in 1 run of 5 (was 3 of 5).
       - red_wins PASS 4/5.
+  - **Open item 3 (iraq FAIL, exchange ratio).** Blue lost 1.4% per sortie (Desert Storm
+    ~0.04%); by task BARCAP 34/1938, CAS 13/568, DEAD 12/522; 46 of 63 to SAMs. Per-package
+    probe (USA 1990 vs Iraq 1991, 2 seeds x 4 turns): CAP stations whose routes crossed SAM
+    weight under 28 lost 0 of 184 sorties, 28-44 lost 6 of 20, estimated 1.1-1.7% (the CAP
+    term is linear). One station, Gudauta 314 toward Sochi (weight 37-43), lost 5 of 12; its
+    estimate never reached the 6% DCA limit, so the existing pull-back never moved it.
+    Fix: the CAP term gains `STATION_OVERLAP` 0.004 x (w - 24)^2 above `STATION_KNEE` 24;
+    unchanged below. That station now estimates ~25% and is pulled back. Matrix after
+    (85 min), 2 of 4 in band: iraq FAIL, ratio 2.3-12.7, 3 of 5 seeds under 5, blue lost 45
+    over the 5 runs (was 63); iran PASS 5.2-18.7; peer FAIL, median 1.61, 2 bases in 1 run;
+    red_wins PASS 4/5. CAS and DEAD losses (2.3% each against ~0.9% estimated) are the next item if
+    iraq still fails.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

@@ -62,6 +62,17 @@ SHORAD_EXPOSURE = 0.012
 #: ~14 lost 2-4.3% per sortie over four runs, later 0 of ~30 sorties at
 #: weights 12-21.
 STATION_EXPOSURE = 0.0018
+#: CAP stations deep in overlapping coverage: above a route SAM weight of
+#: STATION_KNEE the sites do compound against the orbit, and the exposure
+#: gains STATION_OVERLAP * (w - STATION_KNEE)^2. Fitted to the combat model
+#: (USA 1990 vs Iraq 1991, Caucasus, 2 seeds x 4 turns): CAP stations whose
+#: routes crossed weight below 28 lost 0 of 184 sorties, 28-44 lost 6 of 20
+#: (one station on the axis toward Sochi, 37-43, lost 5 of 12) while the
+#: linear term estimated 1.1-1.7%. With the knee and Iraq's SAM crews that
+#: station estimates ~25% (observed 42%), over the 6% DCA limit, so it is
+#: pulled back along its axis; stations under weight ~32 stay where they are.
+STATION_KNEE = 24.0
+STATION_OVERLAP = 0.004
 
 
 @dataclass(frozen=True)
@@ -76,6 +87,8 @@ class RiskModel:
     low_radar_factor: float = LOW_RADAR_FACTOR
     shorad_exposure: float = SHORAD_EXPOSURE
     station_exposure: float = STATION_EXPOSURE
+    station_knee: float = STATION_KNEE
+    station_overlap: float = STATION_OVERLAP
 
     @staticmethod
     def from_profile(data: Optional[dict[str, Any]]) -> RiskModel:
@@ -164,13 +177,13 @@ def estimate(
         suppression *= model.transit_only
     if front_line:
         suppression *= model.front_line
-    exposure = (
-        (model.station_exposure if station else model.sam_exposure * (1 + w))
-        * w
-        * threat.enemy_sam_crew
-        * suppression
-        / max(own_aircrew, 0.3)
-    )
+    if station:
+        per_crew = model.station_exposure * w + model.station_overlap * (
+            max(0.0, w - model.station_knee) ** 2
+        )
+    else:
+        per_crew = model.sam_exposure * (1 + w) * w
+    exposure = per_crew * threat.enemy_sam_crew * suppression / max(own_aircrew, 0.3)
     if low_level and threat.shorad_weight > 0:
         # Guns and short-range missiles along the track and over the target:
         # SEAD doesn't touch them, stand-off weapons stay outside them.

@@ -101,3 +101,17 @@ def test_station_risk_is_a_fraction_of_a_strike_through_the_same_sams() -> None:
     # An unescorted strike presses through the overlapping sites (quadratic
     # in the weight); the CAP turns away at the edge (linear).
     assert strike.sam_component > 5 * cap.sam_component
+
+
+def test_a_station_deep_in_overlapping_sams_is_over_the_dca_limit() -> None:
+    from game.commander.jfacc.risk import STATION_KNEE, estimate
+
+    def cap(weight: float) -> float:
+        threat = RouteThreat(sam_weight=weight, target_defended=False)
+        return estimate(threat, 0, 0, 2, False, station=True).sam_component
+
+    # Below the knee the station term stays linear in the weight.
+    assert cap(STATION_KNEE) == pytest.approx(2 * cap(STATION_KNEE / 2), rel=0.05)
+    # Iraq 1991 runs: stations through weight ~40 lost 5 of 12 sorties; the
+    # estimate must be over the 6% DCA limit so the station is pulled back.
+    assert cap(40.0) > 0.06
