@@ -46,3 +46,12 @@ def test_finishing_normally_is_not_a_cancel(app: QApplication) -> None:
     assert done.is_set()
     # The dialog closing itself at the end doesn't count as a cancel.
     assert not busy.cancelled
+
+
+def test_a_dialog_that_cannot_be_cancelled_ignores_the_close(app: QApplication) -> None:
+    # Processing a turn's results must not stop halfway.
+    with BusyDialog(None, "End of mission", cancellable=False) as busy:
+        QTimer.singleShot(50, busy.dialog.close)
+        busy.run("Processing…", lambda: time.sleep(0.3))
+        assert busy.dialog.isVisible()
+    assert not busy.cancelled

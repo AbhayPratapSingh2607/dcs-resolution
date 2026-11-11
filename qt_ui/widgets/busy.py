@@ -26,7 +26,9 @@ T = TypeVar("T")
 class BusyDialog:
     """Runs steps one after another behind one progress dialog."""
 
-    def __init__(self, parent: Optional[QWidget], title: str) -> None:
+    def __init__(
+        self, parent: Optional[QWidget], title: str, cancellable: bool = True
+    ) -> None:
         self.dialog = QProgressDialog("", "", 0, 0, parent)
         self.dialog.setWindowTitle(title)
         self.dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -36,13 +38,20 @@ class BusyDialog:
         self.dialog.setAutoClose(False)
         self.dialog.setAutoReset(False)
         self.started = time.monotonic()
+        #: Work that must not stop halfway (processing a turn's results)
+        #: ignores the close: the dialog stays up until the work is done.
+        self.cancellable = cancellable
         self.cancelled = False
         self._done = False
         self.dialog.canceled.connect(self._cancel)  # type: ignore[attr-defined]
 
     def _cancel(self) -> None:
-        if not self._done:
-            self.cancelled = True
+        if self._done:
+            return
+        if not self.cancellable:
+            self.dialog.show()
+            return
+        self.cancelled = True
 
     def should_stop(self) -> bool:
         """For the worker: whether the player cancelled."""
@@ -73,10 +82,10 @@ class BusyDialog:
         thread.start()
         while thread.is_alive():
             elapsed = int(time.monotonic() - self.started)
-            if self.cancelled:
+            if (self.cancelled or not self.cancellable) and not self.dialog.isVisible():
                 # Closing hid the dialog; keep it up until the work stops.
-                if not self.dialog.isVisible():
-                    self.dialog.show()
+                self.dialog.show()
+            if self.cancelled:
                 label = f"Stopping…\n\n{text}"
             else:
                 label = f"{text}\n\n{elapsed // 60}:{elapsed % 60:02d} elapsed"

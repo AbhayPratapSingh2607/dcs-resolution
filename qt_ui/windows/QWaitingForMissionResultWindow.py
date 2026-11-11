@@ -9,14 +9,12 @@ from PySide6 import QtCore
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon, QMovie, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QFileDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QProgressDialog,
     QPushButton,
     QTextBrowser,
     QWidget,
@@ -259,37 +257,31 @@ class QWaitingForMissionResultWindow(QDialog):
             logging.exception("Got an error while sending debriefing")
 
     def process_debriefing(self):
-        # Turn processing blocks the UI for a while; without feedback the user
-        # can't tell whether the mission end was missed or is just being
-        # processed. Show an indeterminate busy dialog meanwhile.
-        progress = QProgressDialog(
-            "End of Mission Detected, processing Mission Data",
-            "",
-            0,
-            0,
-            self,
-        )
-        progress.setWindowTitle("Processing")
-        progress.setWindowModality(QtCore.Qt.WindowModality.ApplicationModal)
-        progress.setCancelButton(None)
-        progress.setMinimumDuration(0)
-        progress.setAutoClose(False)
-        progress.setAutoReset(False)
-        progress.show()
-        QApplication.processEvents()
+        # Turn processing takes a while: the same busy dialog as Take off,
+        # with the work on a worker thread so the window stays responsive and
+        # shows which step it is on. It can't be cancelled: a turn processed
+        # halfway would leave the campaign inconsistent.
+        from qt_ui.widgets.busy import BusyDialog
+
         with report_lost_farps(self.game, self.parentWidget()):
-            try:
-                with logged_duration("Turn processing"):
-                    self.sim_controller.process_results(self.debriefing)
+            with logged_duration("Turn processing"):
+                with BusyDialog(self, "End of mission", cancellable=False) as busy:
+                    busy.run(
+                        "End of mission detected, processing the mission data…",
+                        lambda: self.sim_controller.process_results(self.debriefing),
+                    )
                     # The plan report reads this turn's ATO and mission
                     # window; pass_turn replaces both with the next turn's.
-                    make_plan_report(self.debriefing)
-                    self.game.pass_turn()
-
-                    GameUpdateSignal.get_instance().sendDebriefing(self.debriefing)
-                    GameUpdateSignal.get_instance().updateGame(self.game)
-            finally:
-                progress.close()
+                    busy.run(
+                        "Writing the debriefing…",
+                        lambda: make_plan_report(self.debriefing),
+                    )
+                    busy.run(
+                        "Planning the next turn…",
+                        self.game.pass_turn,
+                    )
+                GameUpdateSignal.get_instance().sendDebriefing(self.debriefing)
+                GameUpdateSignal.get_instance().updateGame(self.game)
             self.close()
 
     def closeEvent(self, evt):

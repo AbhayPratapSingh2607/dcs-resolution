@@ -221,6 +221,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** Processing the mission results uses the same progress window as Take off. It shows
+  the step it is on (processing the mission data, writing the debriefing, planning the next
+  turn) and the time elapsed, and the app stays responsive meanwhile. It can't be cancelled:
+  a turn processed halfway would leave the campaign inconsistent.
 * **[Mission Generation]** An AI package that takes the decoy attacks the decoy group with its
   usual attack tasks. A bombing task on the decoy's point had the SHOEBILL Hornets release all 8
   JSOWs about 100 km out (PG, turn 3); they fell 45 km short of the decoy and the flight
