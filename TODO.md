@@ -409,6 +409,20 @@ if the user asks.
         ratio 4.2-25.5 (median 6.4); only seed 1 under 5.
       - peer: median 1.73 (was 2.35), but blue took 2 bases in 3 of 5 runs (was 1 of 5).
       - red_wins 5/5.
+  - **Open item 2 (peer FAIL, blue takes 2 bases).** With item 1 blue flies CAS and BAI from
+    turn 1, and red's 60-vehicle front was gone by turn 4-5. Cause, from a verbose peer turn:
+    an A-10C pair (APKWS pods, Mavericks, bombs) released 54 weapons in one pass over the front,
+    47 hits, 17 kills; two pairs took 34 of red's 60 vehicles in the first hour. Every round
+    went at its own vehicle. Desert Storm A-10s claimed about 0.4 vehicles per sortie.
+    Fix in the combat model: an aircraft makes `FRONT_LINE_PASSES` = 4 deliveries over the
+    front per sortie (a rocket ripple is one), the most effective weapons first, and brings
+    the rest home; the planner's CAS kill estimate (`casestimate.py`) counts the same 4.
+    After: pairs kill 0-4 per sortie (mean ~1.5); front losses in turn 1 blue 15, red 15
+    (was 13 and 36). Calibration 28/28. Matrix after (86 min), 2 of 4 in band:
+      - iraq FAIL: ratio 2.4-7.7, 4 of 5 seeds under 5; blue lost 6-17 per run, 1-2 bases.
+      - iran PASS: ratio 5.0-22.5, blue took 2-3 bases.
+      - peer FAIL: median 1.63 (1.07-2.14) in band; 2 bases in 1 run of 5 (was 3 of 5).
+      - red_wins PASS 4/5.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

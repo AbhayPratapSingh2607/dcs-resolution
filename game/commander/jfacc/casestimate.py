@@ -8,7 +8,8 @@ between. This mirrors the fast-forward attack model (game.sim.combat.model.
 attack): every round is a delivery with the weapon's accuracy, a guidance
 factor for moving vehicles, and the kill matrix for the warhead against the
 front's mix of armor and soft vehicles; cluster and unguided weapons also
-hit neighbours. Weather, defenses and crew skill are left out: it is a
+hit neighbours. Each aircraft makes FRONT_LINE_PASSES deliveries at most,
+the most effective weapons first. Weather, defenses and crew skill are left out: it is a
 planning figure, not a simulation.
 """
 
@@ -58,7 +59,12 @@ def front_armor_share(game: Game, front: FrontLine, player: Player) -> float:
 
 def expected_front_kills(flight: Flight, armor_share: float = DEFAULT_ARMOR_SHARE) -> float:
     """Vehicles the flight is expected to destroy in one CAS sortie."""
-    from game.sim.combat.model.attack import KILL_MATRIX, TargetClass
+    from game.sim.combat.model.attack import (
+        FRONT_LINE_PASSES,
+        KILL_MATRIX,
+        TargetClass,
+        front_line_value,
+    )
     from game.sim.combat.model.profiles import CombatProfiles, Guidance, Warhead, WeaponRole
 
     profiles = CombatProfiles.instance()
@@ -91,7 +97,14 @@ def expected_front_kills(flight: Flight, armor_share: float = DEFAULT_ARMOR_SHAR
                 has_tgp = True
             elif profile.role in (WeaponRole.A2G, WeaponRole.ANTISHIP):
                 profiles_on_board.append(profile)
+        # The model's order over the front: most effective first.
+        profiles_on_board.sort(key=lambda profile: -front_line_value(profile))
+        passes = FRONT_LINE_PASSES
         for profile in profiles_on_board:
+            if passes <= 0:
+                break
+            rounds = min(profile.count, passes)
+            passes -= rounds
             guidance = profile.guidance
             if guidance is Guidance.LASER:
                 factor = 0.9 if has_tgp else 0.3
@@ -110,7 +123,7 @@ def expected_front_kills(flight: Flight, armor_share: float = DEFAULT_ARMOR_SHAR
                 kills += p_hit * 2 * 0.35 * soft_share * p_kill(profile.warhead)
             elif guidance in (Guidance.UNGUIDED, Guidance.ROCKET):
                 kills += p_hit * 0.35 * soft_share * p_kill(profile.warhead)
-            total += profile.count * kills
+            total += rounds * kills
     return total * DELIVERY_FACTOR
 
 

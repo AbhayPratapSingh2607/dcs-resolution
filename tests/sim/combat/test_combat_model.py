@@ -519,3 +519,43 @@ def test_warned_fighters_outrun_long_shots() -> None:
         engagement._resolve_missiles(s.time, s.events)
         hits_short += not t.alive
     assert hits_long * 3 < hits_short
+
+
+def _front_attack(seed: int, monkeypatch: Any) -> tuple[int, int]:
+    """An A-10C pair with four APKWS pods each over a dispersed vehicle target scored
+    as the front line: (rounds released, rounds brought home)."""
+    from game.sim.combat.model import attack
+
+    monkeypatch.setattr(attack.AttackRun, "_is_front_line", lambda self: True)
+    monkeypatch.setattr(
+        attack.AttackRun, "_front_line_flak", lambda self, airframes: airframes
+    )
+    s = Scenario(seed)
+    target = s.target("Column", point(20, 0), [vehicles.Unarmed.Ural_375] * 40)
+    package = s.package(Player.BLUE, target)
+    flight = s.flight(
+        Player.BLUE,
+        planes.A_10C,
+        FlightType.CAS,
+        2,
+        loadout(("LAU-131 7xMPP APKWS", 4)),
+        point(0, 0),
+        package=package,
+    )
+    report = s.strike(flight)
+    left = sum(
+        store.remaining
+        for airframe in s.model.airframes(flight)  # type: ignore[arg-type]
+        for store in airframe.a2g_stores((WeaponRole.A2G,))
+    )
+    return report.released, left
+
+
+def test_cas_over_the_front_makes_a_few_passes_and_brings_the_rest_home(
+    monkeypatch: Any,
+) -> None:
+    from game.sim.combat.model.attack import FRONT_LINE_PASSES
+
+    released, left = _front_attack(1, monkeypatch)
+    assert released == 2 * FRONT_LINE_PASSES
+    assert left > 0

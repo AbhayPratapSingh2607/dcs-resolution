@@ -30,7 +30,30 @@ from .engine import CombatModel, clamp, distance_km
 
 #: Hit chance factor with a FAC(A) on station (V3; game.commander.jfacc.faca).
 FAC_BONUS = 1.25
-from .profiles import Guidance, SHIP_HIT_POINTS, Warhead, WeaponRole
+#: Attack passes one airframe makes over the front line per sortie. Finding,
+#: identifying and lining up on dispersed, moving vehicles under fire takes
+#: time, so a CAS aircraft brings weapons home instead of using every round on
+#: a separate vehicle. Each release counts as a pass (a rocket ripple is one).
+#: Without the limit an A-10C pair with APKWS, Mavericks and bombs killed 17
+#: vehicles each in one sortie (2010 Caucasus peer runs), wiping out a 60-vehicle
+#: front in a turn; Desert Storm A-10s claimed about 0.4 vehicles per sortie.
+#: With 4 passes a pair kills about 3-5.
+FRONT_LINE_PASSES = 4
+
+
+def front_line_value(weapon: WeaponCombatProfile) -> float:
+    """How good a weapon is against a mixed front, to pick what to use first
+    with FRONT_LINE_PASSES: accuracy times the kill chance against armor and
+    soft vehicles."""
+    row = KILL_MATRIX.get(weapon.warhead, KILL_MATRIX[Warhead.MEDIUM])
+    return weapon.accuracy * (row[TargetClass.ARMOR] + row[TargetClass.SOFT]) / 2
+from .profiles import (
+    Guidance,
+    SHIP_HIT_POINTS,
+    Warhead,
+    WeaponCombatProfile,
+    WeaponRole,
+)
 
 if TYPE_CHECKING:
     from dcs import Point
@@ -720,12 +743,25 @@ class AttackRun:
             bool(self._point_defenses(self._target_position()))
             and not self._is_front_line()
         )
-        for store in list(airframe.a2g_stores(self._roles())):
+        passes = FRONT_LINE_PASSES if self._is_front_line() else None
+        stores = list(airframe.a2g_stores(self._roles()))
+        if passes is not None:
+            # With only a few passes, the most effective weapons go first.
+            stores.sort(key=lambda store: -front_line_value(store.profile))
+        for store in stores:
+            if passes is not None and passes <= 0:
+                break
             weapon = store.profile
             altitude = self._attack_altitude(airframe, store)
             rounds = store.remaining
             store.remaining = 0
-            for _ in range(rounds):
+            for fired in range(rounds):
+                if passes is not None:
+                    if passes <= 0:
+                        # Out of time over the front: the rest comes home.
+                        store.remaining = rounds - fired
+                        break
+                    passes -= 1
                 self.report.released += 1
                 if flight_type is FlightType.OCA_RUNWAY:
                     self._runway_hit(airframe, weapon, altitude, defended)

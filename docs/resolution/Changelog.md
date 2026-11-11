@@ -227,6 +227,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   attacks no SAM site, the lightest ones are now opened on anyway. The SAM part of the risk
   estimate is refitted to the combat model as it is now: it was 5–12 times too high (a
   package through route SAM weight ~20 was estimated at 42% per sortie and lost 5%).
+* **[Fast Forward]** CAS over the front makes 4 attack passes per aircraft and sortie, with the
+  most effective weapons first, and brings the rest home. Before, every weapon went at its own
+  vehicle: an A-10C pair killed 17 vehicles in one pass and a front was gone in a few turns.
+  The planner's CAS estimate counts the same passes.
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs
   reported 0% while losing 2–4% per sortie to SAMs. The estimate counts SAM sites near the station
