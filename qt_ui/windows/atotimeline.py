@@ -58,6 +58,11 @@ NOW = QColor("#f0c040")
 class TimelineWidget(QWidget):
     package_clicked = Signal(object)
     package_double_clicked = Signal(object)
+    #: The player dragged the DCS window; minutes after the period start.
+    window_moved = Signal(int)
+
+    #: The dragged window snaps to this many minutes (the picker's step).
+    WINDOW_STEP_MIN = 15
 
     MIN_PPM = 0.6
     MAX_PPM = 14.0
@@ -81,6 +86,8 @@ class TimelineWidget(QWidget):
         self.lane_height = 12 if compact else 22
         self.selected: Optional[Package] = None
         self._hits: list[tuple[QRect, Package]] = []
+        #: (press x, window offset then) while the DCS window is dragged.
+        self._window_drag: Optional[tuple[float, int]] = None
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.refresh()
@@ -360,6 +367,46 @@ class TimelineWidget(QWidget):
 
     # ------------------------------------------------------ interaction
 
+    def window_draggable(self) -> bool:
+        """The DCS window can be moved: a full turn with room to move it,
+        and none of the turn fought yet."""
+        from game.sim import atoperiod
+
+        game = self.game
+        if game is None or not self.blue:
+            return False
+        if atoperiod.is_focused(game) or atoperiod.max_window_offset_min(game) <= 0:
+            return False
+        bounds = atoperiod.period(game)
+        if bounds is None:
+            return False
+        controller = getattr(self.game_model, "sim_controller", None)
+        now = getattr(controller, "current_time_in_sim_if_game_loaded", None)
+        return now is None or now <= bounds[0]
+
+    def in_window_band(self, pos: QPoint) -> bool:
+        game = self.game
+        window = ap.dcs_window(game) if game is not None else None
+        if window is None:
+            return False
+        x0, x1 = self.x_for(window[0]), self.x_for(window[1])
+        return x0 <= pos.x() <= x1 and pos.x() >= self.label_width
+
+    def _drag_window_to(self, x: float) -> None:
+        from game.sim import atoperiod
+
+        game = self.game
+        assert game is not None and self._window_drag is not None
+        press_x, offset = self._window_drag
+        minutes = offset + (x - press_x) / self.px_per_min
+        step = self.WINDOW_STEP_MIN
+        snapped = int(round(minutes / step) * step)
+        snapped = max(0, min(snapped, atoperiod.max_window_offset_min(game)))
+        if snapped != game.air_campaign.window_offset_min:
+            atoperiod.pin_window(game, snapped)
+            self.update()
+            self.window_moved.emit(game.air_campaign.window_offset_min)
+
     def package_at(self, pos: QPoint) -> Optional[Package]:
         for rect, package in reversed(self._hits):
             if rect.contains(pos):
@@ -369,6 +416,15 @@ class TimelineWidget(QWidget):
     def event(self, event: QEvent) -> bool:
         if event.type() == QEvent.Type.ToolTip and self.game is not None:
             package = self.package_at(event.pos())  # type: ignore[attr-defined]
+            if package is None and self.window_draggable() and self.in_window_band(
+                event.pos()  # type: ignore[attr-defined]
+            ):
+                QToolTip.showText(
+                    event.globalPos(),  # type: ignore[attr-defined]
+                    "Drag to move the DCS mission window",
+                    self,
+                )
+                return True
             if package is not None:
                 QToolTip.showText(event.globalPos(), ap.package_tooltip(self.game, package), self)  # type: ignore[attr-defined]
             else:
@@ -378,17 +434,51 @@ class TimelineWidget(QWidget):
         return super().event(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        package = self.package_at(event.position().toPoint())
+        pos = event.position().toPoint()
+        package = self.package_at(pos)
         if package is not None:
             self.selected = package
             self.update()
             self.package_clicked.emit(package)
+        elif (
+            event.button() == Qt.MouseButton.LeftButton
+            and self.window_draggable()
+            and self.in_window_band(pos)
+            and self.game is not None
+        ):
+            # Grab the DCS window anywhere off the packages.
+            self._window_drag = (
+                event.position().x(),
+                self.game.air_campaign.window_offset_min,
+            )
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        over = self.package_at(event.position().toPoint()) is not None
-        self.setCursor(Qt.CursorShape.PointingHandCursor if over else Qt.CursorShape.ArrowCursor)
+        if self._window_drag is not None:
+            self._drag_window_to(event.position().x())
+            event.accept()
+            return
+        pos = event.position().toPoint()
+        if self.package_at(pos) is not None:
+            cursor = Qt.CursorShape.PointingHandCursor
+        elif self.window_draggable() and self.in_window_band(pos):
+            cursor = Qt.CursorShape.OpenHandCursor
+        else:
+            cursor = Qt.CursorShape.ArrowCursor
+        self.setCursor(cursor)
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._window_drag is not None:
+            self._drag_window_to(event.position().x())
+            self._window_drag = None
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         package = self.package_at(event.position().toPoint())
@@ -429,7 +519,7 @@ class AtoTimelineDialog(QDialog):
             "<span style='color:#9aa7b2'>— startup &nbsp; ▬ airborne &nbsp; ◆ TOT &nbsp;"
             " ▒ on station &nbsp; <span style='color:#82e05a'>▢</span> player flight"
             " &nbsp; <span style='color:#3592c4'>▒</span> DCS window"
-            " &nbsp; · Ctrl+wheel to zoom, double-click to edit</span>"
+            " (drag to move it) &nbsp; · Ctrl+wheel to zoom, double-click to edit</span>"
         )
         toolbar.addWidget(legend)
         for text, factor in (("−", 1 / 1.4), ("+", 1.4)):

@@ -60,6 +60,10 @@ class QDcsWindowDialog(QDialog):
         # The plan at a glance, with the window band following the slider.
         self.timeline = TimelineWidget(None, compact=True, game=game)
         self.timeline.setMinimumWidth(0)
+        # Dragging the window on the timeline moves the slider with it.
+        self.timeline.window_moved.connect(
+            lambda minutes: self.slider.setValue(round(minutes / STEP_MIN))
+        )
         self.timeline_scroll = QScrollArea()
         self.timeline_scroll.setWidget(self.timeline)
         self.timeline_scroll.setWidgetResizable(True)
@@ -80,7 +84,7 @@ class QDcsWindowDialog(QDialog):
         self.update_window()
 
     def update_window(self) -> None:
-        atoperiod.set_window_offset(self.game, self.slider.value() * STEP_MIN)
+        atoperiod.pin_window(self.game, self.slider.value() * STEP_MIN)
         bounds = atoperiod.window(self.game)
         if bounds is None:
             return

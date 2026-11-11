@@ -5,6 +5,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Timeline]** Drag the DCS mission window on the timeline. Grab the shaded band anywhere off
+  a package and move it; it snaps to 15 minutes. This works in the ATO timeline and in the
+  mission window picker, where the slider follows the band. A window you placed stays there
+  at Take off while every player flight starts inside it; otherwise it moves to your flight as
+  before. You can't drag it in a focused turn, while viewing OPFOR's ATO, or once part of the
+  turn has been fought.
 * **[Air wing]** A new **Air Wing Setup** window for new campaigns, built around presets. For
   each base you pick a preset from a list made for that base: ships first, then airfields
   closest to farthest from the battle. You can then add more of the faction's aircraft, save

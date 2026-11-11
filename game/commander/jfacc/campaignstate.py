@@ -170,6 +170,9 @@ class AirCampaignState:
     sides: dict[bool, SideCampaign] = field(default_factory=dict)
     #: Minutes after the period start at which the DCS mission starts.
     window_offset_min: int = 0
+    #: The player dragged the window on the timeline: Take off keeps it
+    #: there while every player flight starts inside it.
+    window_pinned: bool = False
     #: Packages deferred past the DCS window, resolved after the mission.
     deferred_packages: dict[bool, list[Any]] = field(default_factory=dict)
     #: The ATO period planned this turn, when a side uses the JFACC planner.
@@ -211,6 +214,7 @@ class AirCampaignState:
             self.period_end = end
             self.focused = lead_in_min is not None
             self.window_offset_min = lead_in_min or 0
+            self.window_pinned = False
             self.deferred_packages = {}
             return
         self.period_start = min(self.period_start, start)

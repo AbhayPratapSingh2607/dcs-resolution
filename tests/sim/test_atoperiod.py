@@ -137,3 +137,25 @@ def test_defer_and_restore_packages_after_window() -> None:
     assert atoperiod.restore_deferred(game) == [late]  # type: ignore[arg-type]
     assert late in game.blue.ato.packages
     assert not atoperiod.has_deferred(game)  # type: ignore[arg-type]
+
+
+def test_a_dragged_window_stays_while_it_holds_the_player_flights() -> None:
+    """Dragging the window on the timeline pins it: Take off keeps it there
+    while every player flight starts inside it, else moves it to them."""
+    flight = _player_flight(130)
+    game = _game(SimpleNamespace(flights=[flight], has_players=True))
+    atoperiod.pin_window(game, 105)  # type: ignore[arg-type]
+    assert game.air_campaign.window_pinned
+    assert atoperiod.align_window_to_players(game)  # type: ignore[arg-type]
+    assert game.air_campaign.window_offset_min == 105
+    # Dragged past the player's startup: Take off brings it back.
+    atoperiod.pin_window(game, 150)  # type: ignore[arg-type]
+    assert atoperiod.align_window_to_players(game)  # type: ignore[arg-type]
+    assert game.air_campaign.window_offset_min == 130
+
+
+def test_the_pin_is_for_one_turn() -> None:
+    game = _game()
+    atoperiod.pin_window(game, 60)  # type: ignore[arg-type]
+    game.air_campaign.note_period(2, START, START + timedelta(hours=6))
+    assert not game.air_campaign.window_pinned

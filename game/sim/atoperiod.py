@@ -117,13 +117,41 @@ def player_window_start(game: Game) -> Optional[datetime]:
     return max(start, min(min(starts), latest))
 
 
+def pin_window(game: Game, minutes: int) -> None:
+    """The player moved the window (dragging it on the timeline)."""
+    set_window_offset(game, minutes)
+    if not is_focused(game):
+        game.air_campaign.window_pinned = True
+
+
+def pinned_window_holds_players(game: Game) -> bool:
+    """Whether the window the player placed has every player flight starting
+    inside it (else Take off moves it to them)."""
+    if not getattr(game.air_campaign, "window_pinned", False):
+        return False
+    bounds = window(game)
+    if bounds is None:
+        return False
+    for flight in player_flights(game):
+        try:
+            startup = flight.flight_plan.startup_time()
+        except Exception:
+            continue
+        if not bounds[0] <= startup < bounds[1]:
+            return False
+    return True
+
+
 def align_window_to_players(game: Game) -> bool:
     """Move the DCS window to the player's flight (P4). Returns False when
     there is no player flight, in which case the window stays where it was
-    (blue's main push, or the player's pick)."""
+    (blue's main push, or the player's pick). A window the player dragged
+    stays put while it still holds every player flight's startup."""
     when = player_window_start(game)
     if when is None:
         return False
+    if pinned_window_holds_players(game):
+        return True
     bounds = period(game)
     assert bounds is not None
     set_window_offset(game, int((when - bounds[0]).total_seconds() // 60))
