@@ -244,17 +244,35 @@ class AtoModel(QAbstractListModel):
 
     client_slots_changed = Signal()
     packages_changed = Signal()
+    #: A package's timings or flights changed (its TOT, a flight's start
+    #: type or delay, a flight added or removed), e.g. in its edit dialog.
+    package_timing_changed = Signal()
 
     def __init__(self, game_model: GameModel, ato: AirTaskingOrder) -> None:
         super().__init__()
         self.game_model = game_model
         self.ato = ato
-        self.package_models = DeletableChildModelManager(PackageModel, game_model)
+        self.package_models = DeletableChildModelManager(
+            self._create_package_model, game_model
+        )
         self.game_model.sim_controller.sim_update.connect(self.on_sim_update)
 
     @property
     def game(self) -> Optional[Game]:
         return self.game_model.game
+
+    def _create_package_model(
+        self, package: Package, game_model: GameModel
+    ) -> PackageModel:
+        model = PackageModel(package, game_model)
+        # Views of the whole ATO (the timeline) follow edits made through
+        # the package's own model.
+        changed = self.package_timing_changed.emit
+        model.tot_changed.connect(changed)
+        model.layoutChanged.connect(changed)
+        model.rowsInserted.connect(changed)
+        model.rowsRemoved.connect(changed)
+        return model
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self.ato.packages)

@@ -460,6 +460,8 @@ class AtoTimelineDialog(QDialog):
                 model.dataChanged,
             ):
                 signal.connect(self.timeline.refresh)
+            # Package edits (TOT, start types, delays) redraw it at once.
+            model.package_timing_changed.connect(self.timeline.refresh)
         game_model.sim_controller.sim_update.connect(self.timeline.update)
 
     def set_opfor(self, opfor: bool) -> None:
