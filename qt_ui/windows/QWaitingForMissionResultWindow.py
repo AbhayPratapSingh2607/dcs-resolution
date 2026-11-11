@@ -206,6 +206,7 @@ class QWaitingForMissionResultWindow(QDialog):
         log = getattr(debriefing, "simulation_log", [])
         if log:
             self.gridLayout.addWidget(self.combat_log_box(log), 3, 0)
+            self._grow_for_log()
 
         if not debriefing.state_data.mission_ended:
             self.gridLayout.addWidget(QLabel("<b>Mission is being played</b>"), 1, 0)
@@ -213,6 +214,19 @@ class QWaitingForMissionResultWindow(QDialog):
         else:
             self.gridLayout.addWidget(QLabel("<b>Mission is over</b>"), 1, 0)
             self.gridLayout.addWidget(self.actions2, 2, 0)
+
+    #: Window height once the combat log shows: the 570 px default clipped the
+    #: log under the actions. Capped to the screen.
+    LOG_WINDOW_HEIGHT = 900
+
+    def _grow_for_log(self) -> None:
+        height = max(self.LOG_WINDOW_HEIGHT, self.sizeHint().height())
+        screen = self.screen()
+        if screen is not None:
+            height = min(height, int(screen.availableGeometry().height() * 0.9))
+        if self.height() < height:
+            self.setMinimumHeight(height)
+            self.resize(self.width(), height)
 
     @staticmethod
     def combat_log_box(log: list) -> QGroupBox:
@@ -232,7 +246,7 @@ class QWaitingForMissionResultWindow(QDialog):
                 f"<span style='color:{color}'>{text}</span>"
             )
         browser.setHtml("<br>".join(lines))
-        browser.setMinimumHeight(220)
+        browser.setMinimumHeight(320)
         layout.addWidget(browser, 0, 0)
         return box
 

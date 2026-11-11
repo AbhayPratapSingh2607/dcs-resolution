@@ -211,6 +211,9 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** The mission results window grows to fit the fast-forward combat log (900 px, at
+  most 90% of the screen). At its old 570 px the log squeezed the mission status rows and
+  hid the log under the buttons.
 * **[Combat Model]** A HARM that hits a warship wrecks its radars and silences its SAMs for six
   hours instead of sinking it. One HARM from a SEAD escort sank LOBSTER's remaining frigate in
   every fast forward to the mission window, so the anti-ship flight planned against it found
