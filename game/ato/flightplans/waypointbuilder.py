@@ -4,6 +4,7 @@ import math
 import random
 from dataclasses import dataclass
 from typing import (
+    Any,
     Iterable,
     Iterator,
     List,
@@ -354,12 +355,29 @@ class WaypointBuilder:
     def strike_point(self, target: StrikeTarget) -> FlightWaypoint:
         return self._target_point(target, f"STRIKE {target.name}")
 
-    @staticmethod
-    def _target_point(target: StrikeTarget, description: str) -> FlightWaypoint:
+    def believed(self, position: Point, target: Optional[Any] = None) -> Point:
+        """A point of the package's target moved to where the flight's side
+        believes the target is (game.warfare.intel.believed_offset): the
+        target marks sit where the map shows the site, not on the truth."""
+        from game.warfare.intel import believed_offset
+
+        try:
+            dx, dy = believed_offset(
+                self.flight.coalition.game,
+                self.flight.squadron.player,
+                target if target is not None else self.flight.package.target,
+            )
+        except Exception:
+            return position
+        if dx == 0.0 and dy == 0.0:
+            return position
+        return Point(position.x + dx, position.y + dy, position._terrain)
+
+    def _target_point(self, target: StrikeTarget, description: str) -> FlightWaypoint:
         return FlightWaypoint(
             target.name,
             FlightWaypointType.TARGET_POINT,
-            (
+            self.believed(
                 target.target.ground_object.position
                 if isinstance(target.target, TheaterGroup)
                 else target.target.position
@@ -431,7 +449,7 @@ class WaypointBuilder:
         waypoint = FlightWaypoint(
             name,
             FlightWaypointType.TARGET_GROUP_LOC,
-            location.position,
+            self.believed(location.position, location),
             altitude,
             alt_type,
             description=name,
@@ -698,7 +716,7 @@ class WaypointBuilder:
         return ingress_wp, FlightWaypoint(
             "TARGET",
             FlightWaypointType.TARGET_GROUP_LOC,
-            target.position,
+            self.believed(target.position, target),
             self.get_combat_altitude,
             alt_type,
             description="Escort the package",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, Iterable, Union
 
@@ -106,7 +107,50 @@ class PydcsWaypointBuilder:
         if tot is not None:
             self.set_waypoint_tot(waypoint, tot)
         self.add_tasks(waypoint)
+        self.redirect_to_decoy(waypoint)
         return waypoint
+
+    def redirect_to_decoy(self, waypoint: MovingPoint) -> bool:
+        """An AI package that took the decoy for its target (the decoy call,
+        game.warfare.deception, made before the mission) bombs the decoy:
+        its attack tasks on the real site become one on the decoy's spot.
+        Returns True when the tasks were changed."""
+        from dcs.mapping import Point as DcsPoint
+        from dcs.task import (
+            AttackGroup,
+            AttackMapObject,
+            AttackUnit,
+            Bombing,
+            CarpetBombing,
+            Expend,
+            WeaponType as DcsWeaponType,
+        )
+        from game.warfare.deception import _attack_types
+
+        call = getattr(self.package, "decoy_call", None)
+        if call is None or call.spotted or self.flight.client_count > 0:
+            return False
+        if self.flight.flight_type not in _attack_types():
+            return False
+        attacks = (AttackGroup, AttackUnit, AttackMapObject, Bombing, CarpetBombing)
+        kept = [t for t in waypoint.tasks if not isinstance(t, attacks)]
+        if len(kept) == len(waypoint.tasks):
+            return False
+        point = DcsPoint(call.x, call.y, self.mission.terrain)
+        kept.append(
+            Bombing(
+                point,
+                weapon_type=DcsWeaponType.Auto,
+                expend=Expend.All,
+                group_attack=True,
+            )
+        )
+        waypoint.tasks = kept
+        logging.info(
+            f"{self.flight}: took the decoy for {self.package.target.name}; "
+            f"bombing it at ({call.x:.0f}, {call.y:.0f})"
+        )
+        return True
 
     def switch_to_baro_if_in_sea(self, waypoint: MovingPoint) -> None:
         if waypoint.alt_type == "RADIO" and (

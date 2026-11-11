@@ -12,6 +12,7 @@ don't drop hardened shelters, 2000 lb bombs do).
 
 from __future__ import annotations
 
+import logging
 import random
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -313,7 +314,7 @@ class AttackRun:
             self.target, "control_point"
         ):
             return False
-        from game.warfare.deception import consume_decoy, decoyed
+        from game.warfare.deception import decoy_call, decoyed, strike_on_decoy
 
         viewer = self.flight.squadron.player
         try:
@@ -323,21 +324,30 @@ class AttackRun:
         index = decoyed(picture, self.target)  # type: ignore[arg-type]
         if index is None:
             return False
+        # The package's call, made before the mission when it was flown in
+        # DCS, else now: the same one DCS follows.
+        call = None
+        try:
+            call = decoy_call(self.model.game, self.flight.package)
+        except Exception:
+            logging.exception("Could not make the decoy call")
+        if call is not None and call.spotted:
+            picture.expose(self.target, self.rng)
+            self.model.log(
+                self.time,
+                CombatDomain.STRIKE,
+                self.side,
+                f"{self.flight} sees through the decoy at {self.target.name} and "
+                "attacks the real site",
+            )
+            return False
         for airframe in airframes:
             for store in airframe.a2g_stores(self._roles()):
                 self.report.released += store.remaining
                 store.remaining = 0
-        consume_decoy(war_state, self.target, index)  # type: ignore[arg-type]
-        contact = picture.contact(self.target)
-        if self.rng.random() < 0.25 + 0.4 * picture.isr:
-            # The crews realise they hit a dummy.
-            picture.expose(self.target, self.rng)
-            note = "the crews report a decoy"
-        else:
-            if contact is not None:
-                contact.decoy_index = None
-                contact.believed_dead = {u.id for u in self.target.units}  # type: ignore[attr-defined]
-            note = "reported destroyed"
+        note = strike_on_decoy(
+            war_state, picture, self.target, index, self.rng  # type: ignore[arg-type]
+        )
         self.model.log(
             self.time,
             CombatDomain.STRIKE,

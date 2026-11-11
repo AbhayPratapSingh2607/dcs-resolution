@@ -97,7 +97,9 @@ class GameLoop:
         self.sim.advance_to_window(self.events, should_stop)
         bounds = window(self.game)
         if bounds is not None and self.sim.time < bounds[0]:
-            logging.info(f"Stopped the fast forward at {self.sim.time:%H:%M}: cancelled")
+            logging.info(
+                f"Stopped the fast forward at {self.sim.time:%H:%M}: cancelled"
+            )
             self.send_update(rate_limit=False)
             return False
         defer_after_window(self.game)
@@ -114,6 +116,16 @@ class GameLoop:
         self.pause()
         if not self.started:
             self.start()
+        # The decoy calls of the packages in DCS, made before the mission is
+        # written (DCS follows them) and kept for the results.
+        from game.warfare.deception import decide_decoy_calls
+
+        try:
+            calls = decide_decoy_calls(self.game)
+        except Exception:
+            logging.exception("Could not make the decoy calls")
+            calls = []
+        self.game.air_campaign.dcs_decoy_calls = calls  # type: ignore[attr-defined]
         self.sim.generate_miz(output)
 
     def pause_and_debrief(self, state_path: Path, force_end: bool) -> Debriefing:
@@ -125,6 +137,15 @@ class GameLoop:
 
         self.pause()
         self.sim.process_results(debriefing, self.events)
+        from game.warfare.deception import apply_dcs_calls
+
+        try:
+            apply_dcs_calls(
+                self.game, getattr(self.game.air_campaign, "dcs_decoy_calls", [])
+            )
+        except Exception:
+            logging.exception("Could not apply the decoy calls")
+        self.game.air_campaign.dcs_decoy_calls = []  # type: ignore[attr-defined]
         # The flights that hadn't finished when the player quit, and the
         # packages held back past the DCS window, are fought now.
         remainder = resolve_remainder(self.game, self.events, debriefing)

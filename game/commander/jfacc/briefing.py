@@ -248,12 +248,16 @@ class PackageResult:
     successes: int
     air_kills: int
     aborts: int
+    #: The decoy call (game.warfare.deception), when the target was a decoy.
+    decoy: str = ""
 
     @property
     def result(self) -> str:
         if not self.flown:
             return "not flown"
         parts = []
+        if self.decoy:
+            parts.append(self.decoy)
         if self.target_destroyed:
             parts.append("target destroyed")
         elif self.target_hits:
@@ -457,6 +461,18 @@ def plan_debrief(
             package.flights = flights
 
 
+def _decoy_note(package: Package) -> str:
+    call = getattr(package, "decoy_call", None)
+    if call is None or package.has_players:
+        # Players make their own call in DCS.
+        return ""
+    return (
+        "saw through a decoy and attacked the real site"
+        if call.spotted
+        else "took a decoy for the target and bombed it"
+    )
+
+
 def _plan_debrief(
     debriefing: object,
     blue: bool,
@@ -501,6 +517,7 @@ def _plan_debrief(
             + outcome.credit.get((key, "arm_attack"), 0),
             air_kills=outcome.credit.get((key, "air_kill"), 0),
             aborts=outcome.credit.get((key, "abort"), 0),
+            decoy=_decoy_note(package),
         )
 
     def routine_lines(results: dict[str, list[PackageResult]]) -> list[str]:

@@ -5,6 +5,15 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[Intel]** The decoy call. A package sent against a site its side's picture holds as a
+  decoy gets one roll before the mission is flown. The chance starts at 15% plus 35% of the
+  side's ISR, gains 20% with a SEAD element in the package (most decoys don't radiate), and
+  falls off with the real site's distance from the decoy; it is 0 beyond 20 km and at most 85%.
+  A package that sees through the decoy attacks the real site; one that doesn't bombs the decoy.
+  DCS and the combat model follow the same call: in DCS the AI's attack tasks become a bombing
+  task on the decoy, and the decoys stand there as inert copies of the site's vehicles. The
+  debrief says which happened. Target marks of every flight now sit where its side believes
+  the target is (the map's marker), not on the real site.
 * **[CSAR]** Turn-based combat search and rescue. Downed pilots appear on the map and survive for a
   set number of turns. AI and player helicopters can rescue them, with hover or landing extraction
   for the AI and MOOSE Ops.CSAR for players. Unrescued pilots go missing in action or are taken

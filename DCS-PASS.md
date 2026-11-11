@@ -1,6 +1,6 @@
 # The DCS pass (M6)
 
-Every open "Checks in DCS" item in `TODO.md` (D1–D22), grouped into five sessions so that one
+Every open "Checks in DCS" item in `TODO.md` (D1–D23), grouped into five sessions so that one
 campaign covers as many as it can. The details of what to expect are in each D item; this sheet
 says where and in which order to look. Tick the item in `TODO.md` once it's flown. For
 problems, keep `Saved Games\DCS\Logs\dcs.log`, the state file and a Tacview recording, and
@@ -105,6 +105,9 @@ The save `dcs-resolution-PG` (Super Hornets on CVN-75), Settings → Mission gen
    → D21
 5. Watch the DEAD packages (Tacview): the DEAD flight releases JSOW/JDAM on its SAM from the
    IP, it doesn't turn home with its weapons. → D22
+6. On a turn with a package against a decoyed site (the PG save's SHOEBILL DEAD): the marks sit
+   on the map's marker, decoy vehicles stand there, and the AI does what the app log's decoy
+   call says (bombs the decoy or attacks the real site); the plan report says which. → D23
 
 ## Afterwards
 

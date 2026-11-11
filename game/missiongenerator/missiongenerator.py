@@ -114,6 +114,9 @@ class MissionGenerator:
         )
         MotorpoolPopulator(self.game).populate()
         tgo_generator.generate()
+        from game.missiongenerator.decoygenerator import DecoyGenerator
+
+        DecoyGenerator(self.mission, self.game).generate()
 
         ConvoyGenerator(self.mission, self.game, self.unit_map).generate()
         CargoShipGenerator(self.mission, self.game, self.unit_map).generate()

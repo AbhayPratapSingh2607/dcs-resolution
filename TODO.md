@@ -530,7 +530,7 @@ if the user asks.
 ### M6. The DCS pass
 
 Every open item under "Checks in DCS", flown in one pass (decision 8). Then the fixes,
-then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D22 and
+then a frame rate and unit count measurement on a busy theater. The run sheet, D1–D23 and
 A1–A6 grouped into five sessions, is `DCS-PASS.md`.
 
 ## Parked
@@ -749,6 +749,15 @@ default since W8). D11 checks the 6 hour turn.
 - [ ] **D22. DEAD flights carry weapons that hit a dark site (fix 2026-11-11).** On the PG
   save, each DEAD flight carries JSOW/JDAM (not HARMs only) and attacks its SAM even when
   Skynet keeps it in ambush; Growlers fly SEAD escort and fire when the site lights up.
+- [ ] **D23. The decoy call (2026-11-11).** With fog of war on, a package sent against a site
+  your picture holds as a decoy gets one roll at Take off (`dcs.log`/app log: "takes the decoy
+  for the site" or "sees through the decoy", with the chance and why). **Expect:**
+  - the target marks of every flight in the package sit on the map's marker, not the real site;
+  - inert copies of the site's vehicles stand at the decoy;
+  - an AI package that took the decoy bombs it (Tacview), one that saw through it attacks the
+    real site;
+  - the debriefing's plan report says which ("took a decoy for the target and bombed it" or
+    "saw through a decoy and attacked the real site").
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

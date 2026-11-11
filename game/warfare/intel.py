@@ -18,7 +18,7 @@ import random
 import weakref
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Iterator, Optional, TYPE_CHECKING
+from typing import Any, Iterable, Iterator, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from game.theater.player import Player
@@ -444,3 +444,24 @@ def player_estimate(
     if control_point_id is not None:
         quality = picture.estimate_quality(control_point_id)
     return f"~{estimate_count(true_count, quality, rng)}"
+
+
+def believed_offset(game: Any, viewer: Any, target: Any) -> tuple[float, float]:
+    """How far the viewer's picture puts an enemy ground object from where it
+    really is (north, east metres): zero for its own objects, for unknown
+    ones and with intel off. Flight plans put their target marks there, the
+    same place the map shows."""
+    from game.theater import TheaterGroundObject
+
+    if not isinstance(target, TheaterGroundObject):
+        return 0.0, 0.0
+    war_state = getattr(game, "war_state", None)
+    if war_state is None or not war_state.intel_enabled(game):
+        return 0.0, 0.0
+    if target.control_point.captured == viewer:
+        return 0.0, 0.0
+    picture = war_state.picture(game, viewer)
+    if not picture.knows(target):
+        return 0.0, 0.0
+    believed = picture.estimated_position(target)
+    return believed.x - target.position.x, believed.y - target.position.y

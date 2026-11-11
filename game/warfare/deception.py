@@ -13,14 +13,20 @@ report the site destroyed, and the real site lives to fight.
 
 from __future__ import annotations
 
+import logging
 import math
 import random
-from typing import Optional, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, Optional, TYPE_CHECKING
+from uuid import UUID
 
 from .intel import EXPOSING_SOURCES, IntelPicture, IntelSource, is_mobile
 
 if TYPE_CHECKING:
+    from dcs.mapping import Point
+
     from game import Game
+    from game.ato import Package
     from game.theater import TheaterGroundObject
     from .warstate import WarState
 
@@ -171,3 +177,181 @@ def consume_decoy(war_state: WarState, tgo: TheaterGroundObject, index: int) -> 
     decoys = war_state.deception.get(tgo.id)
     if decoys and 0 <= index < len(decoys):
         decoys.pop(index)
+
+
+# ============================================================ the decoy call
+#
+# A package sent against a site whose picture is a decoy may see through it
+# on the way in: the crews' sensors, ELINT from the SEAD element (most decoys
+# don't radiate), or a real site close enough to be found from the decoy.
+# The call is made once, before the mission is flown (at Take off, when the
+# fast forward reaches the DCS window, or when the combat model's strike
+# arrives), and both DCS and the combat model follow it: a package that sees
+# through it attacks the real site, one that doesn't bombs the decoy.
+
+#: Beyond this from the decoy the real site isn't found on the attack run.
+SPOT_RANGE_M = 20_000.0
+#: The chance to see through a decoy: base, per unit of the side's ISR, and
+#: with a SEAD element in the package; capped.
+SPOT_BASE = 0.15
+SPOT_PER_ISR = 0.35
+SPOT_SEAD_BONUS = 0.2
+SPOT_MAX = 0.85
+
+
+@dataclass
+class DecoyCall:
+    """One package's call on a decoyed target, rolled before the mission."""
+
+    tgo_id: UUID
+    decoy_index: int
+    #: The decoy's position (the believed position of the site), DCS axes.
+    x: float
+    y: float
+    chance: float
+    spotted: bool
+    reasons: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        what = (
+            "sees through the decoy and attacks the real site"
+            if self.spotted
+            else "takes the decoy for the site"
+        )
+        why = "; ".join(self.reasons)
+        return f"{what} ({round(self.chance * 100)}% chance: {why})"
+
+
+def _attack_types() -> set[Any]:
+    from game.ato.flighttype import FlightType
+
+    return {FlightType.DEAD, FlightType.STRIKE, FlightType.BAI}
+
+
+def _sead_types() -> set[Any]:
+    from game.ato.flighttype import FlightType
+
+    return {FlightType.SEAD, FlightType.SEAD_ESCORT, FlightType.SEAD_SWEEP}
+
+
+def see_through_chance(
+    package: Package, picture: IntelPicture, tgo: TheaterGroundObject, decoy: Point
+) -> tuple[float, list[str]]:
+    """The chance the package spots the decoy, and why."""
+    distance = decoy.distance_to_point(tgo.position)
+    if distance >= SPOT_RANGE_M:
+        return 0.0, [f"the real site is {distance / 1000:.0f} km from the decoy"]
+    chance = SPOT_BASE + SPOT_PER_ISR * picture.isr
+    reasons = [f"ISR {round(picture.isr * 100)}%"]
+    if any(f.flight_type in _sead_types() for f in package.flights):
+        chance += SPOT_SEAD_BONUS
+        reasons.append("ELINT from the SEAD element")
+    # The farther the real site, the less likely the crews find it.
+    chance *= 1.0 - 0.5 * distance / SPOT_RANGE_M
+    reasons.append(f"real site {distance / 1000:.0f} km away")
+    return min(SPOT_MAX, chance), reasons
+
+
+def decoy_call(game: Game, package: Package) -> Optional[DecoyCall]:
+    """The package's call on its target, made the first time it is asked
+    and kept (the same decoy gives the same call). None when the package's
+    picture of its target isn't a decoy or it has no attack flights."""
+    from game.theater import TheaterGroundObject
+
+    target = package.target
+    if not isinstance(target, TheaterGroundObject) or not enabled(game):
+        return None
+    if not any(f.flight_type in _attack_types() for f in package.flights):
+        return None
+    war_state = getattr(game, "war_state", None)
+    if war_state is None or not war_state.intel_enabled(game):
+        return None
+    if not package.flights:
+        return None
+    viewer = package.flights[0].squadron.player
+    if target.control_point.captured == viewer:
+        return None
+    picture = war_state.picture(game, viewer)
+    index = decoyed(picture, target)
+    existing: Optional[DecoyCall] = getattr(package, "decoy_call", None)
+    if index is None:
+        package.decoy_call = None  # type: ignore[attr-defined]
+        return None
+    if (
+        existing is not None
+        and existing.tgo_id == target.id
+        and existing.decoy_index == index
+    ):
+        return existing
+    point = picture.estimated_position(target)
+    chance, reasons = see_through_chance(package, picture, target, point)
+    rng = war_state.rng(game, f"decoycall:{target.id}:{package.time_over_target}")
+    call = DecoyCall(
+        target.id, index, point.x, point.y, chance, rng.random() < chance, reasons
+    )
+    package.decoy_call = call  # type: ignore[attr-defined]
+    return call
+
+
+def decide_decoy_calls(game: Game) -> list[tuple[Package, DecoyCall]]:
+    """Makes the call for every package in the ATOs (the packages flown in
+    DCS), before the mission is generated."""
+    calls: list[tuple[Package, DecoyCall]] = []
+    for coalition in (game.blue, game.red):
+        for package in coalition.ato.packages:
+            try:
+                call = decoy_call(game, package)
+            except Exception:
+                logging.exception(f"Could not make the decoy call for {package}")
+                continue
+            if call is not None:
+                calls.append((package, call))
+                logging.info(f"{package}: {call.summary()}")
+    return calls
+
+
+def strike_on_decoy(
+    war_state: WarState,
+    picture: IntelPicture,
+    tgo: TheaterGroundObject,
+    index: int,
+    rng: random.Random,
+) -> str:
+    """The weapons hit the decoy: it is gone, and the crews either realise
+    it was a dummy or report the site destroyed. Returns the note."""
+    consume_decoy(war_state, tgo, index)
+    contact = picture.contact(tgo)
+    if rng.random() < 0.25 + 0.4 * picture.isr:
+        picture.expose(tgo, rng)
+        return "the crews report a decoy"
+    if contact is not None:
+        contact.decoy_index = None
+        contact.believed_dead = {u.id for u in tgo.units}
+    return "reported destroyed"
+
+
+def apply_dcs_calls(game: Game, calls: list[tuple[Package, DecoyCall]]) -> None:
+    """After the DCS mission: what the calls of the AI packages flown there
+    did to the picture. A package that saw through the decoy has found the
+    real site; one that didn't has bombed the decoy. Packages with players
+    are left to what the players did."""
+    war_state = getattr(game, "war_state", None)
+    if war_state is None:
+        return
+    for package, call in calls:
+        if package.has_players:
+            continue
+        target = package.target
+        if getattr(target, "id", None) != call.tgo_id or not package.flights:
+            continue
+        viewer = package.flights[0].squadron.player
+        picture = war_state.picture(game, viewer)
+        if decoyed(picture, target) != call.decoy_index:  # type: ignore[arg-type]
+            continue
+        rng = war_state.rng(game, f"decoydcs:{call.tgo_id}")
+        if call.spotted:
+            picture.expose(target, rng)
+        else:
+            strike_on_decoy(
+                war_state, picture, target, call.decoy_index, rng  # type: ignore[arg-type]
+            )
