@@ -917,3 +917,33 @@ def test_pretense_leaves_dynamic_farps_out_and_restores_them() -> None:
     restore_dynamic_farps(game, removed)
 
     assert game.theater.controlpoints == [base, farp, other]
+
+
+def test_zero_max_front_distance_means_no_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from game.farps import FrontSituation
+
+    world = make_world()
+    world.settings.enable_instant_farp_cheat = True
+    world.game.theater = SimpleNamespace(
+        controlpoints=[],
+        ground_objects=[],
+        is_on_land=lambda point: True,
+        conflicts=lambda: [],
+        farp_terrain=None,
+    )
+    manager = FarpManager(cast(Any, world.coalition))
+    owner = MagicMock()
+    owner.is_friendly.return_value = True
+    monkeypatch.setattr(manager, "nearest_territory_owner", lambda point: owner)
+    far_away = FrontSituation(cast(Any, MagicMock()), 500_000.0, False)
+    monkeypatch.setattr(manager, "front_situation", lambda point: far_away)
+    site = Point(100_000, 0, TERRAIN)
+
+    reasons = manager.check_site(site, FarpKind.FAT_COW).reasons
+    assert any("Too far from the front line" in r for r in reasons)
+
+    world.settings.farp_max_frontline_distance = 0
+    reasons = manager.check_site(site, FarpKind.FAT_COW).reasons
+    assert not any("Too far from the front line" in r for r in reasons)

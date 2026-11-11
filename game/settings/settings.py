@@ -922,8 +922,9 @@ class Settings:
         CAMPAIGN_MANAGEMENT_PAGE,
         DYNAMIC_FARPS_SECTION,
         default=20,
-        min=1,
+        min=0,
         max=60,
+        detail="0 means no limit: FARPs can be built any distance from the front.",
     )
 
     # HQ Automation

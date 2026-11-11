@@ -5,6 +5,8 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Features
 
+* **[FARPs]** Setting **FARP maximum distance from front** to 0 removes the limit: FARPs
+  can be built any distance behind the front.
 * **[Timeline]** Drag the DCS mission window on the timeline. Grab the shaded band anywhere off
   a package and move it; it snaps to 15 minutes. This works in the ATO timeline and in the
   mission window picker, where the slider follows the band. A window you placed stays there

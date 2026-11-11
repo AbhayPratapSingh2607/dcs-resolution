@@ -351,12 +351,14 @@ class FarpManager:
         elif situation.behind_enemy_lines:
             reasons.append("FARPs must be on our side of the front line.")
         min_dist = nautical_miles(settings.farp_min_frontline_distance)
-        max_dist = nautical_miles(settings.farp_max_frontline_distance)
+        # A maximum of 0 means no limit.
+        max_nm = settings.farp_max_frontline_distance
+        max_dist = nautical_miles(max_nm)
         if front_distance < min_dist.meters:
             reasons.append(
                 f"Too close to the front line (min {min_dist.nautical_miles:.0f}nm)."
             )
-        elif front_distance > max_dist.meters:
+        elif max_nm > 0 and front_distance > max_dist.meters:
             reasons.append(
                 f"Too far from the front line (max {max_dist.nautical_miles:.0f}nm)."
             )

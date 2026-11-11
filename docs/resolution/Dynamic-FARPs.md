@@ -97,7 +97,7 @@ Unless stated otherwise, these settings are under Campaign Management → Dynami
 | Fat Cow FARP upkeep per turn | 15 |
 | Maximum number of FARPs | 4 |
 | FARP minimum distance from front (nm) | 3 |
-| FARP maximum distance from front (nm) | 20 |
+| FARP maximum distance from front (nm) | 20 (0 means no limit) |
 | Enable Instant FARP Cheat (Cheat Menu page) | Off |
 
 ## Supported maps
