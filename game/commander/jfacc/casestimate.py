@@ -21,6 +21,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from game import Game
     from game.ato import Flight
+    from game.ato.flighttype import FlightType
+    from game.data.weapons import Weapon
+    from game.squadrons import Squadron
     from game.theater.frontline import FrontLine
     from game.theater.player import Player
 
@@ -133,3 +136,101 @@ def flight_kills_or_fallback(flight: Flight, armor_share: float) -> float:
     except Exception:
         logging.exception("JFACC: could not estimate CAS kills")
         return FALLBACK_KILLS_PER_AIRCRAFT * flight.count
+
+
+#: Combat model skill of an average crew, for the flak estimate.
+AVERAGE_SKILL = 0.8
+
+
+def front_flak_loss(game: Game, front: FrontLine, flight: Flight) -> float:
+    """Expected loss per sortie of a CAS flight to the front's own air defense
+    (MANPADS, AAA, SHORAD and small arms of the units in contact). Mirrors
+    AttackRun._front_line_flak: helicopters and aircraft delivering low
+    (rockets, guns, ATGMs, bombs, below 3,500 m) take the full exposure,
+    others a quarter of it, and a primary weapon that reaches 8 km or more
+    keeps the aircraft out of most of it. The route SAM term doesn't count
+    the front's organic air defense at all, so without this a UH-1H with
+    rockets over the front estimated under 1% and lost about 1 in 10."""
+    member = next(iter(flight.iter_members()))
+    weapons = [w for w in member.loadout.pylons.values() if w is not None]
+    return _front_flak(game, front, flight.squadron.player, flight.is_helo, weapons)
+
+
+def squadron_front_flak(
+    game: Game, front: FrontLine, squadron: Squadron, task: FlightType
+) -> float:
+    """front_flak_loss for a squadron's default loadout for the task, to
+    choose the squadron before the flight exists."""
+    from game.ato.loadouts import Loadout
+
+    loadout = Loadout.default_for_task_and_aircraft(
+        task, squadron.aircraft.dcs_unit_type, front
+    )
+    weapons = [w for w in loadout.pylons.values() if w is not None]
+    return _front_flak(
+        game, front, squadron.player, squadron.aircraft.helicopter, weapons
+    )
+
+
+def _front_flak(
+    game: Game,
+    front: FrontLine,
+    player: Player,
+    helicopter: bool,
+    weapons: list[Weapon],
+) -> float:
+    from game.sim.combat.model.attack import LOW_LEVEL_DELIVERY, VISUAL_DELIVERY
+    from game.sim.combat.model.forcequality import for_faction
+    from game.sim.combat.model.profiles import CombatProfiles, WeaponRole
+
+    enemy_cp = front.red_cp if player.is_blue else front.blue_cp
+    # The air plan is made before the turn's ground plan (Game.initialize_turn),
+    # so the forces at the front come from the enemy base the way GroundPlanner
+    # deploys them: up to the base's front-line unit limit, shared between its
+    # fronts, one group per unit type.
+    base = enemy_cp.base
+    total = base.total_armor
+    if total <= 0:
+        return 0.0
+    fronts = max(
+        1,
+        sum(1 for cp in enemy_cp.connected_points if cp.captured != enemy_cp.captured),
+    )
+    share = min(enemy_cp.frontline_unit_count_limit / total, 1.0) / fronts
+    profiles = CombatProfiles.instance()
+    aa_strength = 0.0
+    for unit_type, count in base.armor.items():
+        deployed = count * share
+        if deployed <= 0:
+            continue
+        try:
+            aa_strength += profiles.ground_unit(unit_type).air_defense
+        except Exception:
+            pass
+        aa_strength += 0.05 * deployed
+
+    primary = None
+    for weapon in weapons:
+        try:
+            profile = profiles.weapon(weapon)
+        except Exception:
+            continue
+        if profile.role is WeaponRole.A2G and (
+            primary is None or profile.range_km > primary.range_km
+        ):
+            primary = profile
+    low = helicopter or (
+        primary is not None
+        and primary.guidance in (*LOW_LEVEL_DELIVERY, *VISUAL_DELIVERY)
+    )
+    exposure = 1.0 if low else 0.25
+    if primary is not None and primary.range_km >= 8:
+        exposure *= 0.4
+    try:
+        enemy = game.coalition_for(player.opponent).faction.name
+        crew = for_faction(enemy).sam_crew
+    except Exception:
+        crew = 1.0
+    lethality = float(getattr(game.settings, "combat_model_lethality", 1.0))
+    p_unit = 0.025 * lethality * (0.5 + 0.5 * crew) * (1.3 - 0.5 * AVERAGE_SKILL)
+    return 1 - (1 - p_unit) ** (aa_strength * exposure)

@@ -418,6 +418,15 @@ class PackageComposer:
             # first: their distance from the map edge says nothing about
             # their fitness, and they are there for this.
             candidates = sorted(candidates, key=lambda s: not _off_map(s))
+        if _is_front_line(target) and request.task in weaponeering.ATTACK_TASKS:
+            # The front's own air defense: the least exposed aircraft first
+            # (stand-off weapons, medium altitude), helicopters with rockets
+            # and guns only when nothing else can fly it. In 0.5% steps, so
+            # the nearest squadron still goes first among similar ones.
+            candidates = sorted(
+                candidates,
+                key=lambda s: round(self._squadron_flak(s, target, request.task) * 200),
+            )
         if request.home is not None:
             candidates = [s for s in candidates if s.location is request.home]
         why = "no suitable squadron in range"
@@ -862,6 +871,8 @@ class PackageComposer:
             model=self.risk_model,
             station=_holds_station(package),
         )
+        if _is_front_line(request.target):
+            risk = risk.with_ground_fire(self._front_flak(package, request.target))
         from .experience import kind_of
 
         risk = risk.scaled(self.experience.get(kind_of(package), 1.0))
@@ -876,6 +887,32 @@ class PackageComposer:
         if override:
             limit = float(override) / 100
         return risk, limit, sead_aircraft
+
+    def _squadron_flak(self, squadron: Squadron, front: Any, task: FlightType) -> float:
+        from .casestimate import squadron_front_flak
+
+        try:
+            return squadron_front_flak(self.game, front, squadron, task)
+        except Exception:
+            logging.exception("JFACC: could not estimate ground fire")
+            return 0.0
+
+    def _front_flak(self, package: Package, front: Any) -> float:
+        """Sortie-weighted ground fire over the front for the attack flights."""
+        from .casestimate import front_flak_loss
+
+        total = sorties = 0.0
+        for flight in package.flights:
+            if flight.flight_type not in weaponeering.ATTACK_TASKS:
+                continue
+            try:
+                loss = front_flak_loss(self.game, front, flight)
+            except Exception:
+                logging.exception("JFACC: could not estimate ground fire")
+                continue
+            total += loss * flight.count
+            sorties += flight.count
+        return total / sorties if sorties else 0.0
 
     def _rollback_limit(self, request: PackageRequest, threat: RouteThreat) -> float:
         """The higher risk allowed for rolling back the outer IADS layer."""

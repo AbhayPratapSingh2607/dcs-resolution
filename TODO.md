@@ -435,6 +435,20 @@ if the user asks.
     over the 5 runs (was 63); iran PASS 5.2-18.7; peer FAIL, median 1.61, 2 bases in 1 run;
     red_wins PASS 4/5. CAS and DEAD losses (2.3% each against ~0.9% estimated) are the next item if
     iraq still fails.
+  - **Open item 4 (iraq FAIL, CAS losses).** After item 3 CAS was blue's largest loss in iraq:
+    19 of 540 sorties (3.5%, estimated 0.8%), mostly to ground fire; 14 of the 45 blue losses
+    were UH-1H gunships. The CAS estimate had no term for the front's own air defense
+    (MANPADS, AAA, small arms), which the combat model applies to every aircraft over the
+    front; and squadrons were tried nearest first, so the Hueys at the forward base flew the
+    CAS. Fix: `casestimate.front_flak_loss` mirrors the model's flak (full exposure for
+    helicopters and low deliveries, a quarter at medium altitude, x0.4 with an 8 km weapon),
+    from the enemy base's forces since the air plan comes before the ground plan; it is added
+    to front-line packages' estimates, and front-line attack squadrons are tried least exposed
+    first. Iraq turn 1: Huey CAS 7.3% ground fire, jets 0.8%; 46 CAS sorties on jets. Matrix
+    after (87 min), 2 of 4 in band: iraq FAIL, ratio 3.3-9.8, 3 of 5 under 5, blue lost 32
+    over 5 runs (was 45); iran PASS 9.8-24.5 (was 5.2-18.7); peer FAIL, median 1.18, and
+    blue now takes 2 bases in all 5 runs (was 1 of 5): jet CAS works where the Hueys died;
+    red_wins PASS 5/5.
 - [x] **V3. FAC(A) line.** A routine line over each active front: a FAC(A) flight for the
   period that marks targets for CAS. There is no FAC flight type today. First check what
   the DCS AI can do with its FAC task. Done 2026-11-10 (`game/commander/jfacc/faca.py`):

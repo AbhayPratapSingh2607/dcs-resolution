@@ -109,6 +109,8 @@ class RiskEstimate:
     #: The model's estimate before the loss experience factor.
     model_loss_rate: float = -1.0
     experience: float = 1.0
+    #: Ground fire over the front (casestimate.front_flak_loss).
+    ground_component: float = 0.0
 
     def describe(self) -> str:
         scaled = (
@@ -116,9 +118,28 @@ class RiskEstimate:
             if abs(self.experience - 1.0) >= 0.01
             else ""
         )
+        ground = (
+            f", ground fire {self.ground_component:.1%}"
+            if self.ground_component > 0
+            else ""
+        )
         return (
             f"{self.expected_loss_rate:.1%} per sortie "
-            f"(SAM {self.sam_component:.1%}, air {self.air_component:.1%}{scaled})"
+            f"(SAM {self.sam_component:.1%}, air {self.air_component:.1%}"
+            f"{ground}{scaled})"
+        )
+
+    def with_ground_fire(self, ground: float) -> RiskEstimate:
+        """This estimate with ground fire over the front added."""
+        if ground <= 0:
+            return self
+        return RiskEstimate(
+            1 - (1 - self.expected_loss_rate) * (1 - ground),
+            self.sam_component,
+            self.air_component,
+            self.model_loss_rate,
+            self.experience,
+            ground,
         )
 
     def scaled(self, factor: float) -> RiskEstimate:
@@ -129,6 +150,7 @@ class RiskEstimate:
             self.air_component,
             self.expected_loss_rate,
             factor,
+            self.ground_component,
         )
 
     @property

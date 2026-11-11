@@ -234,6 +234,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 * **[Auto Planner]** A CAP station deep in overlapping SAM coverage is pulled back along its
   axis. Its risk estimate grew only linearly with the coverage, so a station that lost 5 of 12
   sorties in Desert Storm-like runs was estimated at 1.5% and never moved.
+* **[Auto Planner]** CAS risk estimates count the ground fire of the troops at the front
+  (MANPADS, AAA, small arms), and front-line attack missions go to the least exposed squadrons
+  first. Before, the nearest squadron flew them, often UH-1H gunships with rockets, which lost
+  about 1 in 10 sorties while estimated under 1%.
 
 * **[Auto Planner]** CAP packages get a risk estimate. Before they had none, so a turn of CAPs
   reported 0% while losing 2–4% per sortie to SAMs. The estimate counts SAM sites near the station
