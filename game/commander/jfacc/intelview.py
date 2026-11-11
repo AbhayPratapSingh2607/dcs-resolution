@@ -38,16 +38,39 @@ def picture_for(game: Game, player: Player) -> Optional[IntelPicture]:
 
 def believed_radar_reach_m(game: Game, player: Player, tgo: TheaterGroundObject) -> float:
     """Range of the site's radar SAMs the side believes still work (a TELAR,
-    or a launcher with its tracking radar), meters; 0 if none."""
+    a launcher with its tracking radar, or an air defense ship), meters; 0 if
+    none."""
     picture = picture_for(game, player)
     if picture is None:
         return max(
-            (g.max_threat_range(radar_only=True).meters for g in tgo.groups),
+            (
+                max(
+                    g.max_threat_range(radar_only=True).meters,
+                    _ship_reach(g, set()),
+                )
+                for g in tgo.groups
+            ),
             default=0.0,
         )
     contact = picture.contact(tgo)
     dead: set[int] = contact.believed_dead if contact is not None else set()
     return max((_group_radar_reach(group, dead) for group in tgo.groups), default=0.0)
+
+
+def _ship_reach(group: object, believed_dead: set[int]) -> float:
+    """Reach of the air defense ships in a group, meters. A warship carries its
+    search and fire control radars and its missiles on one hull, like a TELAR;
+    it matched neither the TELAR list nor a launcher-tracker pair, so a
+    frigate's SA-N-4 counted for nothing in the route threat."""
+    from dcs.unittype import ShipType
+
+    reach = 0.0
+    for unit in getattr(group, "units", []):
+        if unit.id in believed_dead or not unit.alive or not unit.is_anti_air:
+            continue
+        if issubclass(unit.type, ShipType):
+            reach = max(reach, unit.threat_range.meters)
+    return reach
 
 
 def believed_live_radar_sam(game: Game, player: Player, tgo: TheaterGroundObject) -> bool:
@@ -77,7 +100,7 @@ def _group_radar_reach(group: object, believed_dead: set[int]) -> float:
     for unit in launchers:
         if any(tr in trackers for tr in LAUNCHER_TRACKER_PAIRS[unit.type]):
             reach = max(reach, unit.threat_range.meters)
-    return reach
+    return max(reach, _ship_reach(group, believed_dead))
 
 
 def estimated_aircraft(game: Game, player: Player, squadron: Squadron) -> int:

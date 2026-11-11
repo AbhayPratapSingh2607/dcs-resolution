@@ -123,6 +123,21 @@ def sam_weight(
     """
     from game.data.groups import GroupTask
 
+    from game.theater.theatergroundobject import NavalGroundObject
+
+    if isinstance(tgo, NavalGroundObject):
+        # Ships have no LORAD/MERAD task: weigh them by their reach like the
+        # land sites (S-300F class, SA-N-7/9 class, SA-N-4 and guns).
+        reach = tgo.max_threat_range().meters
+        if live is False or reach <= 0:
+            return 0
+        if reach >= 40_000:
+            return 3
+        if reach >= 20_000:
+            return 2
+        if reach >= 8_000:
+            return 1 if medium_altitude else 1.5
+        return 0
     if not (tgo.has_live_radar_sam if live is None else live):
         return 0
     if tgo.task is GroupTask.LORAD:
