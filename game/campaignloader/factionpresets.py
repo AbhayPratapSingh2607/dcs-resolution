@@ -63,6 +63,8 @@ class Role(Enum):
     AIRLIFT = "airlift"
     ATTACK_HELO = "attack helicopter"
     TRANSPORT_HELO = "transport helicopter"
+    #: A carrier's own helicopters: naval (anti-ship capable) ones first.
+    SHIP_HELO = "ship's helicopter"
     BOMBER = "bomber"
 
 
@@ -86,6 +88,10 @@ ROLES: dict[Role, tuple[tuple[FlightType, ...], Callable[[AircraftType], bool]]]
         (FlightType.AIR_ASSAULT, FlightType.TRANSPORT),
         lambda a: a.helicopter,
     ),
+    Role.SHIP_HELO: (
+        (FlightType.ANTISHIP, FlightType.TRANSPORT, FlightType.AIR_ASSAULT),
+        lambda a: a.helicopter,
+    ),
     Role.BOMBER: ((FlightType.STRIKE,), lambda a: a.variant_id in BOMBERS),
 }
 
@@ -101,6 +107,7 @@ PRIMARY = {
     Role.AIRLIFT: FlightType.TRANSPORT,
     Role.ATTACK_HELO: FlightType.CAS,
     Role.TRANSPORT_HELO: FlightType.AIR_ASSAULT,
+    Role.SHIP_HELO: FlightType.TRANSPORT,
     Role.BOMBER: FlightType.STRIKE,
 }
 
@@ -136,7 +143,7 @@ TEMPLATES: tuple[Template, ...] = (
             (Role.SEAD, 6),
             (Role.AEW, 4),
             (Role.TANKER, 4),
-            (Role.TRANSPORT_HELO, 4),
+            (Role.SHIP_HELO, 4),
         ),
         (Role.FIGHTER,),
     ),
@@ -151,7 +158,7 @@ TEMPLATES: tuple[Template, ...] = (
             (Role.FIGHTER, 12),
             (Role.AEW, 4),
             (Role.TANKER, 4),
-            (Role.TRANSPORT_HELO, 4),
+            (Role.SHIP_HELO, 4),
         ),
         (Role.FIGHTER,),
     ),
@@ -168,7 +175,7 @@ TEMPLATES: tuple[Template, ...] = (
             (Role.SEAD, 6),
             (Role.AEW, 4),
             (Role.TANKER, 4),
-            (Role.TRANSPORT_HELO, 4),
+            (Role.SHIP_HELO, 4),
         ),
         (Role.STRIKE,),
     ),
@@ -319,11 +326,13 @@ def _flies_from(kind: BaseKind, aircraft: AircraftType) -> bool:
 
 
 def _score(aircraft: AircraftType, tasks: tuple[FlightType, ...]) -> int:
-    # The first task counts in full, the others only to break ties.
+    # The first task counts in full, the others only to break ties. A
+    # priority of 0 is still a capability (the S-3B tanker's Refueling).
     best = 0
     for i, task in enumerate(tasks):
         if aircraft.capable_of(task):
-            best = max(best, aircraft.task_priority(task) * (1000 if i == 0 else 1))
+            value = aircraft.task_priority(task) + 1
+            best = max(best, value * (1000 if i == 0 else 1))
     return best
 
 

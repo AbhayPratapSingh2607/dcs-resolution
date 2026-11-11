@@ -29,6 +29,8 @@ NAMES = [
     "KC-135 Stratotanker",
     "E-3A",
     "B-52H Stratofortress",
+    "S-3B Tanker",
+    "SH-60B Seahawk",
 ]
 
 
@@ -60,6 +62,10 @@ def test_carrier_wings_fly_carrier_jets_only(faction: Any) -> None:
     # STOVL jets go to the LHA while carrier jets can fill the slot.
     assert "AV-8B Harrier II Night Attack" not in {t.variant_id for t in types}
     assert "E-2C Hawkeye" in {t.variant_id for t in types}
+    # A tanker (its Refueling priority is 0, still a capability) and the
+    # ship's naval helicopters rather than an army CH-47.
+    assert "S-3B Tanker" in {t.variant_id for t in types}
+    assert "SH-60B Seahawk" in {t.variant_id for t in types}
     # Under the 90 spots of the deck.
     assert sum(s.max_size for s in group.squadrons) <= 90
 

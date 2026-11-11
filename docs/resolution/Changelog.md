@@ -237,6 +237,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Air wing]** The faction carrier presets now include a tanker and SH-60B Seahawks. The S-3B
+  tanker's refueling priority of 0 had been read as "can't refuel", and the helicopter slot
+  took the best air-assault helicopter (a CH-47F). Carrier wings now have a ship's helicopter
+  slot, which prefers naval helicopters that can fly anti-ship missions.
 * **[Parking]** Jets can no longer overfill an airfield that also has helicopters (Gudauta
   at 40/31). Jets were checked only against the jet spots, but helicopters may park on those
   spots too. Free parking for jets is now also limited by the base's total, so the starting
