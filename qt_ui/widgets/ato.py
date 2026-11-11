@@ -29,6 +29,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QMessageBox,
     QCheckBox,
+    QDialog,
+    QTextBrowser,
+    QWidget,
 )
 
 from game.ato.flight import Flight
@@ -40,7 +43,6 @@ from .atorows import AtoGroupProxy, FlightRowDelegate, PackageRowDelegate
 from .. import atopresentation as ap
 from ..windows.atotimeline import AtoTimelineDialog
 from ..models import AtoModel, GameModel, NullListModel, PackageModel
-
 
 #: Shown above the package list before the campaign begins.
 PRE_WAR_NOTE = (
@@ -307,7 +309,9 @@ class QPackageList(QListView):
         if key in self.proxy.hidden:
             self.proxy.set_hidden(key, False)
         self.proxy.open_fold_for(package)
-        return self.proxy.mapFromSource(self.ato_model.index(packages.index(package), 0))
+        return self.proxy.mapFromSource(
+            self.ato_model.index(packages.index(package), 0)
+        )
 
     def select_package(self, package: Package) -> None:
         index = self.view_index(package)
@@ -412,7 +416,9 @@ class QPackageList(QListView):
         if game is None:
             return
         if not frag(game, flight):
-            QMessageBox.warning(self, "No pilot", "That flight has no pilot to give you.")
+            QMessageBox.warning(
+                self, "No pilot", "That flight has no pilot to give you."
+            )
             return
         EventStream.put_nowait(GameUpdateEvents().update_flight(flight))
         GameUpdateSignal.get_instance().updateGame(game)
@@ -671,13 +677,24 @@ class QAirTaskingOrderPanel(QSplitter):
         self.pre_war_note = QLabel(PRE_WAR_NOTE)
         self.pre_war_note.setWordWrap(True)
         self.pre_war_note.setStyleSheet("color: #e0b050;")
-        # The turn briefing (F13): phase, intent, key packages, threats.
+        # The turn briefing (F13): phase, intent, key packages, threats. Only
+        # its first line shows here; the rest opens in a window.
         self.turn_briefing = QLabel()
         self.turn_briefing.setWordWrap(True)
         self.turn_briefing.setTextFormat(Qt.TextFormat.RichText)
-        self.turn_briefing.setStyleSheet(
-            "QLabel { padding: 4px; border: 1px solid #3a4a5a; border-radius: 3px; }"
+        self.turn_briefing_button = QPushButton("Briefing…")
+        self.turn_briefing_button.setToolTip(
+            "The turn briefing: the opening, the phase and intent, the main push, "
+            "key packages, routine lines and the expected threats."
         )
+        self.turn_briefing_button.clicked.connect(self.open_turn_briefing)
+        self._turn_briefing_text = ""
+        self.turn_briefing_dialog: Optional[QDialog] = None
+        self.turn_briefing_row = QWidget()
+        briefing_row = QHBoxLayout(self.turn_briefing_row)
+        briefing_row.setContentsMargins(0, 0, 0, 0)
+        briefing_row.addWidget(self.turn_briefing, 1)
+        briefing_row.addWidget(self.turn_briefing_button)
         # Your flight (P3): the flight the plan fragged you to, and the other
         # offers.
         from .yourflight import YourFlightCard
@@ -688,7 +705,7 @@ class QAirTaskingOrderPanel(QSplitter):
         ato_layout.addLayout(self.red_ato_labeled)
         ato_layout.addWidget(self.pre_war_note)
         ato_layout.addWidget(self.your_flight)
-        ato_layout.addWidget(self.turn_briefing)
+        ato_layout.addWidget(self.turn_briefing_row)
 
         self.ato_group_box = QGroupBox("ATO")
         self.ato_group_box.setLayout(ato_layout)
@@ -732,8 +749,38 @@ class QAirTaskingOrderPanel(QSplitter):
                 text = ap.turn_briefing(game)  # type: ignore[arg-type]
             except Exception:
                 logging.exception("Could not build the turn briefing")
-        self.turn_briefing.setText(text or "")
-        self.turn_briefing.setVisible(bool(text))
+        self._turn_briefing_text = text or ""
+        # The headline: "Turn N: phase · main push HH:MM-HH:MM".
+        self.turn_briefing.setText(self._turn_briefing_text.split("<br>", 1)[0])
+        self.turn_briefing_row.setVisible(bool(text))
+        if self.turn_briefing_dialog is not None:
+            self._fill_turn_briefing()
+
+    def open_turn_briefing(self) -> None:
+        """Opens (or raises) the non-modal turn briefing window."""
+        if self.turn_briefing_dialog is None:
+            dialog = QDialog(self.window())
+            dialog.setWindowTitle("Turn briefing")
+            dialog.resize(640, 720)
+            layout = QVBoxLayout(dialog)
+            browser = QTextBrowser()
+            browser.setOpenExternalLinks(False)
+            layout.addWidget(browser)
+            close = QPushButton("Close")
+            close.clicked.connect(dialog.close)
+            layout.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
+            dialog.browser = browser  # type: ignore[attr-defined]
+            self.turn_briefing_dialog = dialog
+        self._fill_turn_briefing()
+        self.turn_briefing_dialog.show()
+        self.turn_briefing_dialog.raise_()
+        self.turn_briefing_dialog.activateWindow()
+
+    def _fill_turn_briefing(self) -> None:
+        dialog = self.turn_briefing_dialog
+        if dialog is None:
+            return
+        dialog.browser.setHtml(self._turn_briefing_text)  # type: ignore[attr-defined]
 
     def _enforce_fog(self, _game: object = None) -> None:
         if self.red_ato_checkbox.isChecked() and not self._opfor_allowed():
@@ -753,8 +800,10 @@ class QAirTaskingOrderPanel(QSplitter):
 
     def select_package(self, package: Package) -> None:
         """Selects a package in the sidebar (and so on the map)."""
-        show_opfor = not package.flights[0].blue.is_blue if package.flights else (
-            self.red_ato_checkbox.isChecked()
+        show_opfor = (
+            not package.flights[0].blue.is_blue
+            if package.flights
+            else (self.red_ato_checkbox.isChecked())
         )
         if self.red_ato_checkbox.isChecked() != show_opfor:
             self.red_ato_checkbox.setChecked(show_opfor)

@@ -4,7 +4,7 @@ its flights are offered first."""
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Iterable, Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -25,11 +25,16 @@ from game.commander.jfacc.seat import (
     preference_of,
 )
 
+if TYPE_CHECKING:
+    from game.squadrons.squadron import Squadron
+
 
 class PlayerSeatControls(QFormLayout):
     """The two combo boxes, shared by the dialog and the air wing step."""
 
-    def __init__(self, game: Game, preference: Optional[PlayerPreference] = None) -> None:
+    def __init__(
+        self, game: Game, preference: Optional[PlayerPreference] = None
+    ) -> None:
         super().__init__()
         self.game = game
         preference = preference or preference_of(game)
@@ -49,16 +54,37 @@ class PlayerSeatControls(QFormLayout):
         self.addRow("Squadron", self.squadron)
         self.addRow("Mission type", self.mission)
 
-    def refresh_squadrons(self) -> None:
-        """The air wing may have changed (squadrons added or removed)."""
+    def refresh_squadrons(self, squadrons: Optional[Iterable[Squadron]] = None) -> None:
+        """The air wing may have changed (squadrons added or removed).
+        ``squadrons`` is blue's air wing as edited in the air wing dialog,
+        before it is applied; by default the game's."""
+        listed = (
+            flyable_squadrons(self.game)
+            if squadrons is None
+            else [s for s in squadrons if s.aircraft.flyable]
+        )
         current = self.squadron.currentData()
+        self.squadron.blockSignals(True)
         self.squadron.clear()
         self.squadron.addItem("Any squadron", None)
-        for squadron in flyable_squadrons(self.game):
+        for squadron in listed:
             label = f"{squadron.name} ({squadron.aircraft.display_name}, {squadron.location.name})"
             self.squadron.addItem(label, squadron.id)
             if squadron.id == current:
                 self.squadron.setCurrentIndex(self.squadron.count() - 1)
+        self.squadron.blockSignals(False)
+        # The mission types follow the squadrons too.
+        types: set[FlightType] = set()
+        for squadron in listed:
+            types |= set(squadron.auto_assignable_mission_types)
+            types.add(squadron.primary_task)
+        mission = self.mission.currentData()
+        self.mission.clear()
+        self.mission.addItem("Any mission type", None)
+        for task in sorted(types, key=lambda t: t.value):
+            self.mission.addItem(task.value, task)
+            if task is mission:
+                self.mission.setCurrentIndex(self.mission.count() - 1)
 
     def apply(self) -> PlayerPreference:
         preference = preference_of(self.game)

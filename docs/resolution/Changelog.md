@@ -94,6 +94,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
   offensive sorties go into it; the other waves are smaller and come before and after it. Where
   it sits is set per doctrine, and each side picks its own. The DCS window picker opens on
   blue's push. Red's massed raids are its push.
+* **[ATO]** The turn briefing is one line above the package list (turn, phase, main push);
+  **Briefing…** opens the full text in its own window.
+* **[Air wing]** The Your seat squadron list follows the air wing dialog: applying a preset,
+  loading a config, adding or removing a squadron or resetting updates it at once.
 * **[Full turn]** FARP setup flights and air assaults flown by the combat model (before the DCS
   window, outside the bubble or after it) now take effect: the FARP is delivered, and the
   assault takes its objective when nothing defends it. Before, only what the DCS mission

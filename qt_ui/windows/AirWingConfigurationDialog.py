@@ -580,6 +580,8 @@ class AircraftSquadronsPage(QWidget):
 
 class AircraftSquadronsPanel(QStackedLayout):
     page_removed = Signal(AircraftType)
+    #: A squadron was added or removed, or the pages were rebuilt.
+    squadrons_changed = Signal()
 
     def __init__(
         self,
@@ -621,8 +623,19 @@ class AircraftSquadronsPanel(QStackedLayout):
             self.aircraft_present,
         )
         page.remove_squadron_page.connect(self.remove_page_for_type)
+        page.squadrons_config.config_changed.connect(
+            lambda _: self.squadrons_changed.emit()
+        )
         self.addWidget(page)
         self.squadrons_pages[aircraft_type] = page
+
+    def live_squadrons(self) -> list[Squadron]:
+        """The squadrons as edited in the pages, before they're applied."""
+        return [
+            config.squadron
+            for page in self.squadrons_pages.values()
+            for config in page.squadrons_config.squadron_configs
+        ]
 
     def add_squadron_to_panel(self, squadron: Squadron):
         # Find existing page or add new one
@@ -633,6 +646,7 @@ class AircraftSquadronsPanel(QStackedLayout):
             self.new_page_for_type(squadron.aircraft, [squadron])
 
         self.update()
+        self.squadrons_changed.emit()
 
     def apply(self) -> None:
         detachments = [s for s in self.air_wing.iter_squadrons() if s.is_detachment]
@@ -655,6 +669,7 @@ class AircraftSquadronsPanel(QStackedLayout):
             if editable := editable_squadrons(squadrons):
                 self.new_page_for_type(aircraft, editable)
         self.update()
+        self.squadrons_changed.emit()
 
 
 class AircraftTypeList(QListView):
@@ -863,6 +878,15 @@ class AirWingConfigurationDialog(QDialog):
             name = "Blue" if coalition.player.is_blue else "Red"
             self.tab_widget.addTab(coalition_tab, name)
             self.tabs.append(coalition_tab)
+            if coalition.player.is_blue:
+                # The seat lists blue's squadrons as edited here, so a preset,
+                # a loaded config or an added squadron shows up at once.
+                panel = coalition_tab.squadrons_panel
+                panel.squadrons_changed.connect(
+                    lambda panel=panel: self.seat_controls.refresh_squadrons(
+                        panel.live_squadrons()
+                    )
+                )
 
         load_save_layout = QHBoxLayout()
         save_button = QPushButton("Save Config")
