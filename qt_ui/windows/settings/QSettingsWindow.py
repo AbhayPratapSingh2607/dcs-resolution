@@ -1,6 +1,5 @@
 import json
 import logging
-import textwrap
 import zipfile
 from typing import Callable, Optional, Dict
 
@@ -14,7 +13,9 @@ from PySide6.QtWidgets import (
     QDialog,
     QGridLayout,
     QGroupBox,
+    QFrame,
     QLabel,
+    QLineEdit,
     QListView,
     QPushButton,
     QScrollArea,
@@ -171,13 +172,33 @@ class AutoSettingsLayout(QGridLayout):
         self.sc = sc
         self.write_full_settings = write_full_settings
         self.settings_map: Dict[str, QWidget] = {}
+        #: (search text, widgets) per setting, for the settings search.
+        self.rows: list[tuple[str, list[QWidget]]] = []
+        self._row_widgets: list[QWidget] = []
+        self.setColumnStretch(0, 1)
+        self.setHorizontalSpacing(24)
+        self.setVerticalSpacing(4)
 
         self.init_ui()
+
+    def _control(self, control: object, row: int) -> None:
+        """A setting's control, right of its title. Compound controls
+        (slider and spinner) go in a widget of their own so the search can
+        hide them like the others."""
+        if isinstance(control, QWidget):
+            widget = control
+        else:
+            widget = QWidget()
+            control.setContentsMargins(0, 0, 0, 0)  # type: ignore[attr-defined]
+            widget.setLayout(control)  # type: ignore[arg-type]
+        self.addWidget(widget, 3 * row, 1, Qt.AlignmentFlag.AlignRight)
+        self._row_widgets.append(widget)
 
     def init_ui(self):
         for row, (name, description) in enumerate(
             Settings.fields(self.page, self.section)
         ):
+            self._row_widgets = []
             self.add_label(row, description)
             if isinstance(description, BooleanOption):
                 self.add_checkbox_for(row, name, description)
@@ -191,18 +212,44 @@ class AutoSettingsLayout(QGridLayout):
                 self.add_duration_controls_for(row, name, description)
             else:
                 raise TypeError(f"Unhandled option type: {description}")
+            divider = QFrame()
+            divider.setFrameShape(QFrame.Shape.HLine)
+            divider.setProperty("style", "settings-divider")
+            divider.setStyleSheet("color: rgba(255, 255, 255, 0.08);")
+            self.addWidget(divider, 3 * row + 2, 0, 1, 2)
+            self._row_widgets.append(divider)
+            search = f"{description.text} {description.detail or ''} {name}".lower()
+            self.rows.append((search, self._row_widgets))
+
+    def filter(self, text: str) -> int:
+        """Shows only the settings matching ``text``. Returns how many."""
+        shown = 0
+        for search, widgets in self.rows:
+            visible = not text or text in search
+            for widget in widgets:
+                widget.setVisible(visible)
+            shown += visible
+        return shown
 
     def add_label(self, row: int, description: OptionDescription) -> None:
-        wrapped_title = "<br />".join(textwrap.wrap(description.text, width=55))
-        text = f"<strong>{wrapped_title}</strong>"
-        if description.detail is not None:
-            wrapped = "<br />".join(textwrap.wrap(description.detail, width=55))
-            text += f"<br />{wrapped}"
-        label = QLabel(text)
+        title = QLabel(f"<strong>{description.text}</strong>")
+        title.setWordWrap(True)
         if description.tooltip is not None:
-            label.setToolTip(description.tooltip)
-        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.addWidget(label, row, 0)
+            title.setToolTip(description.tooltip)
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.addWidget(title, 3 * row, 0)
+        self._row_widgets.append(title)
+        if description.detail is not None:
+            # The description runs under the title and the control, the full
+            # width of the page, in smaller and dimmer type.
+            detail = QLabel(description.detail)
+            detail.setWordWrap(True)
+            detail.setStyleSheet("color: #9fb0c0; font-size: 8pt;")
+            detail.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            if description.tooltip is not None:
+                detail.setToolTip(description.tooltip)
+            self.addWidget(detail, 3 * row + 1, 0, 1, 2)
+            self._row_widgets.append(detail)
 
     def add_checkbox_for(self, row: int, name: str, description: BooleanOption) -> None:
         def on_toggle(value: bool) -> None:
@@ -218,7 +265,7 @@ class AutoSettingsLayout(QGridLayout):
             value = not value
         checkbox.setChecked(value)
         checkbox.toggled.connect(on_toggle)
-        self.addWidget(checkbox, row, 1, Qt.AlignmentFlag.AlignRight)
+        self._control(checkbox, row)
         self.settings_map[name] = checkbox
 
     def add_combobox_for(self, row: int, name: str, description: ChoicesOption) -> None:
@@ -235,7 +282,7 @@ class AutoSettingsLayout(QGridLayout):
             description.text_for_value(self.sc.settings.__dict__[name])
         )
         combobox.currentIndexChanged.connect(on_changed)
-        self.addWidget(combobox, row, 1, Qt.AlignmentFlag.AlignRight)
+        self._control(combobox, row)
         self.settings_map[name] = combobox
 
     def add_float_spin_slider_for(
@@ -252,7 +299,7 @@ class AutoSettingsLayout(QGridLayout):
             self.sc.settings.__dict__[name] = spinner.value
 
         spinner.spinner.valueChanged.connect(on_changed)
-        self.addLayout(spinner, row, 1, Qt.AlignmentFlag.AlignRight)
+        self._control(spinner, row)
         self.settings_map[name] = spinner
 
     def add_spinner_for(
@@ -269,7 +316,7 @@ class AutoSettingsLayout(QGridLayout):
         spinner.setValue(self.sc.settings.__dict__[name])
 
         spinner.valueChanged.connect(on_changed)
-        self.addWidget(spinner, row, 1, Qt.AlignmentFlag.AlignRight)
+        self._control(spinner, row)
         self.settings_map[name] = spinner
 
     def add_duration_controls_for(
@@ -283,7 +330,7 @@ class AutoSettingsLayout(QGridLayout):
             self.sc.settings.__dict__[name] = inputs.value
 
         inputs.spinner.valueChanged.connect(on_changed)
-        self.addLayout(inputs, row, 1, Qt.AlignmentFlag.AlignRight)
+        self._control(inputs, row)
         self.settings_map[name] = inputs
 
     def update_from_settings(self) -> None:
@@ -324,6 +371,11 @@ class AutoSettingsGroup(QGroupBox):
     def update_from_settings(self) -> None:
         self.layout.update_from_settings()
 
+    def filter(self, text: str) -> int:
+        shown = self.layout.filter(text)  # type: ignore[attr-defined]
+        self.setVisible(shown > 0)
+        return shown
+
 
 class AutoSettingsPageLayout(QVBoxLayout):
     def __init__(
@@ -346,6 +398,9 @@ class AutoSettingsPageLayout(QVBoxLayout):
         for w in self.widgets:
             w.update_from_settings()
 
+    def filter(self, text: str) -> int:
+        return sum(w.filter(text) for w in self.widgets)
+
 
 class AutoSettingsPage(QWidget):
     def __init__(
@@ -361,6 +416,9 @@ class AutoSettingsPage(QWidget):
     def update_from_settings(self) -> None:
         self.layout.update_from_settings()
 
+    def filter(self, text: str) -> int:
+        return self.layout.filter(text)  # type: ignore[attr-defined]
+
 
 class QSettingsWindow(QDialog):
     def __init__(self, game: Game):
@@ -372,6 +430,7 @@ class QSettingsWindow(QDialog):
         self.setWindowTitle("Settings")
         self.setWindowIcon(CONST.ICONS["Settings"])
         self.setMinimumSize(840, 480)
+        self.resize(1100, 820)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._handle_mod_settings()
@@ -408,7 +467,13 @@ class QSettingsWidget(QtWidgets.QWizardPage, SettingsContainer):
         self.categoryList = QListView()
         self.right_layout = QStackedLayout()
 
-        self.categoryList.setMaximumWidth(175)
+        self.categoryList.setMaximumWidth(200)
+
+        # Search every settings page by title and description.
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search settings…")
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self.filter_settings)  # type: ignore[attr-defined]
 
         self.categoryModel = QStandardItemModel(self.categoryList)
 
@@ -466,7 +531,11 @@ class QSettingsWidget(QtWidgets.QWizardPage, SettingsContainer):
         )
 
         self.layout.addWidget(self.categoryList, 0, 0, 1, 1)
-        self.layout.addLayout(self.right_layout, 0, 1, 5, 1)
+        right = QVBoxLayout()
+        right.addWidget(self.search)
+        right.addLayout(self.right_layout, 1)
+        self.layout.addLayout(right, 0, 1, 5, 1)
+        self.layout.setColumnStretch(1, 1)  # type: ignore[attr-defined]
 
         load = QPushButton("Load Settings")
         load.clicked.connect(self.load_settings)
@@ -539,6 +608,24 @@ class QSettingsWidget(QtWidgets.QWizardPage, SettingsContainer):
             events.game_loaded(self.game)
             EventStream.put_nowait(events)
             GameUpdateSignal.get_instance().updateGame(self.game)
+
+    def filter_settings(self, text: str) -> None:
+        """Shows only the matching settings; the page list counts them and
+        the view moves to the first page with any when the current has none."""
+        text = text.strip().lower()
+        counts: list[int] = []
+        for row, (name, page) in enumerate(self.pages.items()):
+            shown = page.filter(text)
+            counts.append(shown)
+            item = self.categoryModel.item(row)
+            item.setText(f"{name} ({shown})" if text else name)
+            item.setEnabled(not text or shown > 0)
+        current = self.right_layout.currentIndex()
+        if text and current < len(counts) and counts[current] == 0:
+            first = next((i for i, n in enumerate(counts) if n), None)
+            if first is not None:
+                self.categoryList.setCurrentIndex(self.categoryModel.index(first, 0))
+                self.right_layout.setCurrentIndex(first)
 
     def onSelectionChanged(self) -> None:
         index = self.categoryList.selectionModel().currentIndex().row()

@@ -220,6 +220,10 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[UI]** The settings window is easier to read. Each setting has its title and control on one
+  row, its description in full width below in smaller type, and a divider before the next. A
+  search box filters every page by title and description, and the page list shows the
+  matches per page. The window opens at 1100x820.
 * **[UI]** Closing the Take off or Fast-forward progress window cancels. The combat model stops
   at its next tick, and nothing after it runs: no mission generation, no waiting window. Take
   off again to resume from where it stopped. Before, closing it only hid the window; the fast
