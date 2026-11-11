@@ -264,14 +264,25 @@ class Squadron:
         self.available_pilots.remove(pilot)
 
     def return_pilot(self, pilot: Pilot) -> None:
+        # A crew flying a second sortie (game.commander.jfacc.sorties) sits in
+        # two rosters; it is free again only once both have let it go.
+        if pilot.shared_holds > 0:
+            pilot.shared_holds -= 1
+            return
         self.available_pilots.append(pilot)
+
+    def share_pilot(self, pilot: Pilot) -> None:
+        """The pilot also sits in another flight's roster (a second sortie
+        flown by the same crew)."""
+        pilot.shared_holds += 1
 
     def return_pilots(self, pilots: Sequence[Pilot]) -> None:
         # Return in reverse so that returning two pilots and then getting two more
         # results in the same ordering. This happens commonly when resetting rosters in
         # the UI, when we clear the roster because the UI is updating, then end up
         # repopulating the same size flight from the same squadron.
-        self.available_pilots.extend(reversed(pilots))
+        for pilot in reversed(pilots):
+            self.return_pilot(pilot)
 
     def _recruit_pilots(self, count: int) -> None:
         new_pilots = self.pilot_pool[:count]

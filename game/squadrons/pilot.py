@@ -39,11 +39,15 @@ class Pilot:
     #: rather than being rescued. Retaking that base frees them. None means their
     #: fate is not tied to any base, and they stay missing.
     held_at: Optional[UUID] = field(default=None)
+    #: Rosters beyond the first this pilot sits in: a crew flying a second
+    #: sortie of the period (game.commander.jfacc.sorties).
+    shared_holds: int = field(default=0)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         # Older saves predate CSAR and won't have these fields.
         state.setdefault("turns_until_available", 0)
         state.setdefault("held_at", None)
+        state.setdefault("shared_holds", 0)
         self.__dict__.update(state)
 
     @property

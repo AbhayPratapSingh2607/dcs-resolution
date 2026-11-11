@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from typing import Any
+
 import pytest
 
 from game.commander.jfacc import sorties
@@ -420,3 +422,39 @@ def test_flight_types_map_to_apportionment_categories() -> None:
 
 def test_procurement_is_configured(profile) -> None:  # type: ignore[no-untyped-def]
     assert profile.section("procurement")["replacements_per_squadron"] > 0
+
+
+def test_a_second_sortie_flies_with_the_first_crew(ledger, profile) -> None:  # type: ignore[no-untyped-def]
+    # The jet turns around with its crew: the ledger hands the second sortie
+    # the seats of the first, so the planner doesn't book fresh pilots.
+    squadron = _Squadron(2)
+    capable = ledger.mission_capable(squadron)
+    land = START + timedelta(hours=1.5)
+    first = ledger.find(squadron, capable, START, land)
+    first.flight = object()
+    ledger.commit(first)
+    squadron.untasked_aircraft -= first.fresh
+    turnaround = timedelta(hours=profile.turnaround_hours("fighter"))
+    later = ledger.find(squadron, capable, land + turnaround, land + turnaround * 2)
+    later.flight = object()
+    crews = ledger.earlier_crews(later)
+    assert [(seat, flight) for seat, flight, _ in crews] == [
+        (seat, first.flight) for seat in range(capable)
+    ]
+    # Released, the first sortie's crew is no longer anyone's to share.
+    ledger.release(first)
+    assert ledger.earlier_crews(later) == []
+
+
+def test_a_shared_pilot_is_free_once_both_flights_let_go() -> None:
+    from game.squadrons.pilot import Pilot
+    from game.squadrons.squadron import Squadron
+
+    squadron: Any = object.__new__(Squadron)
+    squadron.available_pilots = []
+    pilot = Pilot("Barnes")
+    squadron.share_pilot(pilot)  # second sortie
+    squadron.return_pilot(pilot)  # one flight lets go
+    assert squadron.available_pilots == []
+    squadron.return_pilot(pilot)  # the other
+    assert squadron.available_pilots == [pilot]

@@ -78,6 +78,20 @@ class FlightMembers(IFlightRoster):
             self.flight.squadron.return_pilot(current_pilot)
         self.members[index].pilot = pilot
 
+    def share_crew(self, index: int, pilot: Pilot) -> None:
+        """The seat flies with a pilot who also sits in an earlier flight's
+        roster (a second sortie by the same crew); the pilot claimed for the
+        seat goes back to the squadron."""
+        if (current := self.pilot_at(index)) is not None:
+            self.flight.squadron.return_pilot(current)
+        self.flight.squadron.share_pilot(pilot)
+        self.members[index].pilot = pilot
+
+    def fill_empty_seats(self) -> None:
+        for member in self.members:
+            if member.pilot is None:
+                member.pilot = self.flight.squadron.claim_available_pilot()
+
     def clear(self) -> None:
         self.flight.squadron.return_pilots(
             [p for p in self.iter_pilots() if p is not None]

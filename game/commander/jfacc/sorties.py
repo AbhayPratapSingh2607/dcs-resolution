@@ -5,7 +5,9 @@ mission-capable share of them is available this period. Every slot keeps a
 timeline of the sorties it flies; a slot can fly again once it has landed and
 completed its turnaround, up to the profile's surge limit. A sortie flown by an
 airframe that has already flown this period doesn't claim more inventory from
-the squadron: the same jet is flying twice.
+the squadron: the same jet is flying twice, and with the crew that flew it first: a slot
+remembers the flights (and seats) that flew it, and a second sortie's seat
+takes that crew instead of a fresh pilot.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from typing import Optional, TYPE_CHECKING
 from .profile import PlanningProfile
 
 if TYPE_CHECKING:
+    from game.ato import Flight
     from game.squadrons import Squadron
 
 
@@ -45,6 +48,8 @@ def role_for(squadron: Squadron) -> str:
 @dataclass
 class AirframeSlot:
     sorties: list[tuple[datetime, datetime]] = field(default_factory=list)
+    #: (flight, seat) of the sorties flown by this airframe, in order.
+    crews: list[tuple[Flight, int]] = field(default_factory=list)
 
     def available(
         self,
@@ -70,6 +75,8 @@ class Allocation:
     fresh: int
     takeoff: datetime
     land: datetime
+    #: The flight flying it, once composed (for its crews).
+    flight: Optional[Flight] = None
 
     @property
     def count(self) -> int:
@@ -166,8 +173,10 @@ class SortieLedger:
 
     def commit(self, allocation: Allocation) -> None:
         slots = self._init(allocation.squadron)
-        for index in allocation.slots:
+        for seat, index in enumerate(allocation.slots):
             slots[index].sorties.append((allocation.takeoff, allocation.land))
+            if allocation.flight is not None:
+                slots[index].crews.append((allocation.flight, seat))
 
     def release(self, allocation: Allocation) -> None:
         slots = self._init(allocation.squadron)
@@ -175,6 +184,22 @@ class SortieLedger:
             entry = (allocation.takeoff, allocation.land)
             if entry in slots[index].sorties:
                 slots[index].sorties.remove(entry)
+            slots[index].crews = [
+                c for c in slots[index].crews if c[0] is not allocation.flight
+            ]
+
+    def earlier_crews(self, allocation: Allocation) -> list[tuple[int, Flight, int]]:
+        """For each seat of the allocation whose airframe already flew:
+        (seat, earlier flight, its seat). The crew of that sortie flies this
+        one too."""
+        slots = self._init(allocation.squadron)
+        crews = []
+        for seat, index in enumerate(allocation.slots):
+            earlier = [c for c in slots[index].crews if c[0] is not allocation.flight]
+            if earlier:
+                flight, earlier_seat = earlier[-1]
+                crews.append((seat, flight, earlier_seat))
+        return crews
 
     def update(self, allocation: Allocation, takeoff: datetime, land: datetime) -> None:
         """Replace an allocation's estimated times with the planned ones."""

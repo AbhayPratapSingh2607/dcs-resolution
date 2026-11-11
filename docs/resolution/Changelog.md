@@ -221,6 +221,11 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 
 ## Fixes
 
+* **[Planner]** A jet flying its second sortie of the turn flies with the crew of its first,
+  instead of booking a fresh pilot for the seat. Squadrons ran out of pilots well before they
+  ran out of aircraft: on the PG test save VFA-41's 16 pilots were all booked with 4 jets still
+  free. Replanned, the same squadron flies 9 flights (22 seats) with 13 pilots and has 3 free.
+  A pilot shared by two flights goes back to the squadron once both let go.
 * **[UI]** Processing the mission results uses the same progress window as Take off. It shows
   the step it is on (processing the mission data, writing the debriefing, planning the next
   turn) and the time elapsed, and the app stays responsive meanwhile. It can't be cancelled:

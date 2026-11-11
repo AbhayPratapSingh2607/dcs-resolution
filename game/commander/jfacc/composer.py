@@ -445,8 +445,9 @@ class PackageComposer:
             if allocation is None:
                 why = "no mission-capable aircraft free in the sortie window"
                 continue
+            # Airframes flying their second sortie bring their crews.
             if squadron.pilot_limits_enabled and not squadron.can_provide_pilots(
-                request.count
+                allocation.fresh
             ):
                 why = "not enough rested crews"
                 continue
@@ -495,9 +496,30 @@ class PackageComposer:
                 builder.package.remove_flight(flight)
                 why = note
                 continue
+            allocation.flight = flight
+            self._share_crews(flight, allocation)
             self.ledger.commit(allocation)
             return flight, allocation, note
         return None, None, why
+
+    def _share_crews(self, flight: Flight, allocation: Allocation) -> None:
+        """A seat whose airframe already flew this period flies with that
+        sortie's crew: the jet and its pilots turn around together, so a
+        second sortie doesn't book a second set of pilots."""
+        roster = flight.roster
+        for seat, earlier, earlier_seat in self.ledger.earlier_crews(allocation):
+            if earlier_seat >= earlier.roster.max_size or seat >= roster.max_size:
+                continue
+            pilot = earlier.roster.pilot_at(earlier_seat)
+            current = roster.pilot_at(seat)
+            if (
+                pilot is None
+                or pilot.player
+                or (current is not None and current.player)
+            ):
+                continue
+            roster.share_crew(seat, pilot)
+        roster.fill_empty_seats()
 
     def compose(
         self, request: PackageRequest, tot: datetime, now: datetime
