@@ -1,0 +1,27 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: USAF Air Expeditionary Force (1991)
+description: >-
+  Desert Storm style USAF deployment: F-15C air superiority, F-15E and F-117A
+  strike, F-16 SEAD, A-10A close air support at the front, E-3 and KC-135 support
+  at rear bases.
+era: 1991
+side: blue
+groups:
+  - base: airfield
+    placement: front
+    squadrons:
+      - {aircraft: ["A-10A Thunderbolt II"], country: USA, primary: CAS, secondary: [BAI, Armed Recon], size: 12}
+      - {aircraft: ["F-16CM Fighting Falcon (Block 50)", "F-16A"], country: USA, primary: SEAD, secondary: any, size: 12}
+  - base: airfield
+    placement: any
+    squadrons:
+      - {aircraft: ["F-15C Eagle"], country: USA, primary: BARCAP, secondary: air-to-air, size: 12}
+      - {aircraft: ["F-15C Eagle"], country: USA, primary: Escort, secondary: air-to-air, size: 12}
+      - {aircraft: ["F-15E Strike Eagle", "F-15E Strike Eagle (Suite 4+)"], country: USA, primary: Strike, secondary: any, size: 12}
+  - base: airfield
+    placement: rear
+    squadrons:
+      - {aircraft: ["F-117A Nighthawk"], country: USA, primary: Strike, size: 8}
+      - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
+      - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
+      - {aircraft: ["KC-135 Stratotanker MPRS", "KC-10 Extender (Drogue)"], country: USA, primary: Refueling, size: 2}

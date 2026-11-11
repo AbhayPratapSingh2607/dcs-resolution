@@ -1,0 +1,30 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+#
+# No country is set, so squadrons use the faction's own country.
+name: Russian Aerospace Forces (2015)
+description: >-
+  Modern Russian expeditionary air group: Su-35S and Su-30SM fighters, Su-34
+  bombers, Su-25 attack aircraft, MiG-31BM interceptors, Mi-28N / Ka-50 attack
+  helicopters, A-50 AEW and Il-78 tankers.
+era: 2015
+side: red
+groups:
+  - base: airfield
+    placement: front
+    squadrons:
+      - {aircraft: ["Su-25T Frogfoot", "Su-25 Frogfoot"], primary: CAS, secondary: [BAI, Armed Recon], size: 12}
+      - {aircraft: ["Mi-28N Havoc", "Ka-50 Hokum III", "Mi-24P Hind-F"], primary: CAS, secondary: [BAI, Armed Recon], size: 8}
+      - {aircraft: ["Mi-8MTV2 Hip"], primary: Air Assault, secondary: [Transport], size: 6}
+  - base: airfield
+    placement: any
+    squadrons:
+      - {aircraft: ["Su-35S Flanker-M", "Su-27 Flanker-B"], primary: BARCAP, secondary: air-to-air, size: 12}
+      - {aircraft: ["Su-30SM Flanker-H", "Su-30 Flanker-C"], primary: Escort, secondary: any, size: 12}
+      - {aircraft: ["Su-34 Fullback", "Su-24M Fencer-D"], primary: Strike, secondary: air-to-ground, size: 12}
+      - {aircraft: ["Su-34 Fullback", "Su-24M Fencer-D"], primary: SEAD, secondary: air-to-ground, size: 12}
+  - base: airfield
+    placement: rear
+    squadrons:
+      - {aircraft: ["MiG-31BM Foxhound", "MiG-31 Foxhound"], primary: Intercept, secondary: air-to-air, size: 8}
+      - {aircraft: ["A-50"], primary: AEW&C, size: 2}
+      - {aircraft: ["IL-78M"], primary: Refueling, size: 2}

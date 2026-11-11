@@ -1,0 +1,19 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: US Navy Carrier Air Wing (2005)
+description: >-
+  Air wing in the last years of the Tomcat: one F-14B squadron, F/A-18C Hornets,
+  an F/A-18E Super Hornet squadron (F/A-18C if not installed), EA-6B Prowlers,
+  E-2C Hawkeyes, S-3B tankers and SH-60B Seahawks.
+era: 2005
+side: blue
+groups:
+  - base: carrier
+    squadrons:
+      - {aircraft: ["F-14B Tomcat", "F-14B(U) Tomcat"], country: USA, primary: BARCAP, secondary: air-to-air, size: 10}
+      - {aircraft: ["F/A-18C Hornet (Lot 20)"], country: USA, primary: Strike, secondary: any, size: 12}
+      - {aircraft: ["F/A-18C Hornet (Lot 20)"], country: USA, primary: SEAD, secondary: any, size: 12}
+      - {aircraft: ["F/A-18E Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: TARCAP, secondary: any, size: 12}
+      - {aircraft: ["EA-6B Prowler"], country: USA, primary: SEAD Escort, secondary: [SEAD, DEAD], size: 4}
+      - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
+      - {aircraft: ["S-3B Tanker"], country: USA, primary: Refueling, size: 4}
+      - {aircraft: ["SH-60B Seahawk"], country: USA, primary: Transport, size: 4}

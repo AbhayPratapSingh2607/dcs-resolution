@@ -181,6 +181,12 @@ Changes in Resolution on top of DCS Retribution. Retribution's own changes are l
 * **[Debriefing]** The debriefing opens with **How the plan went**. Each key package shows its
   goal, what it achieved (target destroyed, hits, air kills, aborted, not flown) and what it
   lost. CAP stations and support get one summed line each. The full loss lists follow.
+* **[Air Wing]** Air wing presets in the new game Air Wing Configuration window: US Navy carrier
+  air wings (1975–2020), USMC amphibious ready groups, USAF expeditionary forces, a NATO coalition,
+  and Soviet and Russian air forces. Squadrons are placed by base kind on any theater, can come
+  from different countries, and their aircraft are bought from the starting budget. Skipped
+  squadrons say why each aircraft was rejected. You can save your own air wing as a preset.
+  [Guide](Air-Wing-Presets.md)
 
 ## Fixes
 

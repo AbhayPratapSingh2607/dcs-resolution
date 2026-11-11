@@ -79,6 +79,9 @@ class Squadron:
     destroyed_aircraft: int = field(init=False, hash=False, compare=False, default=0)
     #: Cumulative aircraft purchased and delivered over the whole campaign.
     purchased_aircraft: int = field(init=False, hash=False, compare=False, default=0)
+    #: Aircraft to buy from the starting budget at turn 0 (set by air wing presets or
+    #: the air wing configuration dialog). Only used when squadrons don't start full.
+    preset_purchase: int = field(init=False, hash=False, compare=False, default=0)
 
     use_livery_set: bool = False  # if livery-set should be used when present
 
@@ -113,6 +116,8 @@ class Squadron:
             state["csar_auto_assign_seeded"] = False
         if "parent" not in state:
             state["parent"] = None
+        if "preset_purchase" not in state:
+            state["preset_purchase"] = 0
         self.__dict__.update(state)
 
     def __str__(self) -> str:
@@ -294,6 +299,8 @@ class Squadron:
                 self.max_size, self.location.unclaimed_parking(parking_type)
             )
         self.initial_aircraft = self.owned_aircraft
+        # Any purchase the budget couldn't cover is dropped; it only applies to turn 0.
+        self.preset_purchase = 0
 
     def end_turn(self) -> None:
         if self.destination is not None:

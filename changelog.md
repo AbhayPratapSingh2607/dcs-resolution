@@ -13,6 +13,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 * **[Campaign AI]** The JFACC planner keeps a standing CSAR force of 4 helicopters, bought ahead of other aircraft requests, so downed pilots can be rescued.
 * **[Campaign AI]** The JFACC planner now plans blue theater and carrier recovery tankers from its doctrine. Before, they were silently skipped because the "Automatic Theater tanker package planning" setting defaults to off; that setting now only affects the legacy planner.
 * **[UI]** The package list is grouped by mission category, with colour coding, clearer rows (purpose, composition, TOT offset, risk and DCS-window badges) and category filters. A new ATO timeline shows the whole period as a Gantt chart.
+* **[Air Wing]** Air wing presets: apply a ready-made air wing (US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a mixed-nation NATO coalition, Soviet and Russian air forces) in the new game Air Wing Configuration window. Squadrons are placed on suitable bases on any theater, and their aircraft are bought from the starting budget. Squadrons can come from different countries, and you can save your own air wing as a preset.
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.
@@ -21,6 +22,7 @@ See docs/resolution/Changelog.md for details and docs/resolution for how to use 
 # Retribution v1.6.0
 
 ## Features/Improvements
+* **[Mission Generator]** AI strike, BAI, CAS, armed recon and OCA/Aircraft flights attacking a target covered by enemy SAMs or AAA (including front lines with enemy SHORAD/AAA) no longer press home low altitude gun runs. Their bullets are removed, including on gun-reliant airframes like the A-10 and warbirds, and they head home once their air-to-ground ordnance is spent. BAI flights release guided weapons from ingress altitude, make a single pass with rockets/bombs, and egress. Controlled by the new "AI avoids gun runs on defended targets" campaign doctrine setting (on by default); helicopters and flights with players are unaffected.
 * **[Modding]** Added support for the CurrentHill Iran Military Assets pack: the Shahed-136 launcher, two IRGCN fast-attack craft, and a new `[CH] Iran 2020` faction, behind a New Game mods checkbox. (#886)
 * **[Kneeboard]** Use a light-grey daytime kneeboard background instead of near-white, to avoid glare under HDR / Auto-HDR while staying readable in daylight.
 * **[UX]** Hovering a friendly flight's route line on the map highlights it in yellow, and clicking it selects that flight's package (and the flight) in the ATO sidebar.

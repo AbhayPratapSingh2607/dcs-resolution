@@ -382,6 +382,20 @@ class Settings:
         default=False,
         detail="AI will jettison their fuel tanks as soon as they're empty.",
     )
+    ai_avoid_gun_runs_in_defended_areas: bool = boolean_option(
+        "AI avoids gun runs on defended targets",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=GENERAL_SECTION,
+        default=True,
+        detail=(
+            "When the target of an AI strike, BAI, CAS, armed recon or OCA/Aircraft "
+            "flight is covered by enemy SAMs or AAA, the AI has its bullets removed "
+            "and heads home once its air-to-ground ordnance (missiles, bombs and "
+            "rockets) is spent, instead of pressing home low altitude gun runs. BAI "
+            "flights make a single attack and egress. Helicopters and flights with "
+            "players keep their guns."
+        ),
+    )
     ai_vertical_takoff_landing: bool = boolean_option(
         "AI helicopters use vertical takeoff and landing",
         page=CAMPAIGN_DOCTRINE_PAGE,

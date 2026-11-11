@@ -26,6 +26,7 @@ one build.
 | **Mission editor-style loadout editor** | Payloads and stations show the names the DCS mission editor uses, and each station's weapons are sorted into category submenus. | [Loadout editor](docs/resolution/Loadout-Editor.md) |
 | **UH-60L Armed Blackhawk** | Supports the Armed Blackhawk submod and the ANDR0ID Weapon Pack: MH-60R/S, HH-60G, MH-60M and other airframes, the ESSS stub wings, and 32 extra stores. The submod's loadout rules are applied. | [Armed Blackhawk](docs/resolution/Armed-Blackhawk.md) |
 | **On Station start** | A new start type: the flight appears in the air at its station, the racetrack for CAP, AWACS and tankers or the IP for attack packages. Support assets can be on station when the mission starts, as they would be in reality. | [On Station start](docs/resolution/On-Station-Start.md) |
+| **Air wing presets** | Set up a whole air wing in one click: US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a NATO coalition, or Soviet and Russian air forces. Works on any theater, and the aircraft are bought from the starting budget. | [Air wing presets](docs/resolution/Air-Wing-Presets.md) |
 | **Super Hornet fixes** | Works with CJS Super Hornet v2.4.6 payload files. Includes up-to-date weapon names, callsign fixes and mission editor station labels. | [Super Hornet](docs/resolution/Super-Hornet.md) |
 
 The full list of Resolution's changes is in the [Resolution changelog](docs/resolution/Changelog.md).

@@ -1,0 +1,18 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: US Navy Carrier Air Wing (1991)
+description: >-
+  Desert Storm era air wing: F-14 Tomcats, F/A-18C Hornets, A-6E Intruders, EA-6B
+  Prowlers, E-2C Hawkeyes and S-3B tankers.
+era: 1991
+side: blue
+groups:
+  - base: carrier
+    squadrons:
+      - {aircraft: ["F-14B Tomcat", "F-14A Tomcat (Block 135-GR Late)"], country: USA, primary: BARCAP, secondary: air-to-air, size: 12}
+      - {aircraft: ["F-14A Tomcat (Block 135-GR Late)", "F-14B Tomcat"], country: USA, primary: Escort, secondary: air-to-air, size: 12}
+      - {aircraft: ["F/A-18C Hornet (Lot 20)"], country: USA, primary: Strike, secondary: any, size: 12}
+      - {aircraft: ["F/A-18C Hornet (Lot 20)"], country: USA, primary: SEAD, secondary: any, size: 12}
+      - {aircraft: ["A-6E Intruder"], country: USA, primary: Strike, secondary: air-to-ground, size: 10}
+      - {aircraft: ["EA-6B Prowler"], country: USA, primary: SEAD Escort, secondary: [SEAD, DEAD], size: 4}
+      - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
+      - {aircraft: ["S-3B Tanker"], country: USA, primary: Refueling, size: 4}

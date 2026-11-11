@@ -1,0 +1,19 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: US Navy Carrier Air Wing (2020)
+description: >-
+  Modern air wing: F/A-18E/F Super Hornets, an F-35C squadron, EA-18G Growlers,
+  E-2D Hawkeyes and Super Hornet tankers. Each entry falls back to older aircraft
+  (F/A-18C, E-2C, S-3B) when the newer ones are not available.
+era: 2020
+side: blue
+groups:
+  - base: carrier
+    squadrons:
+      - {aircraft: ["F/A-18E Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: BARCAP, secondary: any, size: 12}
+      - {aircraft: ["F/A-18E Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: Strike, secondary: any, size: 12}
+      - {aircraft: ["F/A-18F Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: SEAD, secondary: any, size: 12}
+      - {aircraft: ["F-35C Lightning II", "F/A-18E Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: Strike, secondary: any, size: 10}
+      - {aircraft: ["EA-18G Growler", "EA-6B Prowler"], country: USA, primary: SEAD Escort, secondary: [SEAD, DEAD], size: 5}
+      - {aircraft: ["E-2D Advanced Hawkeye", "E-2C Hawkeye"], country: USA, primary: AEW&C, size: 5}
+      - {aircraft: ["F/A-18E Tanker", "S-3B Tanker"], country: USA, primary: Refueling, size: 4}
+      - {aircraft: ["SH-60B Seahawk"], country: USA, primary: Transport, size: 4}

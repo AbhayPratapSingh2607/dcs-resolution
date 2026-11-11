@@ -1,0 +1,42 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+#
+# Squadrons from several nations. Each entry's country decides its livery, pilot
+# names and in-mission radio voice. Works best with a Combined Joint Task Forces
+# faction, or with "Add aircraft missing from the faction" checked.
+name: NATO Coalition (2010)
+description: >-
+  Multinational task force: a US carrier air wing and USAF fighters, plus RAF
+  Tornado GR4s, French Mirage 2000s, German Tornados and Turkish F-16s, with E-3
+  and KC-135 support.
+era: 2010
+side: blue
+groups:
+  - base: carrier
+    squadrons:
+      - {aircraft: ["F/A-18E Super Hornet", "F/A-18C Hornet (Lot 20)"], country: USA, primary: BARCAP, secondary: any, size: 12}
+      - {aircraft: ["F/A-18C Hornet (Lot 20)"], country: USA, primary: Strike, secondary: any, size: 12}
+      - {aircraft: ["EA-18G Growler", "EA-6B Prowler"], country: USA, primary: SEAD Escort, secondary: [SEAD, DEAD], size: 4}
+      - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
+      - {aircraft: ["F/A-18E Tanker", "S-3B Tanker"], country: USA, primary: Refueling, size: 4}
+  - base: airfield
+    placement: front
+    squadrons:
+      - {aircraft: ["A-10C Thunderbolt II (Suite 3)", "A-10C Thunderbolt II (Suite 7)"], country: USA, primary: CAS, secondary: [BAI, Armed Recon], size: 12}
+      - {aircraft: ["F-16CM Fighting Falcon (Block 50)"], country: USA, primary: SEAD, secondary: any, size: 12}
+      - {aircraft: ["F-16CM Fighting Falcon (Block 50)"], country: Turkey, primary: BAI, secondary: any, size: 12}
+  - base: airfield
+    placement: any
+    squadrons:
+      - {aircraft: ["F-15C Eagle"], country: USA, primary: BARCAP, secondary: air-to-air, size: 12}
+      - {aircraft: ["F-15E Strike Eagle (Suite 4+)", "F-15E Strike Eagle"], country: USA, primary: Strike, secondary: any, size: 12}
+      - {aircraft: ["Tornado GR4"], country: UK, primary: Strike, secondary: air-to-ground, size: 8}
+      - {aircraft: ["Mirage 2000-5"], country: France, primary: BARCAP, secondary: air-to-air, size: 8}
+      - {aircraft: ["Mirage 2000C"], country: France, primary: Escort, secondary: air-to-air, size: 8}
+      - {aircraft: ["Tornado IDS"], country: Germany, primary: Strike, secondary: air-to-ground, size: 8}
+  - base: airfield
+    placement: rear
+    squadrons:
+      - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
+      - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
+      - {aircraft: ["KC-135 Stratotanker MPRS"], country: USA, primary: Refueling, size: 2}
+      - {aircraft: ["KC-135 Stratotanker"], country: Turkey, primary: Refueling, size: 2}

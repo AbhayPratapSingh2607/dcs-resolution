@@ -19,6 +19,8 @@ plugins), see [Retribution's wiki](https://github.com/dcs-retribution/dcs-retrib
 * [Air campaign planner](Air-Campaign-Planner.md): a doctrine-driven (Western JFACC) auto
   planner. It plans each turn as a 6 hour ATO with campaign phases, a target list with BDA,
   apportionment, threat-scaled packages and risk limits. You pick which window of it to fly.
+* [Air wing presets](Air-Wing-Presets.md): ready-made air wings from different eras that work on
+  any theater, bought from the starting budget.
 
 ## Other pages
 
@@ -40,3 +42,4 @@ Resolution's options go into existing pages:
 | Mission Generator | Gameplay | "On Station" in the default start types, CSAR start type, hover or landing extraction, rescuing AI pilots, player hover height and distance, cabin door requirement |
 | Cheat Menu | | Enable Instant FARP Cheat |
 | New Game wizard | Mods | UH-60L Armed Blackhawk |
+| New Game wizard | Air Wing Configuration | Apply Preset..., Save as Preset..., Buy at start |

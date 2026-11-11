@@ -1,0 +1,14 @@
+# Air wing preset. See docs/resolution/Air-Wing-Presets.md for the format.
+name: USMC Amphibious Ready Group (1991)
+description: >-
+  Marine Expeditionary Unit aviation on an LHA: AV-8B Harriers, AH-1W SuperCobras,
+  CH-53E and UH-1 transport helicopters.
+era: 1991
+side: blue
+groups:
+  - base: lha
+    squadrons:
+      - {aircraft: ["AV-8B Harrier II Night Attack"], country: USA, primary: CAS, secondary: air-to-ground, size: 6}
+      - {aircraft: ["AH-1W SuperCobra", "AH-1J SeaCobra"], country: USA, primary: CAS, secondary: [BAI, Armed Recon, Escort], size: 4}
+      - {aircraft: ["CH-53E", "CH-47D"], country: USA, primary: Air Assault, secondary: [Transport], size: 4}
+      - {aircraft: ["UH-1H Iroquois", "UH-1D Iroquois"], country: USA, primary: Transport, secondary: [Air Assault], size: 3}
