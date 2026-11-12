@@ -455,17 +455,18 @@ class QTopPanel(QFrame):
                 bounds = atoperiod.window(self.game)
                 names = "<br />".join(
                     f"{f.squadron.name} {f.flight_type.value} {f.package.target.name} "
-                    f"(startup {f.flight_plan.startup_time():%H:%M})"
+                    f"({atoperiod.player_arrival_time(self.game, f):%H:%M})"  # type: ignore[arg-type]
                     for f in late[:6]
                 )
                 result = QMessageBox.question(
                     self,
                     "A player flight starts late",
                     (
-                        f"The mission starts at {bounds[0]:%H:%M}, when the first "  # type: ignore[index]
-                        f"player flight starts up, and the planned mission window "
-                        f"ends at {bounds[1]:%H:%M}. These player flights start "  # type: ignore[index]
-                        f"after that, so they will be a long wait in DCS:<br /><br />"
+                        f"The mission starts at {bounds[0]:%H:%M}, where fast "  # type: ignore[index]
+                        f"forward stops for the first player flight, and the "
+                        f"planned mission window ends at {bounds[1]:%H:%M}. "  # type: ignore[index]
+                        f"Fast forward would stop for these player flights after "
+                        f"that, so they will be a long wait in DCS:<br /><br />"
                         f"{names}<br /><br />Fly anyway?"
                     ),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,

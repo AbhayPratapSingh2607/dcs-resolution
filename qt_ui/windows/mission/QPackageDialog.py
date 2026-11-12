@@ -272,6 +272,8 @@ class QPackageDialog(QDialog):
             flight.recreate_flight_plan()
             self.package_model.update_tot()
             EventStream.put_nowait(GameUpdateEvents().new_flight(flight))
+            # A new player flight moves the DCS window to it.
+            self.game_model.ato_model.client_slots_changed.emit()
         except PlanningError as ex:
             self.package_model.delete_flight(flight)
             logging.exception("Could not create flight")

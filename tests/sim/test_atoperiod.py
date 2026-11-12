@@ -56,7 +56,10 @@ def _game(*packages: SimpleNamespace) -> SimpleNamespace:
 def _player_flight(startup_min: int, clients: int = 1) -> SimpleNamespace:
     return SimpleNamespace(
         client_count=clients,
-        flight_plan=_Plan(START + timedelta(minutes=startup_min), START + timedelta(minutes=startup_min + 90)),
+        flight_plan=_Plan(
+            START + timedelta(minutes=startup_min),
+            START + timedelta(minutes=startup_min + 90),
+        ),
     )
 
 
@@ -80,7 +83,9 @@ def test_mission_starts_at_the_first_player_startup() -> None:
     # The late flight starts after the window: a warning, not a move.
     assert atoperiod.late_player_flights(game) == [late]  # type: ignore[arg-type]
     # A startup near the end of the period keeps a whole window inside it.
-    game.blue.ato.packages = [SimpleNamespace(flights=[_player_flight(350)], has_players=True)]
+    game.blue.ato.packages = [
+        SimpleNamespace(flights=[_player_flight(350)], has_players=True)
+    ]
     assert atoperiod.player_window_start(game) == START + timedelta(minutes=300)  # type: ignore[arg-type]
 
 
@@ -88,7 +93,9 @@ def test_mission_only_turns_keep_their_fixed_window() -> None:
     game = _game()
     game.air_campaign.note_period(2, START, START + timedelta(minutes=90), 30)
     game.turn = 2
-    game.blue.ato.packages = [SimpleNamespace(flights=[_player_flight(60)], has_players=True)]
+    game.blue.ato.packages = [
+        SimpleNamespace(flights=[_player_flight(60)], has_players=True)
+    ]
     assert atoperiod.player_window_start(game) is None  # type: ignore[arg-type]
     assert atoperiod.window(game)[0] == START + timedelta(minutes=30)  # type: ignore[arg-type,index]
 
@@ -159,3 +166,79 @@ def test_the_pin_is_for_one_turn() -> None:
     atoperiod.pin_window(game, 60)  # type: ignore[arg-type]
     game.air_campaign.note_period(2, START, START + timedelta(hours=6))
     assert not game.air_campaign.window_pinned
+
+
+class _TimedPlan(_Plan):
+    """Startup at 130 min: 15 min to start, 8 to taxi, IP 20 min after
+    takeoff."""
+
+    def __init__(self) -> None:
+        super().__init__(START + timedelta(minutes=130), START + timedelta(hours=4))
+        from game.ato.flightwaypointtype import FlightWaypointType
+
+        self.ip = SimpleNamespace(waypoint_type=FlightWaypointType.INGRESS_STRIKE)
+        self.waypoints = [
+            SimpleNamespace(waypoint_type=FlightWaypointType.TAKEOFF),
+            self.ip,
+        ]
+
+    def estimate_startup(self) -> timedelta:
+        return timedelta(minutes=15)
+
+    def estimate_ground_ops(self) -> timedelta:
+        return timedelta(minutes=8)
+
+    def takeoff_time(self) -> datetime:
+        return START + timedelta(minutes=153, seconds=30)
+
+    def _travel_time_to_waypoint(self, waypoint: object) -> timedelta:
+        return timedelta(minutes=20) if waypoint is self.ip else timedelta()
+
+
+def test_the_window_starts_where_fast_forward_stops() -> None:
+    """ "Fast forward until" picks where the mission starts for the player:
+    startup, taxi, takeoff or the IP."""
+    from game.settings.settings import FastForwardStopCondition as FF
+
+    flight = SimpleNamespace(client_count=1, flight_plan=_TimedPlan())
+    game = _game(SimpleNamespace(flights=[flight], has_players=True))
+    expected = {
+        FF.PLAYER_STARTUP: 130,
+        FF.PLAYER_TAXI: 145,
+        FF.PLAYER_TAKEOFF: 153,
+        FF.PLAYER_AT_IP: 173.5,
+        FF.FIRST_CONTACT: 130,
+        FF.MANUAL: 130,
+    }
+    for condition, minutes in expected.items():
+        game.settings.fast_forward_stop_condition = condition
+        assert atoperiod.player_window_start(game) == START + timedelta(  # type: ignore[arg-type]
+            minutes=minutes
+        ), condition
+    # No IP in the plan: the IP setting stops at takeoff.
+    flight.flight_plan.waypoints = flight.flight_plan.waypoints[:1]
+    game.settings.fast_forward_stop_condition = FF.PLAYER_AT_IP
+    assert atoperiod.player_window_start(game) == START + timedelta(minutes=153)  # type: ignore[arg-type]
+
+
+def test_picking_a_player_flight_moves_the_window_to_it() -> None:
+    """A new player flight puts the window back at its default, even one the
+    player dragged."""
+    from game.settings.settings import FastForwardStopCondition as FF
+
+    flight = SimpleNamespace(client_count=1, flight_plan=_TimedPlan())
+    game = _game(SimpleNamespace(flights=[flight], has_players=True))
+    game.settings.fast_forward_stop_condition = FF.PLAYER_TAXI
+    atoperiod.pin_window(game, 30)  # type: ignore[arg-type]
+    assert atoperiod.follow_player_selection(game)  # type: ignore[arg-type]
+    assert not game.air_campaign.window_pinned
+    assert game.air_campaign.window_offset_min == 145
+    assert not atoperiod.follow_player_selection(game)  # type: ignore[arg-type]
+    # A dragged window holding the player's taxi time stays at Take off.
+    atoperiod.pin_window(game, 120)  # type: ignore[arg-type]
+    assert atoperiod.align_window_to_players(game)  # type: ignore[arg-type]
+    assert game.air_campaign.window_offset_min == 120
+    # Mission only turns have nothing to move.
+    game.air_campaign.note_period(2, START, START + timedelta(minutes=90), 30)
+    game.turn = 2
+    assert not atoperiod.follow_player_selection(game)  # type: ignore[arg-type]

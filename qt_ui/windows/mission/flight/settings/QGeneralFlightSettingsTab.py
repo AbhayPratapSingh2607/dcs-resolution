@@ -52,6 +52,10 @@ class QGeneralFlightSettingsTab(QFrame):
 
         roster = self.flight_slot_editor.roster_editor
         roster.pilots_changed.connect(start_type.on_pilot_selected)
+        # After the start type follows the player: a new player flight moves
+        # the DCS window to where fast forward stops for it.
+        for pc in roster.pilot_controls:
+            pc.player_toggled.connect(game.ato_model.client_slots_changed)
 
         widgets = [
             QFlightTypeTaskInfo(flight),

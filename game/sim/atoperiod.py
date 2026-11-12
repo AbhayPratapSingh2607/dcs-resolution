@@ -97,9 +97,67 @@ def player_flights(game: Game) -> list[Flight]:
     ]
 
 
+#: Waypoints where "Fast forward until: Player at IP" stops, in order of
+#: preference: the ingress point, else the start of a patrol.
+_IP_TYPES: Optional[tuple[set[Any], set[Any]]] = None
+
+
+def _ip_types() -> tuple[set[Any], set[Any]]:
+    global _IP_TYPES
+    if _IP_TYPES is None:
+        from game.ato.flightwaypointtype import FlightWaypointType as T
+
+        _IP_TYPES = (
+            {
+                T.INGRESS_BAI,
+                T.INGRESS_CAS,
+                T.INGRESS_DEAD,
+                T.INGRESS_OCA_AIRCRAFT,
+                T.INGRESS_OCA_RUNWAY,
+                T.INGRESS_SEAD,
+                T.INGRESS_STRIKE,
+                T.INGRESS_AIR_ASSAULT,
+            },
+            {T.PATROL_TRACK},
+        )
+    return _IP_TYPES
+
+
+def player_arrival_time(game: Game, flight: Flight) -> datetime:
+    """When fast forward stops for this player flight ("Fast forward until"):
+    its startup, taxi, takeoff or IP time. Settings with no player moment
+    (first contact, manual, none) use its startup."""
+    from game.settings.settings import FastForwardStopCondition as FF
+
+    plan = flight.flight_plan
+    startup = plan.startup_time()
+    condition = getattr(game.settings, "fast_forward_stop_condition", None)
+    if condition not in (FF.PLAYER_TAXI, FF.PLAYER_TAKEOFF, FF.PLAYER_AT_IP):
+        return startup
+    taxi = startup + plan.estimate_startup()
+    takeoff = taxi + plan.estimate_ground_ops()
+    if condition is FF.PLAYER_TAXI:
+        return taxi
+    if condition is FF.PLAYER_TAKEOFF:
+        return takeoff
+    if condition is FF.PLAYER_AT_IP:
+        for types in _ip_types():
+            for waypoint in plan.waypoints:
+                if waypoint.waypoint_type in types:
+                    try:
+                        at = plan.takeoff_time() + plan._travel_time_to_waypoint(
+                            waypoint
+                        )
+                    except Exception:
+                        break
+                    return max(at, takeoff)
+    return takeoff
+
+
 def player_window_start(game: Game) -> Optional[datetime]:
-    """Full turns (P4): the mission starts when the earliest flight with a
-    player in it starts up, kept inside the period. None in a mission only
+    """Full turns (P4): the mission starts where fast forward stops for the
+    earliest flight with a player in it ("Fast forward until": its startup,
+    taxi, takeoff or IP), kept inside the period. None in a mission only
     turn, without a period, or without a player flight."""
     bounds = period(game)
     if bounds is None or is_focused(game):
@@ -107,7 +165,7 @@ def player_window_start(game: Game) -> Optional[datetime]:
     starts: list[datetime] = []
     for flight in player_flights(game):
         try:
-            starts.append(flight.flight_plan.startup_time())
+            starts.append(player_arrival_time(game, flight))
         except Exception:
             continue
     if not starts:
@@ -134,12 +192,31 @@ def pinned_window_holds_players(game: Game) -> bool:
         return False
     for flight in player_flights(game):
         try:
-            startup = flight.flight_plan.startup_time()
+            arrival = player_arrival_time(game, flight)
         except Exception:
             continue
-        if not bounds[0] <= startup < bounds[1]:
+        if not bounds[0] <= arrival < bounds[1]:
             return False
     return True
+
+
+def player_flight_signature(game: Game) -> frozenset[tuple[int, int]]:
+    """The flights with players in them (id, players), to notice when the
+    player picks a new one."""
+    return frozenset((id(f), f.client_count) for f in player_flights(game))
+
+
+def follow_player_selection(game: Game) -> bool:
+    """The player put a player in a flight: the DCS window goes back to its
+    default, where fast forward stops for the earliest player flight
+    (dropping a window the player had dragged). Returns whether it moved."""
+    if period(game) is None or is_focused(game):
+        return False
+    before = game.air_campaign.window_offset_min
+    game.air_campaign.window_pinned = False
+    if not align_window_to_players(game):
+        return False
+    return game.air_campaign.window_offset_min != before
 
 
 def align_window_to_players(game: Game) -> bool:
@@ -159,15 +236,16 @@ def align_window_to_players(game: Game) -> bool:
 
 
 def late_player_flights(game: Game) -> list[Flight]:
-    """Player flights that start up after the mission window ends: they are
-    in the mission, but a long wait from the earliest player's startup."""
+    """Player flights that reach their fast-forward point (startup, taxi,
+    takeoff or IP) after the mission window ends: they are in the mission,
+    but a long wait from the earliest player's."""
     bounds = window(game)
     if bounds is None:
         return []
     late = []
     for flight in player_flights(game):
         try:
-            if flight.flight_plan.startup_time() >= bounds[1]:
+            if player_arrival_time(game, flight) >= bounds[1]:
                 late.append(flight)
         except Exception:
             continue

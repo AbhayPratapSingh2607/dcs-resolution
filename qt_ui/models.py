@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from typing import Any, Callable, Iterator, Optional, TypeVar
 
 from PySide6.QtCore import (
@@ -256,10 +257,38 @@ class AtoModel(QAbstractListModel):
             self._create_package_model, game_model
         )
         self.game_model.sim_controller.sim_update.connect(self.on_sim_update)
+        #: Blue's player flights when last looked at, to notice a new one.
+        self._player_flights: Optional[frozenset[tuple[int, int]]] = None
+        self.client_slots_changed.connect(self._on_client_slots_changed)
 
     @property
     def game(self) -> Optional[Game]:
         return self.game_model.game
+
+    def _on_client_slots_changed(self) -> None:
+        """A flight gained a player: the DCS window goes to where fast
+        forward stops for the player ("Fast forward until")."""
+        from game.sim import atoperiod
+
+        game = self.game
+        if game is None or self.ato is not game.blue.ato:
+            return
+        try:
+            now = atoperiod.player_flight_signature(game)
+        except Exception:
+            logging.exception("Could not read the player flights")
+            return
+        before, self._player_flights = self._player_flights, now
+        if before is None or not now - before:
+            # Loading a game, or a player removed: the window stays.
+            return
+        bounds = atoperiod.period(game)
+        sim_time = self.game_model.sim_controller.current_time_in_sim_if_game_loaded
+        if bounds is None or (sim_time is not None and sim_time > bounds[0]):
+            # Part of the turn is fought: the window can't move any more.
+            return
+        if atoperiod.follow_player_selection(game):
+            self.package_timing_changed.emit()
 
     def _create_package_model(
         self, package: Package, game_model: GameModel
@@ -356,6 +385,8 @@ class AtoModel(QAbstractListModel):
                 self.ato = self.game.red.ato
         else:
             self.ato = AirTaskingOrder()
+        # A loaded game keeps its window until the player picks a flight.
+        self._player_flights = None
         self.endResetModel()
         # noinspection PyUnresolvedReferences
         self.client_slots_changed.emit()
