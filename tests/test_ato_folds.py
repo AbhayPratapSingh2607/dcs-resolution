@@ -47,6 +47,32 @@ def test_routine_lines_fold_with_their_reliefs() -> None:
     assert id(lone[0]) not in table
 
 
+def test_an_opened_fold_lists_its_packages_under_its_first_row() -> None:
+    # CAP 293 relieves at 18:15, 19:10, 20:05; other DCA packages fall between.
+    line = [_package(FlightType.BARCAP, "CAP 293", m) for m in (15, 70, 125)]
+    alert = _package(FlightType.BARCAP, "Alert Vaziani", 20)
+    tanker_cap = [_package(FlightType.BARCAP, "HVAA CAP tanker", m) for m in (24, 90)]
+    later = _package(FlightType.BARCAP, "Alert Kutaisi", 200)
+    packages = line + [alert] + tanker_cap + [later]
+    table = ap.folds(packages, PUSH)
+    ordered = sorted(packages, key=lambda p: ap.row_sort_key(p, table.get(id(p))))
+    names = [(p.target.name, p.time_over_target.minute) for p in ordered]
+    assert names == [
+        ("CAP 293", 15),
+        ("CAP 293", 10),
+        ("CAP 293", 5),
+        ("Alert Vaziani", 20),
+        ("HVAA CAP tanker", 24),
+        ("HVAA CAP tanker", 30),
+        ("Alert Kutaisi", 20),
+    ]
+    # Without folds, plain TOT order.
+    plain = sorted(packages, key=lambda p: ap.row_sort_key(p, None))
+    assert [p.time_over_target for p in plain] == sorted(
+        p.time_over_target for p in packages
+    )
+
+
 def test_waves_outside_the_push_fold_per_category() -> None:
     before = [_package(FlightType.STRIKE, f"T{i}", 45 + i) for i in range(3)]
     inside = [_package(FlightType.STRIKE, f"P{i}", 125 + i) for i in range(4)]

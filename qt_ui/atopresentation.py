@@ -104,6 +104,21 @@ def sort_key(package: Package) -> tuple[int, datetime]:
     return GROUP_ORDER[package_group(package).key], package.time_over_target
 
 
+def row_sort_key(
+    package: Package, fold: Optional[Fold]
+) -> tuple[int, datetime, str, int, datetime]:
+    """The package list's order: by group, then by TOT, except that a fold's
+    packages all sort at its first package's TOT, in fold order, so an opened
+    fold's packages come straight under its first row instead of spreading
+    out among the others."""
+    group, tot = sort_key(package)
+    if fold is None:
+        return group, tot, "", 0, tot
+    first = fold.representative.time_over_target
+    position = next(i for i, p in enumerate(fold.packages) if p is package)
+    return group, first, fold.key, position, tot
+
+
 # ------------------------------------------------------------- composition
 
 

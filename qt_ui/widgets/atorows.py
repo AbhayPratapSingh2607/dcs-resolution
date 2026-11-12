@@ -58,11 +58,12 @@ class AtoGroupProxy(QSortFilterProxyModel):
         self.folds = ap.folds(packages, push, elsewhere)
         keys = {fold.key for fold in self.folds.values()}
         self.open_folds &= keys
-        self.invalidateFilter()
+        # The order depends on the folds too (row_sort_key): re-sort as well.
+        self.invalidate()
 
     def set_folding(self, folding: bool) -> None:
         self.folding = folding
-        self.invalidateFilter()
+        self.invalidate()
 
     def fold_of(self, package: Package) -> Optional[ap.Fold]:
         if not self.folding:
@@ -107,7 +108,7 @@ class AtoGroupProxy(QSortFilterProxyModel):
         b = right.data(AtoModel.PackageRole)
         if a is None or b is None:
             return False
-        return ap.sort_key(a) < ap.sort_key(b)
+        return ap.row_sort_key(a, self.fold_of(a)) < ap.row_sort_key(b, self.fold_of(b))
 
 
 def _badge(painter: QPainter, right: int, top: int, height: int, text: str, color: QColor, metrics: QFontMetrics) -> int:
