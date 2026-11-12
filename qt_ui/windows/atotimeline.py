@@ -65,6 +65,26 @@ class FireLane:
     def __init__(self, label: str, missions: list) -> None:
         self.label = label
         self.missions = missions
+        #: The missions stacked in tracks so that none overlap: each track
+        #: is a row of the lane.
+        self.tracks: list[list] = [missions] if missions else [[]]
+
+
+def stack_tracks(spans: list[tuple[object, float, float]]) -> list[list]:
+    """Greedy packing of (item, start, end) spans, sorted by start, into the
+    fewest tracks where no two spans in a track overlap."""
+    tracks: list[list] = []
+    ends: list[float] = []
+    for item, start, end in sorted(spans, key=lambda s: (s[1], s[2])):
+        for i, last in enumerate(ends):
+            if start > last:
+                tracks[i].append(item)
+                ends[i] = end
+                break
+        else:
+            tracks.append([item])
+            ends.append(end)
+    return tracks or [[]]
 
 
 class TimelineWidget(QWidget):
@@ -182,7 +202,24 @@ class TimelineWidget(QWidget):
                 lane = FireLane(f"{mission.launcher_name} ({mission.weapon})", [])
                 by_launcher[mission.launcher_key] = lane
             lane.missions.append(mission)
+        game = self.game
+        # A marker's width in minutes at this zoom, so markers don't touch.
+        pad = (2 * self._fire_marker_radius() + 6) / self.px_per_min
+        for lane in by_launcher.values():
+            spans = []
+            for mission in lane.missions:
+                flight = (
+                    self._flight_time(game, mission) / timedelta(minutes=1)
+                    if game is not None
+                    else 0.0
+                )
+                start = (mission.time - datetime.min) / timedelta(minutes=1)
+                spans.append((mission, start - pad / 2, start + flight + pad / 2))
+            lane.tracks = stack_tracks(spans)
         return list(by_launcher.values())
+
+    def _fire_marker_radius(self) -> float:
+        return max(3.0, (self.lane_height - 6) / 2)
 
     def refresh(self, *_args: object) -> None:
         start, end = self.bounds()
@@ -192,7 +229,11 @@ class TimelineWidget(QWidget):
             height += (
                 self.header_height
                 if kind == "header"
-                else self.lane_height if kind == "fire" else self.lane_px(item)  # type: ignore[arg-type]
+                else (
+                    self.lane_height * len(item.tracks)  # type: ignore[union-attr]
+                    if kind == "fire"
+                    else self.lane_px(item)  # type: ignore[arg-type]
+                )
             )
         self.setMinimumSize(
             QSize(int(self.label_width + minutes * self.px_per_min + 20), height)
@@ -271,13 +312,14 @@ class TimelineWidget(QWidget):
                 stripe = False
                 continue
             if kind == "fire":
+                fire_height = self.lane_height * len(item.tracks)  # type: ignore[union-attr]
                 if stripe:
                     painter.fillRect(
-                        QRect(0, y, self.width(), self.lane_height), LANE_ALT
+                        QRect(0, y, self.width(), fire_height), LANE_ALT
                     )
                 stripe = not stripe
                 fire_rows.append((y, item))  # type: ignore[arg-type]
-                y += self.lane_height
+                y += fire_height
                 continue
             lane: ap.Lane = item  # type: ignore[assignment]
             height = self.lane_px(lane)
@@ -359,8 +401,15 @@ class TimelineWidget(QWidget):
             )
             painter.save()
             painter.setClipRect(bars_clip)
-            for mission in fire_lane.missions:
-                self._paint_fire_mission(painter, game, mission, y, self.lane_height)
+            for track, missions in enumerate(fire_lane.tracks):
+                for mission in missions:
+                    self._paint_fire_mission(
+                        painter,
+                        game,
+                        mission,
+                        y + track * self.lane_height,
+                        self.lane_height,
+                    )
             painter.restore()
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
@@ -522,7 +571,7 @@ class TimelineWidget(QWidget):
             painter.setPen(QPen(color, 2, Qt.PenStyle.DashLine))
             painter.drawLine(QPointF(x0, mid), QPointF(x1, mid))
         # Launch: a small triangle; impact: a burst.
-        r = max(3.0, (height - 6) / 2)
+        r = self._fire_marker_radius()
         painter.setPen(QPen(QColor("#1e262c"), 1))
         painter.setBrush(QBrush(color))
         painter.drawPolygon(
