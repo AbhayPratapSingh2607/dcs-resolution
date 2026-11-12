@@ -24,6 +24,7 @@ from .player import Player
 if TYPE_CHECKING:
     from game.ato.flighttype import FlightType
     from game.dcs.aircrafttype import AircraftType
+    from game.squadrons import Squadron
     from .conflicttheater import ConflictTheater
 
 
@@ -340,6 +341,13 @@ class DynamicFarp(Fob):
     def is_fat_cow(self) -> bool:
         """Whether this FARP uses the Fat Cow (CH-47) layout."""
         return self.kind is FarpKind.FAT_COW
+
+    #: A Rescue King's orbit aircraft as the player chose it in its menu
+    #: (FarpManager.set_king_aircraft): a squadron of the air wing, or the
+    #: KC-130 from outside it. Neither set: picked automatically. Class
+    #: defaults, so saves from before the choice load.
+    king_squadron_choice: Optional[Squadron] = None
+    king_outside_tanker: bool = False
 
     @property
     def is_rescue_king(self) -> bool:

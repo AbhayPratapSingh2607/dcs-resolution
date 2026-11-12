@@ -177,7 +177,7 @@ class FarpManager:
         instant FARP cheat on, waiting FARPs are set up immediately instead.
         """
         for king in self.kings:
-            if self.setup_package(king) is None:
+            if self.king_package(king) is None:
                 self.plan_king_flight(king, now)
         for farp in self.farps:
             if farp.established or self.setup_package(farp) is not None:
@@ -602,22 +602,112 @@ class FarpManager:
         """FARPs and Rescue Kings need no transport from the air wing."""
         return self.game.settings.farps_need_no_transport
 
+    def king_squadrons(
+        self, point: Point, current: Optional[Squadron] = None
+    ) -> list[tuple[Squadron, Optional[str]]]:
+        """Every C-130/KC-130 squadron that could orbit a King at ``point``,
+        nearest first, with why it can't (None if it can).
+
+        ``current`` is the squadron already flying the orbit: its aircraft is
+        claimed by that flight, so it counts as available.
+        """
+        squadrons: list[tuple[Squadron, Optional[str]]] = []
+        for s in self.coalition.air_wing.iter_squadrons():
+            if s.is_detachment or not s.capable_of(FlightType.RESCUE_KING):
+                continue
+            reason: Optional[str] = None
+            if s is current:
+                pass
+            elif not s.can_auto_assign(FlightType.RESCUE_KING):
+                reason = "Rescue King is turned off for this squadron (Air Wing)"
+            elif s.untasked_aircraft < 1:
+                reason = "no aircraft free"
+            elif not s.can_provide_pilots(1):
+                reason = "no crew free"
+            squadrons.append((s, reason))
+        squadrons.sort(key=lambda c: c[0].location.position.distance_to_point(point))
+        return squadrons
+
     def king_squadron(self, point: Point) -> Optional[Squadron]:
-        """The nearest C-130 squadron with an aircraft and crew free to orbit
-        a Rescue King."""
-        candidates = [
-            s
-            for s in self.coalition.air_wing.iter_squadrons()
-            if not s.is_detachment
-            and s.capable_of(FlightType.RESCUE_KING)
-            and s.untasked_aircraft >= 1
-            and s.can_provide_pilots(1)
-        ]
-        if not candidates:
+        """The nearest C-130/KC-130 squadron with Rescue King turned on and an
+        aircraft and crew free: the King's orbit unless the player picks
+        another."""
+        for squadron, reason in self.king_squadrons(point):
+            if reason is None:
+                return squadron
+        return None
+
+    @staticmethod
+    def king_flight(package: Optional[Package]) -> Optional[Flight]:
+        if package is None:
             return None
-        return min(
-            candidates, key=lambda s: s.location.position.distance_to_point(point)
+        for flight in package.flights:
+            if flight.flight_type is FlightType.RESCUE_KING:
+                return flight
+        return None
+
+    def king_package(self, king: DynamicFarp) -> Optional[Package]:
+        """The package of the King's orbit flight (other packages, such as a
+        CAP over it, can target the King too)."""
+        for package in self.coalition.ato.packages:
+            if package.target == king and self.king_flight(package) is not None:
+                return package
+        return None
+
+    def set_king_aircraft(
+        self,
+        king: DynamicFarp,
+        squadron: Optional[Squadron],
+        now: Optional[datetime] = None,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> Optional[Flight]:
+        """Changes the aircraft orbiting ``king``: ``squadron`` of the air
+        wing, or None for the KC-130 from outside it (only when FARPs need no
+        transport). The old orbit flight is cancelled and a new one planned."""
+        if squadron is None and not self.no_transport_needed:
+            raise ValueError(
+                "A KC-130 from outside the air wing needs the setting "
+                "'FARPs and Rescue Kings need no transport aircraft'."
+            )
+        package = self.king_package(king)
+        current = self.king_flight(package)
+        if squadron is not None:
+            available = dict(
+                self.king_squadrons(
+                    king.position, current.squadron if current else None
+                )
+            )
+            if squadron not in available:
+                raise ValueError(f"{squadron} can't fly Rescue King.")
+            if available[squadron] is not None:
+                raise ValueError(f"{squadron}: {available[squadron]}.")
+        if package is not None:
+            for flight in list(package.flights):
+                if events is not None:
+                    events.delete_flight(flight)
+                package.remove_flight(flight)
+            self.coalition.ato.remove_package(package)
+        king.king_squadron_choice = squadron
+        king.king_outside_tanker = squadron is None
+        return self.plan_king_flight(
+            king, now or self.game.conditions.start_time, events
         )
+
+    def _king_orbit_squadron(self, king: DynamicFarp) -> Optional[Squadron]:
+        """Who flies the King's orbit: the player's choice if it can still go,
+        else the KC-130 from outside the air wing when FARPs need no transport,
+        else the nearest squadron with Rescue King on. None for the outside
+        KC-130 is told apart from "nobody" by ``no_transport_needed``."""
+        choice = king.king_squadron_choice
+        if choice is not None:
+            for squadron, reason in self.king_squadrons(king.position):
+                if squadron is choice and reason is None:
+                    return choice
+        if self.no_transport_needed and (
+            king.king_outside_tanker or king.king_squadron_choice is None
+        ):
+            return None
+        return self.king_squadron(king.position)
 
     @staticmethod
     def can_rescue_from_king(squadron: Squadron) -> bool:
@@ -663,7 +753,8 @@ class FarpManager:
             return check
         if not self.no_transport_needed and self.king_squadron(point) is None:
             reasons.append(
-                "No C-130 or KC-130 with a crew free to fly the King's orbit."
+                "No C-130 or KC-130 squadron with Rescue King turned on and an "
+                "aircraft and crew free to fly the King's orbit."
             )
         if self.rescue_squadron(point) is None:
             reasons.append("No CSAR-capable helicopter and crew to send to it.")
@@ -724,9 +815,10 @@ class FarpManager:
         self.game.message(
             f"{king.name} on station",
             f"A {aircraft} orbits {king.name} this turn with {count} "
-            f"{heli_parent.aircraft} of {heli_parent.name}. Change the "
-            f"helicopters in the menu of {king.name}. They fly a rescue of the "
-            "nearest downed pilot; or plan one by hand.",
+            f"{heli_parent.aircraft} of {heli_parent.name}. Change the King "
+            f"aircraft or the helicopters in the menu of {king.name}. The "
+            "helicopters fly a rescue of the nearest downed pilot; or plan one "
+            "by hand.",
         )
         logging.info(f"Placed Rescue King {king.name} at {point}")
         return king
@@ -850,22 +942,23 @@ class FarpManager:
         now: datetime,
         events: Optional[GameUpdateEvents] = None,
     ) -> Optional[Flight]:
-        """The C-130 that orbits the King this turn, or with no transport
-        needed (settings), a KC-130 tanker from outside the air wing."""
+        """The aircraft that orbits the King this turn (_king_orbit_squadron):
+        a C-130/KC-130 of the air wing, or with no transport needed
+        (settings), a KC-130 tanker from outside it."""
         from game.ato.starttype import StartType
 
-        squadron: Optional[Squadron]
-        if self.no_transport_needed:
+        squadron = self._king_orbit_squadron(king)
+        start_type = StartType.ON_STATION
+        if squadron is None and self.no_transport_needed:
             squadron = self._king_tanker_squadron(king)
             # It appears in the air over the King.
             start_type = StartType.IN_FLIGHT
-        else:
-            squadron = self.king_squadron(king.position)
-            start_type = StartType.ON_STATION
         if squadron is None:
             self.game.message(
                 f"{king.name} has no C-130",
-                "No C-130 or KC-130 is free to orbit it this turn.",
+                "No C-130 or KC-130 squadron with Rescue King turned on has an "
+                f"aircraft and crew free to orbit it this turn. Pick one in the "
+                f"menu of {king.name}.",
             )
             return None
         package = Package(king, self.game.db.flights)

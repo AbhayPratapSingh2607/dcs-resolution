@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from game import Game
-from game.ato.flightplans.rescueking import is_tanker_king
+from game.ato.flightplans.rescueking import is_tanker_king, is_tanker_type
 from game.server import EventStream
 from game.sim import GameUpdateEvents
 from game.squadrons import Squadron
@@ -37,6 +37,13 @@ from game.utils import meters
 from qt_ui.models import GameModel
 from qt_ui.windows.GameUpdateSignal import GameUpdateSignal
 
+#: King aircraft list entry for the KC-130 from outside the air wing.
+OUTSIDE_TANKER = "outside_tanker"
+
+
+def is_tanker_aircraft(squadron: Squadron) -> bool:
+    return is_tanker_type(squadron.aircraft)
+
 
 class QFarpCommand(QFrame):
     """Base menu tab for managing a player-established FARP."""
@@ -52,6 +59,27 @@ class QFarpCommand(QFrame):
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         self.main_layout.addWidget(self.status_label)
+
+        self.king_selector: Optional[QComboBox] = None
+        self.king_button: Optional[QPushButton] = None
+        #: Index of the aircraft orbiting now in king_selector.
+        self._king_current_index: Optional[int] = None
+        if farp.is_rescue_king:
+            king_box = QGroupBox("King aircraft")
+            king_layout = QHBoxLayout()
+            king_box.setLayout(king_layout)
+            self.king_selector = QComboBox()
+            self.king_selector.currentIndexChanged.connect(self._on_king_changed)
+            king_layout.addWidget(self.king_selector, stretch=3)
+            self.king_button = QPushButton("Change")
+            self.king_button.setProperty("style", "btn-success")
+            self.king_button.setToolTip(
+                "Cancel the current orbit flight and send the selected aircraft "
+                "instead. A KC-130 refuels helicopters; a C-130 doesn't."
+            )
+            self.king_button.clicked.connect(self._change_king_aircraft)
+            king_layout.addWidget(self.king_button)
+            self.main_layout.addWidget(king_box)
 
         self.detachments_box = QGroupBox("Stationed detachments")
         self.detachments_layout = QVBoxLayout()
@@ -142,10 +170,10 @@ class QFarpCommand(QFrame):
         return "<br/>".join(lines)
 
     def _king_text(self) -> str:
-        package = self.farp.coalition.farps.setup_package(self.farp)
-        if package is None or not package.flights:
-            return "No C-130 is free to orbit it this turn."
-        flight = package.flights[0]
+        manager = self.farp.coalition.farps
+        flight = manager.king_flight(manager.king_package(self.farp))
+        if flight is None:
+            return "No C-130 or KC-130 orbits it this turn: pick one below."
         air_wing = list(self.farp.coalition.air_wing.iter_squadrons())
         if flight.squadron in air_wing:
             origin = f"of {flight.squadron}"
@@ -172,8 +200,107 @@ class QFarpCommand(QFrame):
             "does."
         )
 
+    def _refresh_king_selector(self) -> None:
+        """Lists the C-130/KC-130 squadrons (and, with no transport needed,
+        the KC-130 from outside the air wing) with the current one selected.
+        Item data: a Squadron, or OUTSIDE_TANKER."""
+        selector = self.king_selector
+        if selector is None:
+            return
+        manager = self.farp.coalition.farps
+        current = manager.king_flight(manager.king_package(self.farp))
+        air_wing = list(self.farp.coalition.air_wing.iter_squadrons())
+        current_squadron = (
+            current.squadron
+            if current is not None and current.squadron in air_wing
+            else None
+        )
+        selector.blockSignals(True)
+        selector.clear()
+        model = cast(QStandardItemModel, selector.model())
+        selected: Optional[int] = None
+        if manager.no_transport_needed:
+            selector.addItem(
+                "KC-130 tanker from outside your air wing (refuels helicopters)",
+                OUTSIDE_TANKER,
+            )
+            if current is not None and current_squadron is None:
+                selected = 0
+        for squadron, reason in manager.king_squadrons(
+            self.farp.position, current_squadron
+        ):
+            distance = meters(
+                squadron.location.position.distance_to_point(self.farp.position)
+            )
+            role = (
+                "tanker, refuels helicopters"
+                if is_tanker_aircraft(squadron)
+                else "no refueling"
+            )
+            text = (
+                f"{squadron} ({squadron.aircraft.display_name}, {role}) at "
+                f"{squadron.location} - {distance.nautical_miles:.0f}nm"
+            )
+            if reason is not None:
+                text += f" - unavailable: {reason}"
+            selector.addItem(text, squadron)
+            index = selector.count() - 1
+            if reason is not None:
+                entry = model.item(index)
+                entry.setEnabled(False)
+                entry.setToolTip(reason)
+            if squadron is current_squadron:
+                selected = index
+        if selector.count() == 0:
+            selector.addItem("No C-130 or KC-130 squadron in your air wing", None)
+            model.item(0).setEnabled(False)
+        if selected is not None:
+            selector.setCurrentIndex(selected)
+        self._king_current_index = selected
+        selector.blockSignals(False)
+        self._on_king_changed()
+
+    def _on_king_changed(self) -> None:
+        if self.king_selector is None or self.king_button is None:
+            return
+        index = self.king_selector.currentIndex()
+        data = self.king_selector.currentData()
+        item = cast(QStandardItemModel, self.king_selector.model()).item(index)
+        self.king_button.setEnabled(
+            data is not None
+            and item is not None
+            and item.isEnabled()
+            and index != self._king_current_index
+        )
+
+    def _change_king_aircraft(self) -> None:
+        if self.king_selector is None:
+            return
+        data = self.king_selector.currentData()
+        if data is None:
+            return
+        squadron = None if data == OUTSIDE_TANKER else data
+        events = GameUpdateEvents()
+        now = self.game_model.sim_controller.current_time_in_sim_if_game_loaded
+        try:
+            flight = self.farp.coalition.farps.set_king_aircraft(
+                self.farp, squadron, now, events
+            )
+        except ValueError as ex:
+            QMessageBox.warning(self, "Could not change the King aircraft", str(ex))
+            return
+        if flight is None:
+            QMessageBox.warning(
+                self,
+                "Could not change the King aircraft",
+                "The orbit couldn't be planned; see the log.",
+            )
+        self._publish(events)
+        self.refresh()
+
     def refresh(self) -> None:
         self.status_label.setText(self._status_text())
+        self._refresh_king_selector()
 
         while self.detachments_layout.count():
             item = self.detachments_layout.takeAt(0)

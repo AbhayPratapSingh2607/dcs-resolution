@@ -21,6 +21,7 @@ from game.utils import Distance, Speed, feet, knots, meters, nautical_miles
 
 if TYPE_CHECKING:
     from game.ato.flight import Flight
+    from game.dcs.aircrafttype import AircraftType
     from game.ato.flightwaypoint import FlightWaypoint
 
 #: Half the length of the King's racetrack.
@@ -38,11 +39,21 @@ TANKER_KING_ALTITUDE = feet(6000)
 TANKER_KING_SPEED = knots(135)
 
 
+def is_tanker_type(aircraft: AircraftType) -> bool:
+    """Whether a King flown by ``aircraft`` refuels helicopters (KC-130, KC-130J).
+
+    Retribution's tankers, as the aircraft data files say (a Refueling task),
+    not pydcs's list of DCS tasks: that one has Refueling for the C-130J-30
+    too, which Retribution never flies as a tanker.
+    """
+    from game.ato.flighttype import FlightType
+
+    return aircraft.capable_of(FlightType.REFUELING)
+
+
 def is_tanker_king(flight: Flight) -> bool:
     """Whether this King flight refuels helicopters: its aircraft is a tanker."""
-    from dcs.task import Refueling
-
-    return Refueling in flight.unit_type.dcs_unit_type.tasks
+    return is_tanker_type(flight.unit_type)
 
 
 @dataclass(frozen=True)

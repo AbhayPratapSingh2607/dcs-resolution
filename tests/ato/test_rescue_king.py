@@ -4,6 +4,7 @@ rescue helicopters for one turn."""
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator, Optional, cast
@@ -33,6 +34,7 @@ from game.theater.dynamicfarp import (
 from game.utils import Heading, feet, nautical_miles
 
 TERRAIN = Caucasus()
+NOW = datetime(2026, 1, 1, 12)
 NM = 1852.0
 HELICOPTERS = ParkingType(False, False, True)
 JETS = ParkingType(True, False, False)
@@ -158,13 +160,18 @@ def _helicopters(world: SimpleNamespace, x_nm: float = 50, owned: int = 4) -> Sq
     return _squadron(world, _aircraft(True, tasks), x_nm, owned, set(tasks))
 
 
-def _c130(world: SimpleNamespace, x_nm: float = 100) -> Squadron:
+def _c130(
+    world: SimpleNamespace, x_nm: float = 100, enabled: bool = True, owned: int = 2
+) -> Squadron:
+    tasks = {FlightType.TRANSPORT}
+    if enabled:
+        tasks.add(FlightType.RESCUE_KING)
     return _squadron(
         world,
         _aircraft(False, {FlightType.RESCUE_KING, FlightType.TRANSPORT}),
         x_nm,
-        2,
-        {FlightType.TRANSPORT},
+        owned,
+        tasks,
     )
 
 
@@ -288,16 +295,128 @@ def test_a_full_pair_goes_before_a_nearer_single() -> None:
     assert manager.rescue_squadron(_p(0)) is pair
 
 
-def test_a_kc130_king_is_a_tanker() -> None:
+def test_only_kc130s_are_tanker_kings(tmp_path: Path) -> None:
     from dcs import planes
 
+    from game import persistency
     from game.ato.flightplans.rescueking import is_tanker_king
+    from game.dcs.aircrafttype import AircraftType
+
+    persistency.setup(str(tmp_path), prefer_liberation_payloads=False, port=16884)
 
     def flight(unit: Any) -> Any:
-        return SimpleNamespace(unit_type=SimpleNamespace(dcs_unit_type=unit))
+        return SimpleNamespace(unit_type=next(AircraftType.for_dcs_type(unit)))
 
     assert is_tanker_king(flight(planes.KC130))
     assert not is_tanker_king(flight(planes.C_130))
+    # pydcs lists Refueling among the C-130J-30's DCS tasks, but Retribution
+    # doesn't fly it as a tanker.
+    assert not is_tanker_king(flight(planes.C_130J_30))
+
+
+# ------------------------------------------------------ the King aircraft
+
+
+def test_squadrons_with_rescue_king_off_are_never_picked_automatically() -> None:
+    world = _world()
+    off = _c130(world, x_nm=10, enabled=False)
+    on = _c130(world, x_nm=200)
+    manager = FarpManager(cast(Any, world.coalition))
+    assert manager.king_squadron(_p(0)) is on
+    # Both are listed for the player, nearest first; the one turned off says why.
+    listed = manager.king_squadrons(_p(0))
+    assert [s for s, _ in listed] == [off, on]
+    assert listed[0][1] is not None and "turned off" in listed[0][1]
+    assert listed[1][1] is None
+
+
+def test_no_king_site_when_every_c130_has_rescue_king_off() -> None:
+    world = _world()
+    _c130(world, enabled=False)
+    _helicopters(world)
+    manager = FarpManager(cast(Any, world.coalition))
+    reasons = manager.check_site(_p(0), FarpKind.RESCUE_KING).reasons
+    assert any("turned on" in r for r in reasons)
+
+
+def test_busy_squadrons_are_listed_with_the_reason() -> None:
+    world = _world()
+    busy = _c130(world, owned=1)
+    busy.untasked_aircraft = 0
+    manager = FarpManager(cast(Any, world.coalition))
+    assert manager.king_squadrons(_p(0)) == [(busy, "no aircraft free")]
+    # Unless it is the one already flying the orbit.
+    assert manager.king_squadrons(_p(0), current=busy) == [(busy, None)]
+
+
+def _planned(manager: FarpManager) -> list[Any]:
+    """Stubs plan_king_flight: records who would fly the orbit."""
+    calls: list[Any] = []
+
+    def plan(king: Any, now: Any, events: Any = None) -> Any:
+        squadron = manager._king_orbit_squadron(king)
+        calls.append(squadron)
+        return SimpleNamespace(squadron=squadron)
+
+    manager.plan_king_flight = plan  # type: ignore[method-assign]
+    return calls
+
+
+def test_the_player_picks_the_king_aircraft() -> None:
+    world = _world()
+    king = _king(world)
+    near = _c130(world, x_nm=10)
+    far = _c130(world, x_nm=200)
+    manager = FarpManager(cast(Any, world.coalition))
+    calls = _planned(manager)
+    assert manager._king_orbit_squadron(king) is near
+    manager.set_king_aircraft(king, far, NOW)
+    assert king.king_squadron_choice is far and not king.king_outside_tanker
+    assert calls == [far]
+    # The choice stands when the orbit is planned again (a replan).
+    assert manager._king_orbit_squadron(king) is far
+    # If the chosen squadron can't go any more, the nearest one goes.
+    far.untasked_aircraft = 0
+    assert manager._king_orbit_squadron(king) is near
+
+
+def test_a_squadron_with_rescue_king_off_or_busy_cant_be_picked() -> None:
+    world = _world()
+    king = _king(world)
+    off = _c130(world, enabled=False)
+    manager = FarpManager(cast(Any, world.coalition))
+    _planned(manager)
+    for squadron in (off, _helicopters(world)):
+        try:
+            manager.set_king_aircraft(king, squadron, NOW)
+        except ValueError:
+            continue
+        raise AssertionError(f"{squadron} was accepted as the King aircraft")
+
+
+def test_the_outside_kc130_needs_the_no_transport_setting() -> None:
+    world = _world()
+    king = _king(world)
+    own = _c130(world)
+    manager = FarpManager(cast(Any, world.coalition))
+    _planned(manager)
+    try:
+        manager.set_king_aircraft(king, None, NOW)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("the outside KC-130 was allowed without the setting")
+
+    world.settings.farps_need_no_transport = True
+    # With the setting on, the outside KC-130 is the default (None) ...
+    assert manager._king_orbit_squadron(king) is None
+    # ... the player can pick their own squadron instead ...
+    manager.set_king_aircraft(king, own, NOW)
+    assert manager._king_orbit_squadron(king) is own
+    # ... and go back to the outside KC-130.
+    manager.set_king_aircraft(king, None, NOW)
+    assert king.king_outside_tanker
+    assert manager._king_orbit_squadron(king) is None
 
 
 def test_rescue_helicopters_come_from_the_nearest_csar_squadron() -> None:

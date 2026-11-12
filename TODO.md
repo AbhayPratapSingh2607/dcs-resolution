@@ -801,6 +801,12 @@ default since W8). D11 checks the 6 hour turn.
   station ends. A ground FARP placed with the setting on is set up at once, with no setup
   flight. If you fly a helicopter that can take fuel in the air (the UH-60L mod), try
   refueling from the KC-130; stock DCS helicopters can't.
+  **Choosing the King aircraft:** the menu's "King aircraft" list shows every C-130/KC-130
+  squadron, nearest first; one with Rescue King turned off in the Air Wing is greyed out and
+  never picked automatically. Pick another and press Change: the ATO's King package switches
+  aircraft. With the no-transport setting on, the list also has the KC-130 from outside the
+  air wing (the default). In DCS, only a KC-130/KC-130J King has a tanker callsign and
+  TACAN; a C-130 or C-130J-30 King doesn't refuel.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.
