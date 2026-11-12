@@ -157,3 +157,10 @@ def test_reaction_lines_follow_the_surprise() -> None:
     caught = " ".join(opening.reaction_lines(_game(Surprise.FULL), cut))
     assert "next turn" in ready and "counter-strike" in ready
     assert "4 turns" in caught and "counter-strike" not in caught
+
+
+def test_no_counter_strike_expected_with_fire_missions_off() -> None:
+    cut = [SalvoShot("Krymsk", "airfield", 4, 2, 1, 1, runway_cut=True)]
+    game = _game(Surprise.NONE)
+    game.settings.fire_missions = False
+    assert "counter-strike" not in " ".join(opening.reaction_lines(game, cut))

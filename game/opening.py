@@ -608,7 +608,10 @@ def reaction_lines(game: Game, shots: list[SalvoShot]) -> list[str]:
                 )
                 + "; helicopters fly on."
             )
-    counter = COUNTER_STRIKE_SHARE[surprise]
+    from game.warfare.firemissions import enabled as fire_missions_enabled
+
+    # Red fires back only through fire missions (the Fire missions setting).
+    counter = COUNTER_STRIKE_SHARE[surprise] if fire_missions_enabled(game) else 0.0
     if counter >= 1.0:
         lines.append(
             "Expect a counter-strike on turn 1: the enemy's missile units were ready."
