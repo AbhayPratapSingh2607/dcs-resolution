@@ -392,6 +392,49 @@ def targets_for(game: Game, launcher: Launcher) -> list[tuple[float, MissionTarg
     return found
 
 
+def unreachable_reason(
+    game: Game, player: Player, target: MissionTarget
+) -> Optional[str]:
+    """Why no launcher of the side can fire at the target, or None when one can."""
+    from game.theater import ControlPoint
+    from game.theater.theatergroundobject import TheaterGroundObject
+    from game.warfare.intel import is_mobile
+
+    found = launchers(game, player)
+    if not found:
+        return (
+            "Your side has no cruise missile ships, missile sites or front-line "
+            "artillery."
+        )
+    if any(t is target for l in found for _, t in targets_for(game, l)):
+        return None
+    name = getattr(target, "name", "This target")
+    if isinstance(target, TheaterGroundObject):
+        if target.sea_object:
+            return f"{name} is at sea: fire missions are land attack only."
+        if not _knows(game, player, target):
+            return f"Intelligence hasn't located {name}, so nothing can be aimed at it."
+    artillery = [l for l in found if l.kind is LauncherKind.ARTILLERY]
+    missiles = [l for l in found if l.kind is not LauncherKind.ARTILLERY]
+
+    def nearest(group: list[Launcher]) -> str:
+        best = min(group, key=lambda l: l.position.distance_to_point(target.position))
+        km = best.position.distance_to_point(target.position) / 1000
+        return f"{best.name} is {km:.0f} km away (reach {best.range_m / 1000:.0f} km)"
+
+    if isinstance(target, TheaterGroundObject) and is_mobile(target):
+        reason = (
+            f"{name} is a mobile site: cruise missiles and ballistic missiles are "
+            "fired at fixed points, so only front-line artillery can hit it"
+        )
+        if artillery:
+            return f"{reason}, and none is in reach: {nearest(artillery)}."
+        return f"{reason}, and your side has no artillery at a front line."
+    if isinstance(target, ControlPoint) and not missiles:
+        return "Artillery doesn't fire at airfields, and your side has no missiles."
+    return f"Out of reach: {nearest(found)}."
+
+
 def plan_mission(
     game: Game,
     launcher: Launcher,

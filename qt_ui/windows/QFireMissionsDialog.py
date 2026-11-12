@@ -46,6 +46,7 @@ from game.warfare.firemissions import (
     missions_this_turn,
     period_bounds,
     plan_ai_fire_missions,
+    unreachable_reason,
     plan_mission,
     remove_mission,
     rounds_for,
@@ -175,8 +176,10 @@ class QFireMissionEditor(QDialog):
         target = self.target.currentData()
         ok = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         if launcher is None:
+            self.note.setWordWrap(True)
             self.note.setText(
-                "No launcher can reach this target."
+                unreachable_reason(self.game, self.game.blue.player, self.wanted_target)
+                or "No launcher can reach this target."
                 if self.wanted_target is not None
                 else "Your side has no cruise missile ships, missile sites or "
                 "front-line artillery."

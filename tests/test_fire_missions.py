@@ -273,3 +273,11 @@ def test_strike_labels_for_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
     assert labels == {target.id: ["Fire mission 20:10: 4 Tomahawk from SHIP"]}
     blue.status = fm.FireStatus.FIRED
     assert fm.strike_labels(game)[target.id][0].startswith("Fired 20:10")
+
+
+def test_unreachable_reason_names_the_missing_launchers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(fm, "launchers", lambda game, player: [])
+    why = fm.unreachable_reason(object(), Player.BLUE, object())  # type: ignore[arg-type]
+    assert why is not None and "no cruise missile ships" in why

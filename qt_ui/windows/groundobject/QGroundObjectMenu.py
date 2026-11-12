@@ -128,6 +128,17 @@ class QGroundObjectMenu(QDialog):
                 "front-line artillery this turn."
             )
             fire.clicked.connect(self.plan_fire_mission)
+            from game.warfare.firemissions import unreachable_reason
+
+            try:
+                why = unreachable_reason(
+                    self.game, self.game.blue.player, self.ground_object
+                )
+            except Exception:
+                why = None
+            if why:
+                fire.setEnabled(False)
+                fire.setToolTip(why)
             self.mainLayout.addWidget(fire)
         self.setLayout(self.mainLayout)
 
