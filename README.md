@@ -1,89 +1,104 @@
-[![Logo](https://github.com/dcs-retribution/dcs-retribution/raw/main/resources/ui/splash_screen.png)](https://github.com/AbhayPratapSingh2607/dcs-retribution/tree/Resolution)
+[![Logo](https://github.com/dcs-retribution/dcs-retribution/raw/main/resources/ui/splash_screen.png)](https://github.com/AbhayPratapSingh2607/dcs-resolution)
 
 (Banner and splash screen artwork by Andriy Dankovych, CC BY-SA 4.0)
 
 # DCS Resolution
 
-**DCS Resolution** is a fork of [DCS Retribution](https://github.com/dcs-retribution/dcs-retribution),
-the turn-based dynamic campaign generator for [DCS World](https://www.digitalcombatsimulator.com/en/products/world/).
-It keeps everything Retribution does and adds things it doesn't have yet. Downed aircrew become
-part of the campaign. Helicopters can operate from forward bases you build yourself. Modded
-aircraft get loadout tools that work the way the DCS mission editor does.
+**A living air war for DCS World, where you fly as one cog in the machine.**
 
-Resolution tracks Retribution's `dev` branch. Each feature lives on its own branch so it can be
-offered upstream as a separate pull request, and the `Resolution` branch combines all of them into
-one build.
+DCS Resolution is a fork of [DCS Retribution](https://github.com/dcs-retribution/dcs-retribution),
+the turn-based dynamic campaign generator. Retribution builds a mission around you. Resolution
+fights a whole war and puts you in it.
 
-> Resolution is an unofficial fork. Please report problems with Resolution-only features
-> [here](https://github.com/AbhayPratapSingh2607/dcs-retribution/issues), not on Retribution's tracker.
+On each side an AI commander plans a full air campaign by its own doctrine, from its own
+intelligence. Every turn is six hours of that war for both sides. A combat model fights it
+whether or not DCS is running. The DCS mission is the slice of the war around your flight.
 
-## What Resolution adds to Retribution
+> Resolution is an unofficial fork. Report problems with Resolution
+> [here](https://github.com/AbhayPratapSingh2607/dcs-resolution/issues), not on Retribution's tracker.
+
+## How it differs from Retribution
+
+| | Retribution | Resolution |
+|---|---|---|
+| **A turn** | One mission. The ATO is built to fill it. | Six hours of air war for both sides. You fly part of it, and the combat model fights the rest, before, during and after your mission. |
+| **The planner** | A priority list of tasks that fill the mission. | A commander for each side that plans by doctrine: Desert Storm-style phases for the West, massed raids for Russia and the Soviets, homeland defense for client states. It plans routine lines, strike waves and a main push. |
+| **What the AI knows** | Everything. | Only what its own radars, satellites, agents, pilots and reconnaissance have found. Battle damage assessment can be wrong, and decoys fool it. |
+| **Fast forward** | Coin flips, or pause and fly. | A combat model built from sensors, weapons, pilot skill, weather, fuel and doctrine, calibrated against Desert Storm, Allied Force, Linebacker II and Yom Kippur. |
+| **Your place** | The mission is built around you. | You get a flight from the commander's real plan, matched to your preferred squadron or mission. The plan doesn't bend for you. |
+| **The DCS mission** | Every flight in the ATO window. | The flights you are likely to meet (the "bubble"). The rest of the war is fought in the combat model over the same time. |
+| **Campaign start** | Buy an air wing. | Deploy a real air wing from a preset, choose H-hour and how surprised the enemy is, and open the war with a cruise missile salvo. |
+| **Downed pilots** | Killed, or back at base. | Down on the map, waiting for a rescue for a few turns. |
+| **Helicopters** | Fly from airfields and FARPs in the campaign file. | You can also build FARPs near the front and stage rescue helicopters under a C-130 orbit. |
+
+Everything Retribution does still works. You can turn most of Resolution off and play it like
+Retribution: **Mission only** turns, the legacy planner, fog of war off.
+
+## What Resolution adds
+
+### The war
 
 | Feature | What it does | Guide |
 |---|---|---|
-| **Turn-based CSAR** | Shot-down pilots survive on the map for a few turns. You (or the AI) fly rescue missions to bring them home before they go missing or are captured. | [Combat Search and Rescue](docs/resolution/CSAR.md) |
-| **Dynamic FARPs** | Build your own Forward Arming and Refuelling Points near the front. A transport flies the equipment in, and then you station helicopter detachments there. | [Dynamic FARPs](docs/resolution/Dynamic-FARPs.md) |
-| **Mission editor-style loadout editor** | Payloads and stations show the names the DCS mission editor uses, and each station's weapons are sorted into category submenus. | [Loadout editor](docs/resolution/Loadout-Editor.md) |
-| **UH-60L Armed Blackhawk** | Supports the Armed Blackhawk submod and the ANDR0ID Weapon Pack: MH-60R/S, HH-60G, MH-60M and other airframes, the ESSS stub wings, and 32 extra stores. The submod's loadout rules are applied. | [Armed Blackhawk](docs/resolution/Armed-Blackhawk.md) |
-| **On Station start** | A new start type: the flight appears in the air at its station, the racetrack for CAP, AWACS and tankers or the IP for attack packages. Support assets can be on station when the mission starts, as they would be in reality. | [On Station start](docs/resolution/On-Station-Start.md) |
-| **Air wing presets** | Set up a whole air wing in one click: US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a NATO coalition, or Soviet and Russian air forces. Works on any theater, and the aircraft are bought from the starting budget. | [Air wing presets](docs/resolution/Air-Wing-Presets.md) |
-| **Super Hornet fixes** | Works with CJS Super Hornet v2.4.6 payload files. Includes up-to-date weapon names, callsign fixes and mission editor station labels. | [Super Hornet](docs/resolution/Super-Hornet.md) |
+| **The 6 hour turn** | Each turn is six hours of air war. The mission starts when your flight does. Everything earlier has already been fought, and everything after is fought when you quit. | [Playing a turn](docs/resolution/Playing-a-Turn.md) |
+| **Air campaign commanders** | Doctrine-driven planners for Western, Russian, Soviet, client-state and irregular air forces. They work through phases, a target list with BDA, apportionment, threat-scaled packages, a risk limit, GCI scrambles and IADS management. | [The commanders](docs/resolution/Air-Campaign-Planner.md) |
+| **Combat model** | Fast forward fights it out. It models air-to-air, SAMs, strikes, the front lines, fuel and tankers, and what happens to each crew that goes down. An after-action report tells the story. | [Combat model](docs/resolution/Combat-Model.md) |
+| **Intelligence and fog of war** | Each side has its own picture of the enemy, built from radars, satellites, agencies and reconnaissance. Morale, war-weariness, decoys, rules of engagement and collateral damage are modelled too. | [Intelligence](docs/resolution/Intelligence.md) |
+| **The opening** | Pick H-hour, the opening emphasis and the strategic surprise. Reconnoitre before the war, fire the opening cruise missile salvo, and watch the enemy react. | [The opening](docs/resolution/Playing-a-Turn.md#the-opening) |
+| **Fire missions** | Tomahawk, Scud and artillery strikes every turn, from campaign magazines. Planned from the map or the timeline. | [Fire missions](docs/resolution/Fire-Missions.md) |
+| **Road bases** | An enemy whose runways are cratered keeps flying part of its force from road strips. | [Road bases](docs/resolution/Playing-a-Turn.md#road-bases) |
 
-The full list of Resolution's changes is in the [Resolution changelog](docs/resolution/Changelog.md).
-For everything Resolution inherits from Retribution, see Retribution's [changelog](changelog.md).
+### Aircrew, helicopters and bases
 
-### At a glance
+| Feature | What it does | Guide |
+|---|---|---|
+| **Turn-based CSAR** | Shot-down pilots survive on the map for a few turns. You or the AI fly rescues before they go missing or are captured. | [CSAR](docs/resolution/CSAR.md) |
+| **Rescue King** | Place a C-130 orbit outside enemy air defenses. Two CSAR helicopters stage under it for the turn. | [Rescue King](docs/resolution/CSAR.md#rescue-king) |
+| **Dynamic FARPs** | Build Wet Wing (C-130) or Fat Cow (CH-47) FARPs near the front and station helicopter detachments there. Sites are checked against terrain, towns and the front. | [Dynamic FARPs](docs/resolution/Dynamic-FARPs.md) |
+| **On Station start** | A start type that puts a flight in the air at its racetrack or IP, so AWACS, tankers and CAP are on station when the mission begins. | [On Station start](docs/resolution/On-Station-Start.md) |
 
-**CSAR.** When an aircraft goes down, the pilot appears on the map as a parachute icon showing how
-many turns are left to rescue them. Right-click the icon to plan a CSAR package, or let the
-auto-planner do it. AI helicopters either hover and winch the survivor aboard or land and let them
-walk over. If you fly the rescue yourself, MOOSE Ops.CSAR provides beacons, smoke and an F10 menu.
-Pilots you rescue spend a few turns recovering. Pilots you don't rescue go missing in action, or
-they are taken prisoner and freed when you capture the base holding them.
+### Air wings and aircraft
 
-**Dynamic FARPs.** Turn the feature on in the settings, and **Wet Wing** and **Fat Cow** buttons
-appear in the top bar. Choose one, then move the cursor over friendly ground near the front. The map
-checks each spot (terrain, nearby towns, distance from the front, money, available transports) and
-tells you why a spot won't work. Click to order the FARP. Next turn a C-130 airdrops the equipment or
-a CH-47 lands it. Then you station helicopters at the FARP from its base menu. You pay upkeep every
-turn. If the front line moves past the FARP, it is lost.
+| Feature | What it does | Guide |
+|---|---|---|
+| **Air wing presets** | Deploy a real air wing by base: carrier air wings from 1975 to 2020, Marine ARGs, USAF expeditionary wings, NATO, Soviet and Russian air forces, plus presets made from every faction's aircraft. | [Air wing presets](docs/resolution/Air-Wing-Presets.md) |
+| **Loadout editor** | Payloads and stations use the DCS mission editor's names, and each station's weapons are sorted into category submenus. | [Loadout editor](docs/resolution/Loadout-Editor.md) |
+| **UH-60L Armed Blackhawk** | Support for the Armed Blackhawk submod and the ANDR0ID Weapon Pack. | [Armed Blackhawk](docs/resolution/Armed-Blackhawk.md) |
+| **Super Hornet** | Works with CJS Super Hornet v2.4.6, with current weapon names and callsign fixes. | [Super Hornet](docs/resolution/Super-Hornet.md) |
 
-**Loadouts.** Payloads appear under their mission editor labels (for example
-"USN Adv. Extended Range CAP" instead of "AIM-9X\*2, AIM-120C\*2, FUEL\*1"). Stations use the
-mod's own labels, so a Super Hornet's cheek station reads `5 | 4`. Each station's weapon list opens as
-submenus: AA missiles, AG missiles, guided bombs, bombs, rockets, fuel tanks and pods.
+The full list of changes is in the [Resolution changelog](docs/resolution/Changelog.md). The
+complete guide starts at [docs/resolution](docs/resolution/Home.md).
 
 ## Saves and compatibility
 
-* Campaigns started in Retribution can be opened in Resolution. New fields are added to old saves
-  when they load.
-* Campaigns saved in Resolution are **not** guaranteed to open in Retribution, because they contain
-  data Retribution doesn't know about, such as downed pilots and FARPs. Back up your saves before
-  switching.
-* CSAR (for either side), dynamic FARPs and the Armed Blackhawk can each be turned off. Dynamic
-  FARPs and the Armed Blackhawk are off by default.
+* Campaigns started in Retribution open in Resolution. New fields are added when they load. A
+  campaign keeps the turn model it was saved with.
+* Campaigns saved in Resolution are **not** guaranteed to open in Retribution. They contain data
+  Retribution doesn't know about, such as downed pilots, FARPs, intelligence pictures and fire
+  missions. Back up your saves before switching.
+* No campaign file needs changing. Off-map bases in a campaign host strategic bomber
+  detachments where one is defined.
 
 ## Getting Resolution
 
-* **Build:** See [Installing and building](docs/resolution/Installing-and-Building.md). The guide
-  covers both running from source and building the standalone `retribution_main.exe`.
-* **Releases:** Packaged builds are posted on the
-  [Releases page](https://github.com/AbhayPratapSingh2607/dcs-retribution/releases) when available.
-
-The full Resolution guide is in [`docs/resolution`](docs/resolution/Home.md).
+* **Build from source:** see [Installing and building](docs/resolution/Installing-and-Building.md).
+  It covers running from source and building the standalone `retribution_main.exe`.
+* **Releases:** packaged builds are posted on the
+  [Releases page](https://github.com/AbhayPratapSingh2607/dcs-resolution/releases) when available.
 
 ## About DCS Retribution
 
 DCS Retribution was forked in 2022 from [DCS Liberation](https://github.com/dcs-liberation/dcs_liberation).
 Both are turn-based single-player or co-op dynamic campaigns for DCS World. They are external
 programs that generate full, complex DCS missions and manage a persistent combat environment.
+Resolution builds on everything they do.
 
 ![Screenshot](https://user-images.githubusercontent.com/315852/120939254-0b4a9f80-c6cc-11eb-82f5-ce3f8d714bfe.png)
 
-General Retribution help is in [Retribution's wiki](https://github.com/dcs-retribution/dcs-retribution/wiki/)
-and on their [Discord](https://discord.gg/b4x34Bg4We). Some historical information is in
-[Liberation's wiki](https://github.com/dcs-liberation/dcs_liberation/wiki/). It covers campaigns,
-the ATO, factions, plugins, and anything else this page doesn't.
+For everything Resolution inherits (campaigns, factions, the ATO editor, plugins), see
+[Retribution's wiki](https://github.com/dcs-retribution/dcs-retribution/wiki/), their
+[Discord](https://discord.gg/b4x34Bg4We) and [Liberation's wiki](https://github.com/dcs-liberation/dcs_liberation/wiki/).
+Retribution's own changes are in its [changelog](changelog.md).
 
 ## Special thanks
 

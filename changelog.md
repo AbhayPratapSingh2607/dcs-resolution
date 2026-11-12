@@ -1,19 +1,23 @@
 # DCS Resolution
 
-Resolution is a fork of DCS Retribution. These changes are on top of the Retribution version below.
-See docs/resolution/Changelog.md for details and docs/resolution for how to use each feature.
+Resolution is a fork of DCS Retribution that turns it into a living air war. Its changes are on top
+of the Retribution version below. The full list is in docs/resolution/Changelog.md, and
+docs/resolution/Home.md explains each feature.
 
 ## Features/Improvements
-* **[CSAR]** Turn-based combat search and rescue. Downed pilots stay on the map for several turns. AI and player helicopters can rescue them. Pilots who aren't rescued go missing in action or are taken prisoner, and rescued pilots spend a few turns recovering. (Retribution PR #929)
+* **[Turn]** Each turn is six hours of air war for both sides. You fly one flight of it, and the DCS mission holds only what you are likely to meet. The combat model fights the rest, before, during and after your mission.
+* **[Commanders]** Doctrine-driven air campaign planners for Western, Russian, Soviet, client-state and irregular air forces: phases, a target list with BDA, apportionment, threat-scaled packages, risk limits, GCI scrambles and IADS management. They plan only from their own intelligence.
+* **[Combat Model]** Fast forward fights it out: air-to-air, SAMs, strikes, front lines, fuel and tankers, and aircrew fates, calibrated against historical campaigns. An after-action report tells the story.
+* **[Intelligence]** Each side's own picture of the enemy, fog of war on the map, satellites, agencies, decoys, morale, war-weariness, rules of engagement and collateral damage.
+* **[Opening]** Begin Campaign sets H-hour, the strategic surprise and pre-war reconnaissance, and fires an opening cruise missile salvo. The enemy's reaction follows the surprise, including road bases.
+* **[Fire Missions]** Tomahawk, Scud and artillery strikes every turn, from campaign magazines.
+* **[Your Seat]** The commander frags you a flight from its real plan, matched to your preferred squadron or mission.
+* **[CSAR]** Turn-based combat search and rescue, and the Rescue King: a C-130 orbit staging CSAR helicopters for a turn. (Retribution PR #929)
 * **[FARPs]** Dynamic FARPs. Build Wet Wing (C-130) or Fat Cow (CH-47) FARPs near the front, and station helicopter detachments at them.
-* **[Loadouts]** Payloads are listed by their mission editor label. Stations use mission editor labels, and weapons are sorted into category submenus.
+* **[Flight Planning]** New "On Station" start type: flights appear in the air at their racetrack or IP.
+* **[Air Wing]** Air wing presets by base for every faction, and historical air wings from 1975 to 2020.
+* **[Loadouts]** Payloads and stations use mission editor labels, and weapons are sorted into category submenus.
 * **[Modding]** Support for the UH-60L Armed Blackhawk submod (v7.1.4) and the ANDR0ID Weapon Pack.
-* **[Flight Planning]** New "On Station" start type: flights appear in the air at their racetrack or IP instead of taking off.
-* **[Auto Planner]** Doctrine-driven air campaign planner (Western JFACC). Each turn is a 6 hour air tasking order: campaign phases with a DEFENSE override, a target list with BDA, sortie apportionment with turnaround and MC rate, threat-scaled packages with a risk limit, continuous AEW&C/tanker/CAP lines, CAS sized to the desired effect, Phase IV air assault, and aircraft purchases for shortfalls and attrition replacement. You pick which window of the ATO to fly in DCS, and the combat model fights the rest. Western factions use it by default; the legacy planner can be selected per side.
-* **[Campaign AI]** The JFACC planner keeps a standing CSAR force of 4 helicopters, bought ahead of other aircraft requests, so downed pilots can be rescued.
-* **[Campaign AI]** The JFACC planner now plans blue theater and carrier recovery tankers from its doctrine. Before, they were silently skipped because the "Automatic Theater tanker package planning" setting defaults to off; that setting now only affects the legacy planner.
-* **[UI]** The package list is grouped by mission category, with colour coding, clearer rows (purpose, composition, TOT offset, risk and DCS-window badges) and category filters. A new ATO timeline shows the whole period as a Gantt chart.
-* **[Air Wing]** Air wing presets: apply a ready-made air wing (US Navy carrier air wings from 1975 to 2020, USMC amphibious ready groups, USAF expeditionary forces, a mixed-nation NATO coalition, Soviet and Russian air forces) in the new game Air Wing Configuration window. Squadrons are placed on suitable bases on any theater, and their aircraft are bought from the starting budget. Squadrons can come from different countries, and you can save your own air wing as a preset.
 
 ## Fixes
 * **[Modding]** Fixed the Super Hornets' weapon identifiers and their malformed callsign table.

@@ -7,8 +7,9 @@ equipment in, and then you station helicopter detachments there to fly any task 
 ## Turning it on
 
 Open **Settings → Campaign Management → Dynamic FARPs** and tick **Enable player-established
-FARPs**. It is off by default. Once it is on, a **FARPs** box with **Wet Wing** and **Fat Cow**
-buttons appears in the top bar.
+FARPs**. It is off by default. Once it is on, a **FARPs** box with **Wet Wing**, **Fat Cow** and
+**Rescue King** buttons appears in the top bar. The Rescue King is an airborne staging point for
+CSAR helicopters, described in [CSAR](CSAR.md#rescue-king).
 
 ## The two FARP types
 

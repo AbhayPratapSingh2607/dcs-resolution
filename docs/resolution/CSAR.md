@@ -10,7 +10,10 @@ This feature started as [Retribution PR #929](https://github.com/dcs-retribution
 
 1. **Is there a survivor?** If the pilot ejected in DCS, there always is. For losses that DCS didn't
    report an ejection for (AI kills, and every loss on a skipped or fast-forwarded turn), the
-   chance of survival is set by **CSAR pilot survival chance** (default 40%).
+   chance of survival starts from **CSAR pilot survival chance** (default 40%). The
+   [combat model](Combat-Model.md#aircrew) scales it by what brought the aircraft down: a
+   missile at altitude leaves time to eject, and guns at low level often don't. The pilot comes
+   down where the aircraft was lost, not at the package's target.
 2. **Did they land close to a base?** If the pilot lands within **Control point radius resolving a
    downed pilot** (default 15 nm) of a base, there is no rescue to fly:
    * near a friendly base, they make their own way back and start recovering;
@@ -73,12 +76,59 @@ auto-planner gave to an AI flight.
    height** (default 20 m) within **Player hover pickup distance** (default 10 m).
 3. If **Require cabin door open** is on, the survivor won't board or get out until you open the door.
 4. Fly the survivor back to a friendly airfield or MASH. The rescue counts once you deliver them,
-   not when they climb aboard.
+   not when they climb aboard. A helicopter staged at a [Rescue King](#rescue-king) is the
+   exception: its rescue counts at boarding, since the King takes the survivor home.
 
 If **CSAR rescues AI-controlled downed pilots** is on (the default), pilots who were shot down while
 flying for the AI are also available to player crews in the mission.
 
+## Rescue King
+
+A **Rescue King** is a C-130 circling outside enemy air defenses for one turn, with rescue
+helicopters staged under it. It puts CSAR helicopters near where pilots will go down, instead of
+at a base far behind the lines, as the HC-130 "King" and its Pave Hawks do in real combat
+search and rescue. The callsign is the real one.
+
+**Placing one.** Turn on **Dynamic FARPs** (Campaign Management > Dynamic FARPs; off by
+default). **Rescue King** then appears in the top bar's FARPs box. Move the cursor over the map
+and click where the King should orbit. The map says why a spot won't do:
+
+* it is inside enemy air defense coverage;
+* it is too close to another King;
+* no C-130 or KC-130 squadron with **Rescue King** turned on has an aircraft and crew free;
+* no CSAR-capable helicopter and crew is free.
+
+The spot can be over land or sea, and the front line doesn't matter. Only blue can place a
+King, and the FARPs menu is the only way to deploy one.
+
+**Setting it up.** The King's menu opens as soon as you place it:
+
+* **King aircraft:** every C-130 and KC-130 squadron, nearest first. Squadrons that can't go are
+  greyed out with the reason. **Change** replans the orbit with your pick. A KC-130 or KC-130J
+  King also refuels the helicopters; a C-130J-30 doesn't.
+* **Time on station:** 30 to 360 minutes. **Set** replans the orbit.
+* **Stationed detachments:** up to 2 CSAR-capable helicopters move to the King at once. Choose
+  which ones.
+* **Deploy King** confirms it. Closing the menu instead takes the King away again, with its
+  orbit and its helicopters.
+
+**During the turn.**
+
+* The C-130 comes from your air wing. It flies the orbit as a package of its own, under
+  Personnel recovery in the ATO, and it can be lost.
+* The helicopters start in the air over the King. Rescues are planned by the commander or by
+  you, like any CSAR package, and AI helicopters fly back to the King afterwards.
+* Rescue flights must fly inside the King's time on station. Dragging a rescue on the timeline
+  keeps it inside, and the package dialog warns when one doesn't fit.
+* You can drag the King's package on the timeline. Moving the King, or changing its time on
+  station or aircraft, offers to move the rescues that no longer fit.
+* At the end of the turn the King is dismantled, and the helicopters rejoin their squadron.
+
 ## After the rescue
+
+Rescues show in the mission results window and in the debriefing, where a CSAR package reads
+"pilot rescued" or "pilot not picked up". A rescue flown by an AI flight in the combat model
+counts when that flight survives the turn.
 
 A rescued pilot recovers before flying again. AI pilots take 2 turns (**Turns a rescued AI pilot
 recovers**) and player pilots take 1 turn (**Turns a rescued player pilot recovers**).
