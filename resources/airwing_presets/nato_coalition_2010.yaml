@@ -3,7 +3,9 @@
 # Navy and USAF strike and support, RAF Tornado GR4, French Mirage 2000-5 and
 # 2000D, Italian Tornado IDS, NATO E-3A, Turkish KC-135, and B-1B/B-2 strikes
 # from the United States.
-# Differences: Mirage 2000C stands in for the 2000D; no B-2 in DCS.
+# Differences: Mirage 2000C stands in for the 2000D; no B-2 in DCS; UH-60L for the
+# HH-60G Pave Hawk. French Gazelles and British Apaches flew from ships in 2011;
+# here they fly from the front airfields.
 #
 # Squadrons from several nations. Each entry's country decides its livery, pilot
 # names and in-mission radio voice. Works best with a Combined Joint Task Forces
@@ -12,7 +14,8 @@ name: NATO Coalition (2010)
 description: >-
   Multinational task force: a US carrier air wing and USAF fighters, plus RAF
   Tornado GR4s, French Mirage 2000s, German Tornados and Turkish F-16s, with E-3
-  and KC-135 support.
+  and KC-135 support, rescue Seahawks and Pave Hawks, French Gazelles and
+  British Apaches.
 era: 2010
 side: blue
 groups:
@@ -23,12 +26,16 @@ groups:
       - {aircraft: ["EA-18G Growler", "EA-6B Prowler"], country: USA, primary: SEAD Escort, secondary: [SEAD, DEAD], size: 4}
       - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
       - {aircraft: ["F/A-18E Tanker", "S-3B Tanker"], country: USA, primary: Refueling, size: 4}
+      - {aircraft: ["SH-60B Seahawk"], country: USA, primary: CSAR, secondary: [Transport], size: 2}
   - base: airfield
     placement: front
     squadrons:
       - {aircraft: ["A-10C Thunderbolt II (Suite 3)", "A-10C Thunderbolt II (Suite 7)"], country: USA, primary: CAS, secondary: [BAI, Armed Recon], size: 12}
       - {aircraft: ["F-16CM Fighting Falcon (Block 50)"], country: USA, primary: SEAD, secondary: any, size: 12}
       - {aircraft: ["F-16CM Fighting Falcon (Block 50)"], country: Turkey, primary: BAI, secondary: any, size: 12}
+      - {aircraft: ["UH-60L", "UH-60A"], country: USA, primary: CSAR, secondary: [Transport], size: 4}
+      - {aircraft: ["SA 342M Gazelle", "SA 342L Gazelle"], country: France, primary: CAS, secondary: [BAI, Armed Recon], size: 6}
+      - {aircraft: ["AH-64D Apache Longbow"], country: UK, primary: CAS, secondary: [BAI, Armed Recon], size: 4}
   - base: airfield
     placement: any
     squadrons:

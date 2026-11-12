@@ -21,4 +21,4 @@ groups:
       - {aircraft: ["EA-6B Prowler"], country: USA, primary: SEAD, secondary: [SEAD Escort, DEAD], size: 4}
       - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
       - {aircraft: ["S-3B Tanker"], country: USA, primary: Refueling, size: 4}
-      - {aircraft: ["SH-60B Seahawk"], country: USA, primary: Transport, size: 4}
+      - {aircraft: ["SH-60B Seahawk"], country: USA, primary: CSAR, secondary: [Transport], size: 4}

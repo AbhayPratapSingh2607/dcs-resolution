@@ -15,6 +15,7 @@ groups:
     squadrons:
       - {aircraft: ["A-10C Thunderbolt II (Suite 3)", "A-10C Thunderbolt II (Suite 7)", "A-10A Thunderbolt II"], country: USA, primary: CAS, secondary: [BAI, Armed Recon], size: 12}
       - {aircraft: ["F-16CM Fighting Falcon (Block 50)"], country: USA, primary: SEAD, secondary: any, size: 12}
+      - {aircraft: ["UH-60L", "UH-60A"], country: USA, primary: CSAR, secondary: [Transport], size: 4}
   - base: airfield
     placement: any
     squadrons:

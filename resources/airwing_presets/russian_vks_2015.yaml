@@ -19,7 +19,7 @@ groups:
     squadrons:
       - {aircraft: ["Su-25T Frogfoot", "Su-25 Frogfoot"], primary: CAS, secondary: [BAI, Armed Recon], size: 12}
       - {aircraft: ["Mi-28N Havoc", "Ka-50 Hokum III", "Mi-24P Hind-F"], primary: CAS, secondary: [BAI, Armed Recon], size: 8}
-      - {aircraft: ["Mi-8MTV2 Hip"], primary: Air Assault, secondary: [Transport], size: 6}
+      - {aircraft: ["Mi-8MTV2 Hip"], primary: Air Assault, secondary: [Transport, CSAR], size: 6}
   - base: airfield
     placement: any
     squadrons:

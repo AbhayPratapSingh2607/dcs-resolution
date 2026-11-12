@@ -16,4 +16,4 @@ groups:
       - {aircraft: ["AV-8B Harrier II Night Attack"], country: USA, primary: CAS, secondary: air-to-ground, size: 4}
       - {aircraft: ["AH-1W SuperCobra", "AH-1J SeaCobra"], country: USA, primary: CAS, secondary: [BAI, Armed Recon, Escort], size: 4}
       - {aircraft: ["CH-53E", "CH-47F Block I", "CH-47D"], country: USA, primary: Air Assault, secondary: [Transport], size: 4}
-      - {aircraft: ["UH-1H Iroquois", "UH-60L"], country: USA, primary: Transport, secondary: [Air Assault], size: 3}
+      - {aircraft: ["UH-1H Iroquois", "UH-60L"], country: USA, primary: Transport, secondary: [Air Assault, CSAR], size: 3}

@@ -21,7 +21,7 @@ groups:
       - {aircraft: ["Su-25 Frogfoot"], primary: CAS, secondary: [BAI, Armed Recon], size: 12}
       - {aircraft: ["Su-17M4 Fitter-K", "MiG-27K Flogger-J2"], primary: BAI, secondary: air-to-ground, size: 12}
       - {aircraft: ["Mi-24V Hind-E", "Mi-24P Hind-F"], primary: CAS, secondary: [BAI, Armed Recon], size: 8}
-      - {aircraft: ["Mi-8MTV2 Hip", "Mi-17 Hip"], primary: Air Assault, secondary: [Transport], size: 6}
+      - {aircraft: ["Mi-8MTV2 Hip", "Mi-17 Hip"], primary: Air Assault, secondary: [Transport, CSAR], size: 6}
   - base: airfield
     placement: any
     squadrons:

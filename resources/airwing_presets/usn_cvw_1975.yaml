@@ -2,11 +2,14 @@
 # Source: the standard mid-1970s carrier air wing (US Navy CVW organisation, e.g.
 # CVW-14 on USS Enterprise 1975): 2 VF (F-14A, 12 each), 2 VA (A-7E, 12 each),
 # 1 VA (A-6E with KA-6D tankers), VAQ (EA-6B, 4), VAW (E-2, 4), VS (S-3A), HS (SH-3).
-# Differences: no KA-6D or S-3A in DCS, so no tanker; no ASW or recon squadrons.
+# Differences: no KA-6D or S-3A in DCS, so no tanker; no ASW or recon squadrons;
+# UH-1H Iroquois stand in for the HS squadron's SH-3 Sea Kings (plane guard and
+# combat SAR).
 name: US Navy Carrier Air Wing (1975)
 description: >-
   Post-Vietnam Nimitz-class air wing: two F-14A fighter squadrons, two A-7E light
-  attack squadrons, an A-6E medium attack squadron, EA-6B jammers and E-2C Hawkeyes.
+  attack squadrons, an A-6E medium attack squadron, EA-6B jammers, E-2C Hawkeyes
+  and a rescue helicopter detachment.
 era: 1975
 side: blue
 groups:
@@ -19,3 +22,4 @@ groups:
       - {aircraft: ["A-6E Intruder", "A-6A Intruder"], country: USA, primary: Strike, secondary: air-to-ground, size: 10}
       - {aircraft: ["EA-6B Prowler"], country: USA, primary: SEAD, secondary: [SEAD Escort, DEAD], size: 4}
       - {aircraft: ["E-2C Hawkeye"], country: USA, primary: AEW&C, size: 4}
+      - {aircraft: ["UH-1H Iroquois"], country: USA, primary: CSAR, secondary: [Transport], size: 4}
