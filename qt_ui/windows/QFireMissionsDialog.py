@@ -12,11 +12,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from PySide6.QtCore import QDate, QDateTime, QTime, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
-    QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -61,20 +60,6 @@ from game.warfare.firemissions import (
 )
 
 
-def _qt(when: Any) -> QDateTime:
-    return QDateTime(
-        QDate(when.year, when.month, when.day), QTime(when.hour, when.minute)
-    )
-
-
-def _py(value: QDateTime) -> Any:
-    from datetime import datetime
-
-    d = value.date()
-    t = value.time()
-    return datetime(d.year(), d.month(), d.day(), t.hour(), t.minute())
-
-
 def notify_map(game: Game, missions: list[FireMission]) -> None:
     """Refresh the targets' strike marks on the map."""
     from game.theater import ControlPoint
@@ -101,6 +86,76 @@ def launcher_label(game: Game, launcher: Launcher, left: int) -> str:
     )
 
 
+def mission_zero(game: Game) -> Any:
+    """Time +0:00 of the fire mission clock: the DCS mission's start, or the
+    period's start when the turn has no DCS window."""
+    bounds = window(game)
+    return bounds[0] if bounds is not None else period_bounds(game)[0]
+
+
+class OffsetTimeEdit(QSpinBox):
+    """A time as minutes from the DCS mission start, shown "+2:15" ("+0:00" at
+    the start, "-0:30" before it), like the package TOT."""
+
+    STEP_MIN = 5
+
+    def __init__(self, game: Game, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        from datetime import timedelta
+
+        self.zero = mission_zero(game)
+        start, end = period_bounds(game)
+        minute = timedelta(minutes=1)
+        self.setRange(
+            int((start - self.zero) / minute), int((end - self.zero) / minute)
+        )
+        self.setSingleStep(self.STEP_MIN)
+        self.setAccelerated(True)
+        self.setToolTip(
+            "Time from the start of the DCS mission (+0:00). Before it is "
+            "negative; up and down step 5 minutes, or type e.g. +2:15."
+        )
+
+    def textFromValue(self, value: int) -> str:
+        sign = "-" if value < 0 else "+"
+        value = abs(value)
+        return f"{sign}{value // 60}:{value % 60:02d}"
+
+    def valueFromText(self, text: str) -> int:
+        text = text.strip().replace(" ", "")
+        sign = -1 if text.startswith("-") else 1
+        text = text.lstrip("+-")
+        hours, _, minutes = text.partition(":")
+        try:
+            value = int(hours or 0) * 60 + int(minutes or 0)
+        except ValueError:
+            return self.value()
+        return sign * value
+
+    def validate(self, text: str, pos: int) -> Any:
+        import re
+
+        from PySide6.QtGui import QValidator
+
+        if re.fullmatch(r"\s*[+-]?\d{0,2}(:\d{0,2})?\s*", text):
+            return (
+                QValidator.State.Intermediate
+                if text.strip() in ("", "+", "-")
+                else QValidator.State.Acceptable
+            )
+        return QValidator.State.Invalid
+
+    def when(self) -> Any:
+        from datetime import timedelta
+
+        return self.zero + timedelta(minutes=self.value())
+
+    def set_when(self, when: Any) -> None:
+        from datetime import timedelta
+
+        self.setValue(int((when - self.zero) / timedelta(minutes=1)))
+
+
 def in_window_note(game: Game, when: Any) -> str:
     bounds = window(game)
     if bounds is not None and bounds[0] <= when <= bounds[1]:
@@ -118,7 +173,11 @@ class QFireMissionEditor(QDialog):
         self.game = game
         self.mission: Optional[FireMission] = None
         self.wanted_target = target
-        self.setWindowTitle("Plan fire mission")
+        self.setWindowTitle(
+            f"Plan fire mission: {target.name}"
+            if target is not None
+            else "Plan fire mission"
+        )
         self.setMinimumWidth(560)
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -138,17 +197,22 @@ class QFireMissionEditor(QDialog):
                 if best is not None and self.launcher.itemData(index) == best:
                     self.launcher.setCurrentIndex(index)
         form.addRow("Launcher:", self.launcher)
-        self.target = QComboBox()
-        form.addRow("Target:", self.target)
+        self.target = QComboBox(self)
+        if target is None:
+            form.addRow("Target:", self.target)
+        else:
+            # Opened on a target (the package dialog): it's in the title.
+            self.target.hide()
         self.rounds = QSpinBox()
         form.addRow("Rounds:", self.rounds)
-        self.time = QDateTimeEdit()
-        self.time.setDisplayFormat("HH:mm, d MMM")
-        start, end = period_bounds(game)
-        self.time.setMinimumDateTime(_qt(start))
-        self.time.setMaximumDateTime(_qt(end))
-        self.time.setDateTime(_qt(default_time(game)))
-        form.addRow("Time:", self.time)
+        self.time = OffsetTimeEdit(game)
+        self.time.set_when(default_time(game))
+        self.clock = QLabel()
+        time_row = QHBoxLayout()
+        time_row.addWidget(self.time)
+        time_row.addWidget(self.clock)
+        time_row.addStretch(1)
+        form.addRow("Time:", time_row)
         self.odds = QLabel()
         self.odds.setWordWrap(True)
         self.odds.setTextFormat(Qt.TextFormat.RichText)
@@ -167,7 +231,7 @@ class QFireMissionEditor(QDialog):
 
         self.launcher.currentIndexChanged.connect(lambda *_: self._fill_targets())
         self.target.currentIndexChanged.connect(lambda *_: self._update())
-        self.time.dateTimeChanged.connect(lambda *_: self._update())
+        self.time.valueChanged.connect(lambda *_: self._update())
         self.rounds.valueChanged.connect(lambda *_: self._update_odds())
         self._fill_targets()
 
@@ -196,6 +260,9 @@ class QFireMissionEditor(QDialog):
         launcher = self.selected_launcher
         target = self.target.currentData()
         ok = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self.clock.setText(
+            f"<span style='color:#9aa7b2'>{self.time.when():%H:%M}</span>"
+        )
         self.odds.setText("")
         if launcher is None:
             self.note.setWordWrap(True)
@@ -225,7 +292,7 @@ class QFireMissionEditor(QDialog):
         if target is None:
             self.note.setText("No known enemy target within reach.")
             return
-        self.note.setText(in_window_note(self.game, _py(self.time.dateTime())))
+        self.note.setText(in_window_note(self.game, self.time.when()))
         self._update_odds()
 
     def _update_odds(self) -> None:
@@ -266,7 +333,7 @@ class QFireMissionEditor(QDialog):
             launcher,
             target,
             self.rounds.value(),
-            _py(self.time.dateTime()),
+            self.time.when(),
         )
         notify_map(self.game, [self.mission])
         super().accept()
