@@ -1435,6 +1435,19 @@ class Settings:
             "DCS mission are fired in DCS; the rest by the combat model."
         ),
     )
+    auto_plan_blue_fire_missions: bool = boolean_option(
+        "Commander plans your fire missions",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Each turn, with the ATO, your commander plans cruise missile, "
+            "missile and artillery strikes at the highest value targets in "
+            "reach, using half of each launcher's capacity (and keeping fixed "
+            "targets only). They show in the Fire Missions window and on the "
+            "timeline, where you can move or remove them; your own are kept."
+        ),
+    )
     limited_missile_stock: bool = boolean_option(
         "Limited missile stocks",
         page=CAMPAIGN_DOCTRINE_PAGE,

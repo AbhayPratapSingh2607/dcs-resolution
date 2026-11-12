@@ -567,6 +567,17 @@ def strike_labels(game: Game) -> dict[Any, list[str]]:
 
 #: Share of red's launcher capacity it fires each turn after the first.
 AI_SHARE = 1.0
+#: Share of blue's launcher capacity its commander plans each turn: half,
+#: keeping the magazines for the campaign and room for the player's own.
+BLUE_AI_SHARE = 0.5
+
+
+def auto_plan_blue(game: Game) -> bool:
+    """Whether blue's commander plans fire missions with the ATO (the
+    "Commander plans your fire missions" setting)."""
+    return enabled(game) and bool(
+        getattr(game.settings, "auto_plan_blue_fire_missions", True)
+    )
 
 
 def plan_ai_fire_missions(

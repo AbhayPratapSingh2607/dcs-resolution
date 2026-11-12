@@ -579,8 +579,11 @@ class Game:
                 self.ground_planners[cp.id] = gplanner
 
         # Fire missions (game.warfare.firemissions): last turn's are dropped,
-        # and red's commander plans its own.
+        # and each side's commander plans its own (blue's with the setting on;
+        # the player's own missions are kept when the turn is replanned).
         from game.warfare.firemissions import (
+            BLUE_AI_SHARE,
+            auto_plan_blue,
             drop_old_missions,
             fire_plan_of,
             plan_ai_fire_missions,
@@ -588,14 +591,17 @@ class Game:
 
         try:
             drop_old_missions(self)
+            plan = fire_plan_of(self)
+            replanned = {True: for_blue, False: for_red}
+            plan.missions = [
+                m
+                for m in plan.missions
+                if not (m.auto and m.turn == self.turn and replanned[m.player_blue])
+            ]
             if for_red:
-                plan = fire_plan_of(self)
-                plan.missions = [
-                    m
-                    for m in plan.missions
-                    if m.player_blue or not m.auto or m.turn != self.turn
-                ]
                 plan_ai_fire_missions(self, self.red.player)
+            if for_blue and auto_plan_blue(self):
+                plan_ai_fire_missions(self, self.blue.player, share=BLUE_AI_SHARE)
         except Exception:
             logging.exception("Fire mission planning failed")
 

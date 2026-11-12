@@ -330,3 +330,31 @@ def test_strike_odds_follow_the_combat_model(monkeypatch: pytest.MonkeyPatch) ->
     assert odds.outcome[0] == "site destroyed"
     assert odds.outcome[1] == pytest.approx(fm.CRUISE_HIT**2)
     assert odds.any_effect == pytest.approx(1 - (1 - fm.CRUISE_HIT) ** 2)
+
+
+def test_blue_commander_plans_half_and_can_be_turned_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game = _game()
+    launcher = _launcher(capacity=8)
+    monkeypatch.setattr(fm, "launchers", lambda g, p: [launcher])
+    monkeypatch.setattr(
+        fm,
+        "targets_for",
+        lambda g, l, mobile=True: [
+            (10_000.0 * i, _target(x=10_000 * i)) for i in range(1, 6)
+        ],
+    )
+    monkeypatch.setattr(
+        fm, "period_bounds", lambda g: (START, START + timedelta(hours=6))
+    )
+    assert fm.auto_plan_blue(game)
+    planned = fm.plan_ai_fire_missions(
+        game, Player.BLUE, share=fm.BLUE_AI_SHARE  # type: ignore[arg-type]
+    )
+    assert sum(m.rounds for m in planned) == 4
+    assert all(m.auto and m.player_blue for m in planned)
+    # Half is left for the player.
+    assert fm.rounds_left(game, launcher) == 4
+    game.settings.auto_plan_blue_fire_missions = False
+    assert not fm.auto_plan_blue(game)
