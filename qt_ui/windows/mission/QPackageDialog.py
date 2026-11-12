@@ -153,6 +153,15 @@ class QPackageDialog(QDialog):
         self.auto_create_button.clicked.connect(self.on_auto_create)
         self.button_layout.addWidget(self.auto_create_button)
 
+        # An enemy site or airfield: a missile or artillery strike on it too.
+        from qt_ui.windows.firemissionmenu import fire_mission_button
+
+        self.fire_mission_button = fire_mission_button(
+            self.game_model.game, self.package_model.package.target, self
+        )
+        if self.fire_mission_button is not None:
+            self.button_layout.addWidget(self.fire_mission_button)
+
         self.button_layout.addStretch()
 
         self.freq_widget = QFrequencyWidget(self.package_model.package, game_model)

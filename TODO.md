@@ -766,9 +766,9 @@ default since W8). D11 checks the 6 hour turn.
   their start time; ones already airborne at mission start spawn along their route. Nothing
   sits on the cratered field's ramp. They land back at the field. Blue never flies from
   road bases: a blue flight at a cratered field is grounded.
-- [ ] **A8. Missile strikes from the map, odds and magazines (2026-11-12).** Right-click an
-  enemy site or airfield (turn 1+): a menu with Plan package… and Plan missile strike…
-  (missiles and the chance of the headline outcome). The dialog shows the odds and what the
+- [ ] **A8. Missile strikes from the package dialog, odds and magazines (2026-11-12).** Right-click an
+  enemy site or airfield (turn 1+): the package dialog has Plan fire mission… (missiles and
+  the chance of the headline outcome); the left-click windows have none. The strike dialog shows the odds and what the
   launcher keeps for the campaign; firing draws the magazine down, Abort gives it back.
   Mobile sites can be hit at half the hit chance. Setting: Limited missile stocks.
 - [ ] **D25. Fire missions in DCS (2026-11-11).** On turn 2 of the autosave, plan a few

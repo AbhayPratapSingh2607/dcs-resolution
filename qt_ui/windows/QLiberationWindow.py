@@ -70,7 +70,9 @@ class QLiberationWindow(QMainWindow):
         self.sim_controller.sim_update.connect(EventStream.put_nowait)
         self.game_model = GameModel(game, self.sim_controller)
         GameContext.set_model(self.game_model)
-        self.new_package_signal.connect(self.on_map_right_click)
+        self.new_package_signal.connect(
+            lambda target: Dialog.open_new_package_dialog(target, self)
+        )
         self.tgo_info_signal.connect(self.open_tgo_info_dialog)
         self.control_point_info_signal.connect(self.open_control_point_info_dialog)
         self.select_flight_signal.connect(self.on_select_flight)
@@ -653,14 +655,6 @@ class QLiberationWindow(QMainWindow):
         self.debriefing = QDebriefingWindow(debrief)
         self.debriefing.show()
         self.game_model.init_comms_registry()
-
-    def on_map_right_click(self, target: MissionTarget) -> None:
-        """Right-click on the map: on an enemy site or airfield, a menu to plan
-        a package or a missile strike; elsewhere the package dialog."""
-        from qt_ui.windows.firemissionmenu import strike_menu
-
-        if not strike_menu(self.game_model.game, target, self):
-            Dialog.open_new_package_dialog(target, self)
 
     def open_tgo_info_dialog(self, tgo: TheaterGroundObject) -> None:
         QGroundObjectMenu(self, tgo, tgo.control_point, self.game_model).show()
