@@ -279,13 +279,22 @@ class AtoModel(QAbstractListModel):
             logging.exception("Could not read the player flights")
             return
         before, self._player_flights = self._player_flights, now
-        if before is None or not now - before:
-            # Loading a game, or a player removed: the window stays.
-            return
         bounds = atoperiod.period(game)
         sim_time = self.game_model.sim_controller.current_time_in_sim_if_game_loaded
         if bounds is None or (sim_time is not None and sim_time > bounds[0]):
             # Part of the turn is fought: the window can't move any more.
+            return
+        if before is None:
+            # Loading a game or a new turn: the window goes to the player
+            # unless the player dragged it there.
+            offset = game.air_campaign.window_offset_min
+            if atoperiod.align_window_to_players(game) and (
+                game.air_campaign.window_offset_min != offset
+            ):
+                self.package_timing_changed.emit()
+            return
+        if not now - before:
+            # A player removed: the window stays.
             return
         if atoperiod.follow_player_selection(game):
             self.package_timing_changed.emit()

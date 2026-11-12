@@ -195,3 +195,15 @@ def test_preference_loads_from_old_saves() -> None:
     assert preference.empty
     preference.__setstate__({"mission_type": FlightType.CAS})
     assert preference.mission_type is FlightType.CAS and preference.squadron_id is None
+
+
+def test_frag_moves_the_dcs_window_to_the_new_flight(monkeypatch: Any) -> None:
+    import game.sim.atoperiod as atoperiod
+
+    calls: list[Any] = []
+    monkeypatch.setattr(atoperiod, "follow_player_selection", calls.append)
+    vfa = _squadron("VFA-103", FlightType.STRIKE)
+    a = _flight(vfa, FlightType.STRIKE)
+    game = _game([_package("Bridge", 125, a)], [vfa])
+    assert seat.frag(game, a)
+    assert calls == [game]

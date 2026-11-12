@@ -294,6 +294,13 @@ def frag(game: Game, flight: Flight) -> bool:
     pilot.player = True
     flight.fragged = True  # type: ignore[attr-defined]
     logging.info(f"Fragged the player to {flight} ({flight.package.target.name})")
+    # The DCS window goes to where fast forward stops for the new flight.
+    try:
+        from game.sim.atoperiod import follow_player_selection
+
+        follow_player_selection(game)
+    except Exception:
+        logging.exception("Could not move the DCS window to the fragged flight")
     return True
 
 
