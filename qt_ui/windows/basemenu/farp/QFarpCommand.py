@@ -118,6 +118,18 @@ class QFarpCommand(QFrame):
         dismantle_button.setProperty("style", "btn-danger")
         dismantle_button.clicked.connect(self._dismantle)
         dismantle_row.addWidget(dismantle_button)
+        self.deploy_button: Optional[QPushButton] = None
+        if farp.king_pending:
+            # Just placed from the map: closing the menu without this takes it
+            # away again (QBaseMenu2._cancel_pending_king).
+            self.deploy_button = QPushButton("Deploy King")
+            self.deploy_button.setProperty("style", "btn-success")
+            self.deploy_button.setToolTip(
+                "Confirm the King with the aircraft and helicopters above. "
+                "Closing this window instead cancels it."
+            )
+            self.deploy_button.clicked.connect(self._deploy_king)
+            dismantle_row.addWidget(self.deploy_button)
         self.main_layout.addLayout(dismantle_row)
 
         self.refresh()
@@ -150,7 +162,13 @@ class QFarpCommand(QFrame):
         )
         slots = f"Helicopter slots: {used}/{total} in use"
         if self.farp.is_rescue_king:
-            return "<br/>".join(["<b>Rescue King</b>", self._king_text(), slots])
+            lines = ["<b>Rescue King</b>", self._king_text(), slots]
+            if self.farp.king_pending:
+                lines.append(
+                    "<b>Not deployed yet:</b> choose the aircraft and helicopters, "
+                    "then press Deploy King. Closing this window cancels it."
+                )
+            return "<br/>".join(lines)
         if en_route:
             slots += f" ({en_route} en route, arriving next turn)"
         if not self.farp.established:
@@ -439,6 +457,10 @@ class QFarpCommand(QFrame):
         self._publish(events)
         self.refresh()
 
+    def _deploy_king(self) -> None:
+        self.farp.king_pending = False
+        self.window().close()
+
     def _dismantle(self) -> None:
         if self.farp.is_rescue_king:
             question = (
@@ -463,6 +485,8 @@ class QFarpCommand(QFrame):
         )
         if result != QMessageBox.StandardButton.Yes:
             return
+        # Removed here: closing the window has nothing left to cancel.
+        self.farp.king_pending = False
         events = GameUpdateEvents()
         self.farp.coalition.farps.dismantle(self.farp, events)
         EventStream.put_nowait(events)

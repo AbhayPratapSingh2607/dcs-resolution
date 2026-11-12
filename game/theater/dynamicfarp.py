@@ -348,6 +348,9 @@ class DynamicFarp(Fob):
     #: defaults, so saves from before the choice load.
     king_squadron_choice: Optional[Squadron] = None
     king_outside_tanker: bool = False
+    #: Placed from the map, its menu open, and not confirmed with Deploy King
+    #: yet: closing the menu takes it away again (QBaseMenu2).
+    king_pending: bool = False
 
     @property
     def is_rescue_king(self) -> bool:

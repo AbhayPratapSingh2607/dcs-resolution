@@ -73,7 +73,9 @@ def establish_farp(
     # The FARP's setup flight is a new package in the player's ATO.
     qt.ato_changed()
     if kind is FarpKind.RESCUE_KING:
-        # Open its menu so the player can choose the helicopters.
+        # Open its menu so the player can choose the aircraft and helicopters.
+        # Until they press Deploy King there, closing it takes the King away.
+        cp.king_pending = True
         qt.show_control_point_info(cp)
     return ControlPointJs.for_control_point(cp)
 

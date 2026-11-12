@@ -368,7 +368,32 @@ class QBaseMenu2(QDialog):
         return tooltip
 
     def closeEvent(self, close_event: QCloseEvent):
+        self._cancel_pending_king()
         GameUpdateSignal.get_instance().updateGame(self.game_model.game)
+
+    def reject(self) -> None:
+        # Esc closes a dialog without a closeEvent.
+        self._cancel_pending_king()
+        super().reject()
+
+    def _cancel_pending_king(self) -> None:
+        """A Rescue King just placed from the map and not confirmed with
+        Deploy King is taken away when its menu is closed."""
+        from game.server import EventStream
+        from game.sim import GameUpdateEvents
+
+        cp = self.cp
+        if not getattr(cp, "king_pending", False):
+            return
+        cp.king_pending = False  # type: ignore[attr-defined]
+        game = self.game_model.game
+        if game is None or cp not in game.theater.controlpoints:
+            return
+        events = GameUpdateEvents()
+        cp.coalition.farps.dismantle(cp, events, reason="cancelled")  # type: ignore[arg-type]
+        EventStream.put_nowait(events)
+        self.game_model.ato_model.replace_from_game(player=True)
+        GameUpdateSignal.get_instance().updateBudget(game)
 
     def get_base_image(self):
         if (
@@ -377,6 +402,8 @@ class QBaseMenu2(QDialog):
         ):
             carrier_type = self.cp.get_carrier_group_type(always_supercarrier=True)
             return f"./resources/ui/units/ships/{carrier_type.id}.png"
+        elif getattr(self.cp, "is_rescue_king", False):
+            return "./resources/ui/rescue_king.png"
         elif self.cp.is_dynamic_farp:
             return "./resources/ui/heliport.png"
         elif self.cp.cptype == ControlPointType.FOB and self.cp.has_helipads:
