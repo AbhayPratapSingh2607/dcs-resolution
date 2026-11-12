@@ -60,6 +60,7 @@ PATROL_TASKS = {
     FlightType.AEWC,
     FlightType.REFUELING,
     FlightType.RECOVERY,
+    FlightType.RESCUE_KING,
 }
 
 
@@ -142,6 +143,8 @@ def _patrol_minutes(game: Game, task: FlightType) -> float:
         return settings.desired_awacs_mission_duration.total_seconds() / 60
     if task in (FlightType.REFUELING, FlightType.RECOVERY):
         return settings.desired_tanker_on_station_time.total_seconds() / 60
+    if task is FlightType.RESCUE_KING:
+        return float(settings.csar_king_on_station)
     if task in (FlightType.CAS, FlightType.TARCAP):
         return 30.0
     return 10.0
@@ -440,7 +443,11 @@ class PackageComposer:
                 takeoff, land = self.ledger.period_start, self.ledger.period_end
             else:
                 takeoff, land = self._sortie_window(
-                    squadron, target, tot, request.task, request.patrol_minutes
+                    squadron,
+                    target,
+                    tot,
+                    request.task,
+                    request.patrol_minutes,
                 )
             allocation = self.ledger.find(squadron, request.count, takeoff, land)
             if allocation is None:

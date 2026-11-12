@@ -860,6 +860,18 @@ class Settings:
             "CH-47) holds 2 and is cheaper."
         ),
     )
+    farps_need_no_transport: bool = boolean_option(
+        "FARPs and Rescue Kings need no transport aircraft",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        DYNAMIC_FARPS_SECTION,
+        default=False,
+        detail=(
+            "No C-130 or CH-47 from your air wing is needed. FARPs are set up as "
+            "soon as they are placed, and a Rescue King's orbit is flown by a "
+            "KC-130 tanker that isn't part of your air wing, slow and low enough "
+            "(about 125 knots at 6,000 ft) for helicopters to refuel from it."
+        ),
+    )
     wet_wing_farp_deploy_cost: int = bounded_int_option(
         "Wet Wing FARP deployment cost",
         CAMPAIGN_MANAGEMENT_PAGE,
@@ -1235,6 +1247,14 @@ class Settings:
             "pickup or take over if the lead is lost. The weight factors above do "
             "not apply to CSAR either way."
         ),
+    )
+    csar_king_on_station: int = bounded_int_option(
+        "Rescue King: time on station (minutes)",
+        CAMPAIGN_MANAGEMENT_PAGE,
+        FLIGHT_PLANNER_AUTOMATION,
+        default=90,
+        min=30,
+        max=240,
     )
 
     # Mission Generator

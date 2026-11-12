@@ -168,9 +168,13 @@ def create_detachment(
     count: int,
     now: Optional[datetime] = None,
     events: Optional[GameUpdateEvents] = None,
+    instant: Optional[bool] = None,
 ) -> Squadron:
     """Splits ``count`` aircraft and pilots from ``parent`` and sends them to
     ``farp``.
+
+    ``instant`` stations them at once whatever the transfer cheat says (the
+    Rescue King's helicopters are flown out with it).
 
     Normally the helicopters fly there during this turn's mission (ferry flights
     are planned) and arrive at the end of the turn. With the instant transfer cheat
@@ -185,7 +189,8 @@ def create_detachment(
     if errors:
         raise ValueError(" ".join(errors))
 
-    instant = parent.settings.enable_transfer_cheat
+    if instant is None:
+        instant = parent.settings.enable_transfer_cheat
     same_parent = [d for d in detachments_at(farp) if d.parent == parent]
     existing = [d for d in same_parent if is_en_route(d) != instant]
     det = existing[0] if existing else _new_detachment(parent, farp, not instant)

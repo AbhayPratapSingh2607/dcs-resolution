@@ -106,10 +106,23 @@ class QTopPanel(QFrame):
         )
         self.fat_cow.clicked.connect(lambda: self.place_farp(FarpKind.FAT_COW))
 
+        self.rescue_king = QPushButton("Rescue King")
+        self.rescue_king.setProperty("style", "btn-primary")
+        self.rescue_king.setToolTip(
+            "Place a Rescue King on the map, outside enemy air defenses: a C-130 "
+            "from your air wing circles the spot this turn (a KC-130 tanker from "
+            "outside it if FARPs need no transport aircraft), and up to 2 rescue "
+            "helicopters move there at once. Its menu opens so you can choose "
+            "which helicopters. They start in the air over it, fly the rescue, "
+            "and come back to it. Ends with the turn."
+        )
+        self.rescue_king.clicked.connect(lambda: self.place_farp(FarpKind.RESCUE_KING))
+
         self.farpBox = QGroupBox("FARPs")
         self.farpBoxLayout = QHBoxLayout()
         self.farpBoxLayout.addWidget(self.wet_wing)
         self.farpBoxLayout.addWidget(self.fat_cow)
+        self.farpBoxLayout.addWidget(self.rescue_king)
         self.farpBox.setLayout(self.farpBoxLayout)
         self.farpBox.setVisible(False)
 
@@ -366,9 +379,9 @@ class QTopPanel(QFrame):
 
         from game.sim import atoperiod
 
-        full_turn = atoperiod.period(self.game) is not None and not atoperiod.is_focused(
+        full_turn = atoperiod.period(
             self.game
-        )
+        ) is not None and not atoperiod.is_focused(self.game)
         if full_turn:
             # P4: the mission starts when your flight starts up. Without a
             # player flight, pick one, fast-forward, or fly an AI-only window.
@@ -391,9 +404,7 @@ class QTopPanel(QFrame):
                     busy.run(
                         "Fighting the period up to your mission with the combat "
                         "model…",
-                        lambda: self.sim_controller.advance_to_window(
-                            busy.should_stop
-                        ),
+                        lambda: self.sim_controller.advance_to_window(busy.should_stop),
                     )
             if busy.should_stop():
                 return
@@ -470,8 +481,12 @@ class QTopPanel(QFrame):
             "or the Flights panel, fast-forward the whole turn with the combat "
             "model, or fly an AI-only mission in a window of your choice."
         )
-        fast_forward = box.addButton("Fast-forward the turn", QMessageBox.ButtonRole.AcceptRole)
-        ai_only = box.addButton("Fly AI-only, pick a window", QMessageBox.ButtonRole.ActionRole)
+        fast_forward = box.addButton(
+            "Fast-forward the turn", QMessageBox.ButtonRole.AcceptRole
+        )
+        ai_only = box.addButton(
+            "Fly AI-only, pick a window", QMessageBox.ButtonRole.ActionRole
+        )
         box.addButton("Back", QMessageBox.ButtonRole.RejectRole)
         box.exec()
         clicked = box.clickedButton()
@@ -494,9 +509,7 @@ class QTopPanel(QFrame):
             with logged_duration("Simulating entire turn"):
                 busy.run(
                     "Fighting the whole turn with the combat model…",
-                    lambda: self.sim_controller.simulate_whole_turn(
-                        busy.should_stop
-                    ),
+                    lambda: self.sim_controller.simulate_whole_turn(busy.should_stop),
                 )
                 if busy.should_stop():
                     return

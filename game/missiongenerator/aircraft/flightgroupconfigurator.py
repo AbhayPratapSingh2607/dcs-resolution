@@ -15,6 +15,7 @@ from dcs.unit import Skill
 from dcs.unitgroup import FlyingGroup
 
 from game.ato import Flight, FlightType
+from game.ato.flightplans.rescueking import RescueKingFlightPlan
 from game.ato.flightplans.shiprecoverytanker import RecoveryTankerFlightPlan
 from game.callsigns import callsign_for_support_unit
 from game.data.weapons import Pylon, Weapon, WeaponType
@@ -273,7 +274,10 @@ class FlightGroupConfigurator:
             FlightType.AEWC,
             FlightType.REFUELING,
             FlightType.RECOVERY,
-        }:
+        } or (
+            isinstance(self.flight.flight_plan, RescueKingFlightPlan)
+            and self._is_tanker_king
+        ):
             self.register_air_support(freq)
         elif self.flight.client_count and self.flight.squadron.radio_presets:
             freq = self.flight.squadron.radio_presets["intra_flight"][0]
@@ -282,6 +286,14 @@ class FlightGroupConfigurator:
 
         self.group.set_frequency(freq.mhz)
         return freq
+
+    @property
+    def _is_tanker_king(self) -> bool:
+        from game.ato.flightplans.rescueking import is_tanker_king
+
+        return self.flight.flight_type is FlightType.RESCUE_KING and is_tanker_king(
+            self.flight
+        )
 
     def register_air_support(self, channel: RadioFrequency) -> None:
         callsign = callsign_for_support_unit(self.group)
@@ -302,6 +314,10 @@ class FlightGroupConfigurator:
             isinstance(self.flight.flight_plan, TheaterRefuelingFlightPlan)
             or isinstance(self.flight.flight_plan, PackageRefuelingFlightPlan)
             or isinstance(self.flight.flight_plan, RecoveryTankerFlightPlan)
+            or (
+                isinstance(self.flight.flight_plan, RescueKingFlightPlan)
+                and self._is_tanker_king
+            )
         ):
             tacan = self.flight.tacan
             if tacan is None and self.flight.squadron.aircraft.dcs_unit_type.tacan:

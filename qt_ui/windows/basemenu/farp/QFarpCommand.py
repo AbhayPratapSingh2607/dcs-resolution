@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from game import Game
+from game.ato.flightplans.rescueking import is_tanker_king
 from game.server import EventStream
 from game.sim import GameUpdateEvents
 from game.squadrons import Squadron
@@ -57,7 +58,9 @@ class QFarpCommand(QFrame):
         self.detachments_box.setLayout(self.detachments_layout)
         self.main_layout.addWidget(self.detachments_box)
 
-        assign_box = QGroupBox("Assign a detachment")
+        assign_box = QGroupBox(
+            "Send rescue helicopters" if farp.is_rescue_king else "Assign a detachment"
+        )
         assign_layout = QHBoxLayout()
         assign_box.setLayout(assign_layout)
         self.squadron_selector = QComboBox()
@@ -81,7 +84,9 @@ class QFarpCommand(QFrame):
 
         dismantle_row = QHBoxLayout()
         dismantle_row.addStretch()
-        dismantle_button = QPushButton("Dismantle FARP")
+        dismantle_button = QPushButton(
+            "Remove Rescue King" if farp.is_rescue_king else "Dismantle FARP"
+        )
         dismantle_button.setProperty("style", "btn-danger")
         dismantle_button.clicked.connect(self._dismantle)
         dismantle_row.addWidget(dismantle_button)
@@ -96,6 +101,13 @@ class QFarpCommand(QFrame):
         return game
 
     def _restrictions_text(self) -> str:
+        if self.farp.is_rescue_king:
+            return (
+                "Any CSAR-capable helicopter can be sent here; it arrives at once. "
+                "They start in the air over the King, fly CSAR only (to the "
+                "nearest downed pilot, or a rescue you plan from the King), and "
+                "go back to their squadron when the turn ends."
+            )
         return (
             "Any helicopter can be stationed here and fly any task it is capable "
             "of. Detachments can't purchase aircraft; recall them to reinforce. "
@@ -109,6 +121,8 @@ class QFarpCommand(QFrame):
             d.owned_aircraft for d in detachments_at(self.farp) if is_en_route(d)
         )
         slots = f"Helicopter slots: {used}/{total} in use"
+        if self.farp.is_rescue_king:
+            return "<br/>".join(["<b>Rescue King</b>", self._king_text(), slots])
         if en_route:
             slots += f" ({en_route} en route, arriving next turn)"
         if not self.farp.established:
@@ -126,6 +140,22 @@ class QFarpCommand(QFrame):
             f"Upkeep: ${self.farp.upkeep_per_turn}M per turn",
         ]
         return "<br/>".join(lines)
+
+    def _king_text(self) -> str:
+        package = self.farp.coalition.farps.setup_package(self.farp)
+        if package is None or not package.flights:
+            return "No C-130 is free to orbit it this turn."
+        flight = package.flights[0]
+        air_wing = list(self.farp.coalition.air_wing.iter_squadrons())
+        if flight.squadron in air_wing:
+            origin = f"of {flight.squadron}"
+        else:
+            origin = "from outside your air wing"
+        tanker = ", refueling helicopters" if is_tanker_king(flight) else ""
+        return (
+            f"A {flight.unit_type.display_name} {origin} circles here this "
+            f"turn{tanker}."
+        )
 
     def _setup_text(self) -> str:
         package = self.farp.coalition.farps.setup_package(self.farp)
@@ -220,8 +250,11 @@ class QFarpCommand(QFrame):
         rather than hidden, so it's clear why a helicopter type isn't offered.
         """
         candidates: list[tuple[Squadron, Optional[str]]] = []
+        manager = self.farp.coalition.farps
         for squadron in self.farp.coalition.air_wing.iter_squadrons():
             if squadron.is_detachment or not squadron.aircraft.helicopter:
+                continue
+            if self.farp.is_rescue_king and not manager.can_rescue_from_king(squadron):
                 continue
             if squadron.location == self.farp:
                 continue
@@ -259,9 +292,14 @@ class QFarpCommand(QFrame):
         events = GameUpdateEvents()
         now = self.game_model.sim_controller.current_time_in_sim_if_game_loaded
         try:
-            create_detachment(
-                squadron, self.farp, self.count_spinner.value(), now, events
-            )
+            if self.farp.is_rescue_king:
+                self.farp.coalition.farps.station_king_helicopters(
+                    self.farp, squadron, self.count_spinner.value(), now, events
+                )
+            else:
+                create_detachment(
+                    squadron, self.farp, self.count_spinner.value(), now, events
+                )
         except ValueError as ex:
             QMessageBox.warning(self, "Could not assign detachment", str(ex))
             return
@@ -275,7 +313,12 @@ class QFarpCommand(QFrame):
         self.refresh()
 
     def _dismantle(self) -> None:
-        if self.farp.established:
+        if self.farp.is_rescue_king:
+            question = (
+                f"Remove {self.farp.name}? Its C-130 and rescue flights are "
+                "cancelled and the helicopters go back to their squadrons."
+            )
+        elif self.farp.established:
             question = (
                 f"Dismantle {self.farp.name}? Stationed helicopters return to "
                 "their squadrons and the deployment cost is not refunded."
@@ -287,7 +330,7 @@ class QFarpCommand(QFrame):
             )
         result = QMessageBox.question(
             self,
-            "Dismantle FARP",
+            "Remove Rescue King" if self.farp.is_rescue_king else "Dismantle FARP",
             question,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )

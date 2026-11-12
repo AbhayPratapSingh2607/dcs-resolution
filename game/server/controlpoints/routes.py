@@ -72,6 +72,9 @@ def establish_farp(
     qt.budget_changed()
     # The FARP's setup flight is a new package in the player's ATO.
     qt.ato_changed()
+    if kind is FarpKind.RESCUE_KING:
+        # Open its menu so the player can choose the helicopters.
+        qt.show_control_point_info(cp)
     return ControlPointJs.for_control_point(cp)
 
 

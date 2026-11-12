@@ -21,7 +21,11 @@ class QBaseMenuTabs(QTabWidget):
             self.addTab(self.departing_convoys, "Departing Convoys")
             return
 
-        if isinstance(cp, DynamicFarp):
+        if isinstance(cp, DynamicFarp) and cp.is_rescue_king:
+            # Nothing to buy or park: just its helicopters.
+            self.farp_command = QFarpCommand(cp, game_model)
+            self.addTab(self.farp_command, "Rescue King")
+        elif isinstance(cp, DynamicFarp):
             self.farp_command = QFarpCommand(cp, game_model)
             self.addTab(self.farp_command, "FARP")
             self.airfield_command = QAirfieldCommand(cp, game_model)

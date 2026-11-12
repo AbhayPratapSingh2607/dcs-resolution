@@ -109,7 +109,9 @@ class SortieLedger:
         if slots is not None:
             return slots
         untasked = max(0, squadron.untasked_aircraft)
-        rng = random.Random(f"{self.seed}:{squadron.name}:{squadron.aircraft.variant_id}")
+        rng = random.Random(
+            f"{self.seed}:{squadron.name}:{squadron.aircraft.variant_id}"
+        )
         exact = untasked * self.profile.mc_rate
         capable = math.floor(exact)
         if rng.random() < exact - capable:
@@ -117,6 +119,11 @@ class SortieLedger:
         # Small detachments still get at least one jet up when they have any.
         if untasked > 0:
             capable = max(1, capable)
+        from game.theater.dynamicfarp import is_rescue_king
+
+        # A Rescue King's pair was sent up ready for the rescue.
+        if is_rescue_king(getattr(squadron, "location", None)):
+            capable = untasked
         # On a cratered airfield only the share flying from road bases.
         from game.warfare.roadbases import road_capacity
 

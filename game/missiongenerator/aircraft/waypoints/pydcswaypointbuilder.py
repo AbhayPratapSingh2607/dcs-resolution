@@ -212,7 +212,11 @@ class PydcsWaypointBuilder:
         if self.flight.roster.members[0].is_player:
             return False
         arrival = self.flight.arrival
-        offmap = isinstance(arrival, OffMapSpawn)
+        from game.theater.dynamicfarp import is_rescue_king
+
+        # Flights bound off the map, or back to a Rescue King, leave the mission
+        # when they get there.
+        offmap = isinstance(arrival, OffMapSpawn) or is_rescue_king(arrival)
         ai_despawn = self.flight.coalition.game.settings.perf_ai_despawn_airstarted
         ai_despawn &= self.flight.start_type in {
             StartType.IN_FLIGHT,

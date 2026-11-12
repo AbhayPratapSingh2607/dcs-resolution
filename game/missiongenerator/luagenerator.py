@@ -427,6 +427,19 @@ class LuaGenerator:
                     "true" if downed.needs_hover_extraction(settings) else "false",
                 )
 
+        # Helicopters flying from a Rescue King (game/farps.py): a player's
+        # rescue counts when the survivor boards, not on delivery to a base.
+        from game.theater.dynamicfarp import is_rescue_king
+
+        king_units = csar_object.get_or_create_item("kingUnits")
+        for flight in self.mission_data.flights:
+            if flight.flight_type is not FlightType.CSAR or not is_rescue_king(
+                flight.squadron.location
+            ):
+                continue
+            for unit in flight.units:
+                king_units.add_item().add_key_value("unit", unit.name)
+
         rescue_types = csar_object.get_or_create_item("rescueTypes")
         seen: set[str] = set()
         for aircraft in AircraftType.priority_list_for_task(FlightType.CSAR):

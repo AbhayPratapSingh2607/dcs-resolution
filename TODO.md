@@ -779,6 +779,28 @@ default since W8). D11 checks the 6 hour turn.
   debrief. Quit before a strike's time: the end-of-turn message says the combat model fired it.
   Also check red's Scuds (a campaign with red missile sites) fire at their planned time
   instead of at random.
+- [ ] **D26. Rescue King (2026-11-12).** With dynamic FARPs on, a C-130 or KC-130 squadron
+  (USAF 1991/2005 or NATO 2010 preset) and a blue pilot down: press FARPs > Rescue King and
+  click a spot near the pilot, outside enemy air defenses (the map refuses it inside).
+  **Expect, campaign:** a "King N" appears with 2 helicopters from the nearest CSAR squadron,
+  and a C-130 package against it; the planner sends the pair to the nearby pilot (or plan it
+  by hand from the King). Next turn the King is gone and the helicopters are home.
+  **Expect, AI:** the C-130 circles the spot; the helicopters appear in the air over it, fly
+  the pickup, fly back to it and disappear there; the debrief counts the rescue.
+  **Expect, player:** take a seat in the helicopter flight: you start in the air at the King;
+  the rescue counts the moment the pilot is aboard (dcs.log: "boarded ... (Rescue King);
+  rescue reported"), without landing at a base or MASH; you can fly on or end the mission.
+  Also check the King doesn't fire on anything (a Hercules mod gunship included) and evades
+  if shot at.
+  **Choosing the helicopters:** the King's menu opens after placing it. Recall the pair and
+  send another CSAR squadron (1 or 2 aircraft); the rescue is replanned with the new type.
+  **No transport (setting "FARPs and Rescue Kings need no transport aircraft"):** with no
+  C-130 squadron, the King is still placeable; a KC-130 "King N Tanker" from outside the air
+  wing orbits it at 6,000 ft and 135 kt, listed as a tanker (callsign and TACAN) in the
+  briefing and kneeboard, and leaves the mission at 6,000 ft over the King when its time on
+  station ends. A ground FARP placed with the setting on is set up at once, with no setup
+  flight. If you fly a helicopter that can take fuel in the air (the UH-60L mod), try
+  refueling from the KC-130; stock DCS helicopters can't.
 - [ ] **D8. Things that already existed, worth checking while in DCS.**
   - **On Station:** CAPs, AWACS and tankers set to On Station appear on their tracks at
     mission start.

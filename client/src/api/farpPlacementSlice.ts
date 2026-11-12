@@ -2,7 +2,7 @@ import { RootState } from "../app/store";
 import { gameUnloaded } from "./actions";
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
-export type FarpKind = "wet_wing" | "fat_cow";
+export type FarpKind = "wet_wing" | "fat_cow" | "rescue_king";
 
 interface FarpPlacementState {
   kind: FarpKind | null;

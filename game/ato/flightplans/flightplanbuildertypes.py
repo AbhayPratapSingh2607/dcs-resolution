@@ -10,6 +10,7 @@ from .airlift import AirliftFlightPlan
 from .antiship import AntiShipFlightPlan
 from .armedrecon import ArmedReconFlightPlan
 from .recon import ReconFlightPlan
+from .rescueking import RescueKingFlightPlan
 from .bai import BaiFlightPlan
 from .barcap import BarCapFlightPlan
 from .cas import CasFlightPlan
@@ -77,6 +78,7 @@ class FlightPlanBuilderTypes:
             FlightType.ARMED_RECON: ArmedReconFlightPlan.builder_type(),
             FlightType.RECON: ReconFlightPlan.builder_type(),
             FlightType.RECOVERY: RecoveryTankerFlightPlan.builder_type(),
+            FlightType.RESCUE_KING: RescueKingFlightPlan.builder_type(),
         }
         try:
             return builder_dict[flight.flight_type]

@@ -4,8 +4,9 @@
 # 2000D, Italian Tornado IDS, NATO E-3A, Turkish KC-135, and B-1B/B-2 strikes
 # from the United States.
 # Differences: Mirage 2000C stands in for the 2000D; no B-2 in DCS; UH-60L for the
-# HH-60G Pave Hawk. French Gazelles and British Apaches flew from ships in 2011;
-# here they fly from the front airfields.
+# HH-60G Pave Hawk and KC-130J (or C-130) for the HC-130 Rescue King. French
+# Gazelles and British Apaches flew from ships in 2011; here they fly from the
+# front airfields.
 #
 # Squadrons from several nations. Each entry's country decides its livery, pilot
 # names and in-mission radio voice. Works best with a Combined Joint Task Forces
@@ -49,6 +50,7 @@ groups:
     placement: rear
     squadrons:
       - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
+      - {aircraft: ["KC-130J", "C-130J-30", "C-130"], country: USA, primary: Rescue King, secondary: [Transport], size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
       - {aircraft: ["KC-135 Stratotanker MPRS"], country: USA, primary: Refueling, size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: Turkey, primary: Refueling, size: 2}

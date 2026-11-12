@@ -29,6 +29,7 @@ from game.theater.dynamicfarp import (
     FAT_COW_CAPACITY,
     FATCOW_FUEL_KEYS,
     FarpKind,
+    RESCUE_KING_CAPACITY,
     farp_footprint_radius,
     fatcow_object_name,
 )
@@ -87,13 +88,24 @@ class FarpManager:
         ]
 
     @property
+    def ground_farps(self) -> list[DynamicFarp]:
+        """Wet Wings and Fat Cows: the FARPs on the ground."""
+        return [f for f in self.farps if not f.is_rescue_king]
+
+    @property
+    def kings(self) -> list[DynamicFarp]:
+        return [f for f in self.farps if f.is_rescue_king]
+
+    @property
     def total_upkeep(self) -> int:
         # Nothing to maintain until the equipment has been delivered.
         return sum(f.upkeep_per_turn for f in self.farps if f.established)
 
     @property
     def instant_setup(self) -> bool:
-        return self.game.settings.enable_instant_farp_cheat
+        settings = self.game.settings
+        # With no transport needed, nothing flies the equipment in.
+        return settings.enable_instant_farp_cheat or settings.farps_need_no_transport
 
     # Setup flights
 
@@ -164,6 +176,9 @@ class FarpManager:
         Called at the start of each turn, after the ATO has been cleared. With the
         instant FARP cheat on, waiting FARPs are set up immediately instead.
         """
+        for king in self.kings:
+            if self.setup_package(king) is None:
+                self.plan_king_flight(king, now)
         for farp in self.farps:
             if farp.established or self.setup_package(farp) is not None:
                 continue
@@ -196,6 +211,9 @@ class FarpManager:
 
     def deploy_cost(self, kind: FarpKind) -> int:
         settings = self.game.settings
+        if kind is FarpKind.RESCUE_KING:
+            # A sortie, not a base: the aircraft are the cost.
+            return 0
         if kind is FarpKind.FAT_COW:
             return settings.fat_cow_farp_deploy_cost
         return settings.wet_wing_farp_deploy_cost
@@ -206,6 +224,8 @@ class FarpManager:
         return self.game.settings.max_farps
 
     def capacity(self, kind: FarpKind) -> int:
+        if kind is FarpKind.RESCUE_KING:
+            return RESCUE_KING_CAPACITY
         if kind is FarpKind.FAT_COW:
             return FAT_COW_CAPACITY
         return self.game.settings.wet_wing_farp_capacity
@@ -287,6 +307,8 @@ class FarpManager:
         return terrain.survey(point, radius)
 
     def check_site(self, point: Point, kind: FarpKind) -> SiteCheck:
+        if kind is FarpKind.RESCUE_KING:
+            return self.check_king_site(point)
         settings = self.game.settings
         theater = self.game.theater
         check = SiteCheck(kind, self.deploy_cost(kind))
@@ -311,7 +333,7 @@ class FarpManager:
                     "No transport aircraft available to airdrop the equipment."
                 )
 
-        if len(self.farps) >= self.max_farps:
+        if len(self.ground_farps) >= self.max_farps:
             reasons.append(f"Limit of {self.max_farps} FARP(s) reached.")
         if self.coalition.budget < check.cost:
             reasons.append(f"Not enough money (${check.cost}M needed).")
@@ -393,6 +415,8 @@ class FarpManager:
         check = self.check_site(point, kind)
         if not check.valid:
             raise ValueError(" ".join(check.reasons))
+        if kind is FarpKind.RESCUE_KING:
+            return self.establish_king(point, events, now)
         instant = self.instant_setup
 
         heading = self.game.theater.heading_to_conflict_from(point)
@@ -487,6 +511,12 @@ class FarpManager:
         Called after the turn counter has advanced and base captures have been
         committed.
         """
+        for king in self.kings:
+            self.dismantle(
+                king,
+                events,
+                reason="is over: its helicopters went back to their squadron",
+            )
         for farp in self.farps:
             if (cause := self._overrun_cause(farp)) is not None:
                 self.dismantle(
@@ -525,7 +555,7 @@ class FarpManager:
         """Warns about FARPs the front line has come within the minimum building
         distance of. Only being overrun costs the FARP."""
         min_dist = nautical_miles(self.game.settings.farp_min_frontline_distance)
-        for farp in self.farps:
+        for farp in self.ground_farps:
             situation = self.front_situation(farp.position)
             if situation is None or situation.distance >= min_dist.meters:
                 continue
@@ -564,3 +594,298 @@ class FarpManager:
             depots = self.fuel_depot_names(farp)
             if depots and depots <= killed:
                 self.dismantle(farp, events, reason="destroyed", destroyed=True)
+
+    # Rescue Kings
+
+    @property
+    def no_transport_needed(self) -> bool:
+        """FARPs and Rescue Kings need no transport from the air wing."""
+        return self.game.settings.farps_need_no_transport
+
+    def king_squadron(self, point: Point) -> Optional[Squadron]:
+        """The nearest C-130 squadron with an aircraft and crew free to orbit
+        a Rescue King."""
+        candidates = [
+            s
+            for s in self.coalition.air_wing.iter_squadrons()
+            if not s.is_detachment
+            and s.capable_of(FlightType.RESCUE_KING)
+            and s.untasked_aircraft >= 1
+            and s.can_provide_pilots(1)
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates, key=lambda s: s.location.position.distance_to_point(point)
+        )
+
+    @staticmethod
+    def can_rescue_from_king(squadron: Squadron) -> bool:
+        """Whether helicopters of ``squadron`` can be sent to a Rescue King."""
+        return (
+            not squadron.is_detachment
+            and squadron.aircraft.helicopter
+            and squadron.capable_of(FlightType.CSAR)
+        )
+
+    def rescue_squadron(self, point: Point) -> Optional[Squadron]:
+        """The squadron a new King's helicopters come from unless the player
+        picks others: the nearest one with CSAR enabled that can spare a pair,
+        else one that can spare a single helicopter."""
+        candidates = [
+            s
+            for s in self.coalition.air_wing.iter_squadrons()
+            if self.can_rescue_from_king(s)
+            and s.destination is None
+            and s.untasked_aircraft >= 1
+            and s.can_provide_pilots(1)
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda s: (
+                not s.can_auto_assign(FlightType.CSAR),
+                not s.can_provide_pilots(RESCUE_KING_CAPACITY)
+                or s.untasked_aircraft < RESCUE_KING_CAPACITY,
+                s.location.position.distance_to_point(point),
+            ),
+        )
+
+    def check_king_site(self, point: Point) -> SiteCheck:
+        check = SiteCheck(FarpKind.RESCUE_KING, 0)
+        reasons = check.reasons
+        if not self.game.settings.enable_dynamic_farps:
+            reasons.append("Dynamic FARPs are disabled in the settings.")
+            return check
+        if not self.coalition.player.is_blue:
+            reasons.append("Only the player can place a Rescue King.")
+            return check
+        if not self.no_transport_needed and self.king_squadron(point) is None:
+            reasons.append(
+                "No C-130 or KC-130 with a crew free to fly the King's orbit."
+            )
+        if self.rescue_squadron(point) is None:
+            reasons.append("No CSAR-capable helicopter and crew to send to it.")
+        defenses = self.coalition.opponent.threat_zone.air_defenses
+        if defenses.intersects(ShapelyPoint(point.x, point.y)):
+            reasons.append("Inside enemy air defense coverage.")
+        for king in self.kings:
+            if (
+                king.position.distance_to_point(point)
+                < MIN_CONTROL_POINT_SPACING.meters
+            ):
+                reasons.append(f"Too close to {king.name}.")
+                break
+        return check
+
+    def _next_king_name(self) -> str:
+        used = {cp.name for cp in self.game.theater.controlpoints}
+        number = 1
+        while f"King {number}" in used:
+            number += 1
+        return f"King {number}"
+
+    def establish_king(
+        self, point: Point, events: GameUpdateEvents, now: Optional[datetime] = None
+    ) -> DynamicFarp:
+        """Places a Rescue King: a C-130 orbits ``point`` for the rest of the
+        turn, and rescue helicopters are stationed on it at once.
+
+        The nearest CSAR helicopters go first; the player can swap them in the
+        King's menu (QFarpCommand), which the map opens after placing it.
+        """
+        heli_parent = self.rescue_squadron(point)
+        assert heli_parent is not None
+        heading = self.game.theater.heading_to_conflict_from(point)
+        king = DynamicFarp(
+            self._next_king_name(),
+            point,
+            heading or Heading.from_degrees(0),
+            self.game.theater,
+            self.coalition.player,
+            FarpKind.RESCUE_KING,
+            RESCUE_KING_CAPACITY,
+            self.game.turn,
+            established=True,
+        )
+        king.finish_init(self.game)
+        self.game.theater.add_controlpoint(king)
+        self._control_points_changed(events)
+        events.update_control_point(king)
+
+        now = now or self.game.conditions.start_time
+        flight = self.plan_king_flight(king, now, events)
+        count = min(RESCUE_KING_CAPACITY, heli_parent.untasked_aircraft)
+        if heli_parent.pilot_limits_enabled:
+            count = min(count, heli_parent.number_of_available_pilots)
+        self.station_king_helicopters(king, heli_parent, count, now, events)
+        aircraft = flight.unit_type if flight is not None else "C-130"
+        self.game.message(
+            f"{king.name} on station",
+            f"A {aircraft} orbits {king.name} this turn with {count} "
+            f"{heli_parent.aircraft} of {heli_parent.name}. Change the "
+            f"helicopters in the menu of {king.name}. They fly a rescue of the "
+            "nearest downed pilot; or plan one by hand.",
+        )
+        logging.info(f"Placed Rescue King {king.name} at {point}")
+        return king
+
+    def station_king_helicopters(
+        self,
+        king: DynamicFarp,
+        squadron: Squadron,
+        count: int,
+        now: Optional[datetime] = None,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> Squadron:
+        """Sends ``count`` helicopters of ``squadron`` to the King at once, for
+        CSAR only, and sends them to the nearest downed pilot."""
+        from game.squadrons.detachments import create_detachment
+
+        if not self.can_rescue_from_king(squadron):
+            raise ValueError(f"{squadron} can't fly CSAR.")
+        now = now or self.game.conditions.start_time
+        det = create_detachment(squadron, king, count, now, events, instant=True)
+        # They are there for the rescue: the planner only sends them on CSAR.
+        det.set_auto_assignable_mission_types({FlightType.CSAR})
+        self.plan_king_rescues(king, now, events)
+        return det
+
+    def plan_king_rescues(
+        self,
+        king: DynamicFarp,
+        now: datetime,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> list[Flight]:
+        """Sends the King's idle helicopters to the nearest downed pilots no
+        rescue is planned for yet.
+
+        A King is placed after the turn's air tasking order was planned, so
+        nothing else would task them this turn.
+        """
+        from game.ato.starttype import StartType
+
+        radius = meters(self.game.settings.csar_cluster_radius)
+        covered = {
+            id(package.target)
+            for package in self.coalition.ato.packages
+            if any(f.flight_type is FlightType.CSAR for f in package.flights)
+        }
+        waiting = [p for p in self.coalition.downed_pilots if id(p) not in covered]
+        planned: list[Flight] = []
+        for det in detachments_at(king):
+            if det.location != king or det.untasked_aircraft < 1:
+                continue
+            reach = det.aircraft.max_mission_range.meters
+            in_reach = [
+                p
+                for p in waiting
+                if p.position.distance_to_point(king.position) <= reach
+            ]
+            if not in_reach:
+                continue
+            pilot = min(
+                in_reach, key=lambda p: p.position.distance_to_point(king.position)
+            )
+            package = Package(pilot, self.game.db.flights, auto_asap=True)
+            flight = Flight(
+                package,
+                det,
+                det.untasked_aircraft,
+                FlightType.CSAR,
+                StartType.IN_FLIGHT,
+                divert=None,
+            )
+            package.add_flight(flight)
+            try:
+                flight.recreate_flight_plan()
+            except PlanningError:
+                logging.exception(f"Could not plan a rescue from {king.name}")
+                package.remove_flight(flight)
+                continue
+            package.set_tot_asap(now)
+            self.coalition.ato.add_package(package)
+            if events is not None:
+                events.new_flight(flight)
+            planned.append(flight)
+            # One lift collects the whole cluster.
+            for other in pilot.cluster(radius):
+                if other in waiting:
+                    waiting.remove(other)
+        return planned
+
+    def _king_tanker_squadron(self, king: DynamicFarp) -> Squadron:
+        """A KC-130 that isn't part of the air wing, to fly the King's orbit
+        when the settings say no transport aircraft is needed."""
+        from game.campaignloader.squadrondefgenerator import SquadronDefGenerator
+        from game.dcs.aircrafttype import AircraftType
+        from game.squadrons import Squadron
+
+        faction = self.coalition.faction
+        # The KC-130J (UH-60L mod) refuels UH-60Ls; otherwise the stock KC-130.
+        aircraft = AircraftType.named("KC-130")
+        for name in ("KC-130J", "KC-130"):
+            try:
+                candidate = AircraftType.named(name)
+            except KeyError:
+                continue
+            if candidate in faction.all_aircrafts:
+                aircraft = candidate
+                break
+        squadron_def = SquadronDefGenerator(faction).generate_for_aircraft(aircraft)
+        squadron_def.name = f"{king.name} Tanker"
+        squadron = Squadron.create_from(
+            squadron_def, FlightType.RESCUE_KING, 1, king, self.coalition, self.game
+        )
+        squadron.set_auto_assignable_mission_types({FlightType.RESCUE_KING})
+        squadron.owned_aircraft = 1
+        squadron.untasked_aircraft = 1
+        squadron._recruit_pilots(1)
+        return squadron
+
+    def plan_king_flight(
+        self,
+        king: DynamicFarp,
+        now: datetime,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> Optional[Flight]:
+        """The C-130 that orbits the King this turn, or with no transport
+        needed (settings), a KC-130 tanker from outside the air wing."""
+        from game.ato.starttype import StartType
+
+        squadron: Optional[Squadron]
+        if self.no_transport_needed:
+            squadron = self._king_tanker_squadron(king)
+            # It appears in the air over the King.
+            start_type = StartType.IN_FLIGHT
+        else:
+            squadron = self.king_squadron(king.position)
+            start_type = StartType.ON_STATION
+        if squadron is None:
+            self.game.message(
+                f"{king.name} has no C-130",
+                "No C-130 or KC-130 is free to orbit it this turn.",
+            )
+            return None
+        package = Package(king, self.game.db.flights)
+        flight = Flight(
+            package,
+            squadron,
+            1,
+            FlightType.RESCUE_KING,
+            start_type,
+            divert=None,
+        )
+        package.add_flight(flight)
+        try:
+            flight.recreate_flight_plan()
+        except PlanningError:
+            logging.exception(f"Could not plan the C-130 for {king.name}")
+            package.remove_flight(flight)
+            return None
+        package.set_tot_asap(now)
+        self.coalition.ato.add_package(package)
+        if events is not None:
+            events.new_flight(flight)
+        return flight

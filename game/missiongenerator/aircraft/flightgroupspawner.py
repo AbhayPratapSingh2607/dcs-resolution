@@ -420,7 +420,9 @@ class FlightGroupSpawner:
         at = origin.position
 
         alt_type = "RADIO"
-        if isinstance(origin, OffMapSpawn):
+        from game.theater.dynamicfarp import is_rescue_king
+
+        if isinstance(origin, OffMapSpawn) or is_rescue_king(origin):
             alt = self.flight.flight_plan.waypoints[0].alt
             alt_type = self.flight.flight_plan.waypoints[0].alt_type
         elif self.flight.unit_type.helicopter:

@@ -25,5 +25,6 @@ altitudes:
   cruise: 10000
   combat: 1000
 tasks:
+  Rescue King: 130
   # Air Assault: 0 #TODO: Add once we have proper support for paradrops
   Transport: 140

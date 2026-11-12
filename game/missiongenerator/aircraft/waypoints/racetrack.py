@@ -50,7 +50,12 @@ class RaceTrackBuilder(PydcsWaypointBuilder):
         # is their first priority and they will not engage any targets because
         # they're fully focused on orbiting. If the STE task is first, they will
         # engage targets if available and orbit if they find nothing to shoot.
-        if self.flight.flight_type is FlightType.REFUELING:
+        from game.ato.flightplans.rescueking import is_tanker_king
+
+        if self.flight.flight_type is FlightType.REFUELING or (
+            self.flight.flight_type is FlightType.RESCUE_KING
+            and is_tanker_king(self.flight)
+        ):
             self.configure_refueling_actions(waypoint)
 
         # TODO: Move the properties of this task into the flight plan?

@@ -209,6 +209,7 @@ class QAutoCreateDialog(QDialog):
             FlightType.ARMED_RECON,
             FlightType.RECON,
             FlightType.AIR_ASSAULT,
+            FlightType.CSAR,
         }
         for mt in self.package.target.mission_types(
             Player.BLUE if self.is_ownfor else Player.RED
@@ -217,6 +218,11 @@ class QAutoCreateDialog(QDialog):
                 self.primary_combobox.addItem(mt.value, mt)
         self.primary_combobox.setCurrentIndex(0)
         self._load_aircraft_types()
+        if self.primary_combobox.currentData() is FlightType.CSAR:
+            # A rescue is a pair, as the planner flies it.
+            self.primary_count.setValue(
+                1 if self.game.settings.csar_single_flight else 2
+            )
 
     @staticmethod
     def _create_checkbox(label: str) -> QCheckBox:

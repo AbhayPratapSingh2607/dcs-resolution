@@ -64,6 +64,9 @@ class FlightType(Enum):
     RECON = "Recon"
     RECOVERY = "Recovery"
     CSAR = "CSAR"
+    #: A C-130 orbiting near downed pilots: the rescue helicopters start at
+    #: its orbit and return to it (see flightplans/rescueking.py).
+    RESCUE_KING = "Rescue King"
 
     def __str__(self) -> str:
         return self.value
@@ -124,6 +127,7 @@ class FlightType(Enum):
             FlightType.OCA_AIRCRAFT: AirEntity.ATTACK_STRIKE,
             FlightType.OCA_RUNWAY: AirEntity.ATTACK_STRIKE,
             FlightType.RECOVERY: AirEntity.TANKER,
+            FlightType.RESCUE_KING: AirEntity.COMBAT_SEARCH_AND_RESCUE,
             FlightType.REFUELING: AirEntity.TANKER,
             FlightType.SEAD: AirEntity.SUPPRESSION_OF_ENEMY_AIR_DEFENCE,
             FlightType.SEAD_ESCORT: AirEntity.SUPPRESSION_OF_ENEMY_AIR_DEFENCE,

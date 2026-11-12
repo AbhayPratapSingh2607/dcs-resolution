@@ -14,6 +14,7 @@ import { CircleMarker, Tooltip, useMap, useMapEvents } from "react-leaflet";
 const KIND_LABELS: Record<FarpKind, string> = {
   wet_wing: "Wet Wing FARP",
   fat_cow: "Fat Cow FARP",
+  rescue_king: "Rescue King",
 };
 
 const CHECK_INTERVAL_MS = 150;
@@ -34,9 +35,17 @@ function tooltipLines(
   if (!candidate.check) {
     return ["Checking site..."];
   }
-  const header = `${KIND_LABELS[kind]} ($${candidate.check.cost}M)`;
+  const header =
+    kind === "rescue_king"
+      ? KIND_LABELS[kind]
+      : `${KIND_LABELS[kind]} ($${candidate.check.cost}M)`;
   if (candidate.check.valid) {
-    return [header, "Click to establish. Right click or Esc to cancel."];
+    return [
+      header,
+      kind === "rescue_king"
+        ? "Click to place: a C-130 or KC-130 circles here this turn; choose its rescue helicopters in the menu that opens. Right click or Esc to cancel."
+        : "Click to establish. Right click or Esc to cancel.",
+    ];
   }
   return [header, ...candidate.check.reasons];
 }

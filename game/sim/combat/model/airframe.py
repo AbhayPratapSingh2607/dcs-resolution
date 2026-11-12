@@ -272,6 +272,7 @@ def flight_role(flight: Flight) -> str:
         FlightType.FERRY,
         FlightType.PRETENSE_CARGO,
         FlightType.RECOVERY,
+        FlightType.RESCUE_KING,
     ):
         return "support"
     return "striker"

@@ -10,34 +10,46 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Iterator, Optional, TYPE_CHECKING
 
 from dcs.mapping import Point
 
 from game.point_with_heading import PointWithHeading
-from game.sidc import Entity, LandInstallationEntity, SymbolSet
+from game.ato.starttype import StartType
+from game.sidc import AirEntity, Entity, LandInstallationEntity, SymbolSet
 from game.utils import Heading, feet, meters
-from .controlpoint import ControlPointType, Fob
+from .controlpoint import ControlPointType, Fob, ParkingType
 from .player import Player
 
 if TYPE_CHECKING:
+    from game.ato.flighttype import FlightType
     from game.dcs.aircrafttype import AircraftType
     from .conflicttheater import ConflictTheater
 
 
 class FarpKind(Enum):
-    """The two FARP types. They follow the same rules and differ only in how many
-    helicopters they can hold, what they cost, and how they look.
+    """The FARP types. Wet Wing and Fat Cow follow the same rules and differ only
+    in how many helicopters they can hold, what they cost, and how they look.
+
+    A Rescue King is an airborne "FARP": a C-130 orbiting the spot for one
+    turn, with two rescue helicopters stationed on it. They start in the air
+    over it and AI helicopters leave the mission when they come back to it.
     """
 
     #: "Wet Wing": the larger FARP, set up by a C-130.
     WET_WING = "wet_wing"
     #: "Fat Cow": the smaller FARP, set up by a CH-47.
     FAT_COW = "fat_cow"
+    #: "Rescue King": a C-130 orbit that stages two rescue helicopters.
+    RESCUE_KING = "rescue_king"
 
     @property
     def display_name(self) -> str:
-        return "Wet Wing" if self is FarpKind.WET_WING else "Fat Cow"
+        return {
+            FarpKind.WET_WING: "Wet Wing",
+            FarpKind.FAT_COW: "Fat Cow",
+            FarpKind.RESCUE_KING: "Rescue King",
+        }[self]
 
 
 #: Spacing in meters between the individual pads of a dynamic FARP.
@@ -45,6 +57,9 @@ PAD_SPACING = 60
 
 #: Number of helicopter slots provided by a Fat Cow FARP (its layout has 2 pads).
 FAT_COW_CAPACITY = 2
+
+#: Rescue helicopters staged at a Rescue King.
+RESCUE_KING_CAPACITY = 2
 
 
 @dataclass(frozen=True)
@@ -290,7 +305,8 @@ class DynamicFarp(Fob):
         A Fat Cow uses its layout's two pads. A FARP that isn't established yet has
         no pads.
         """
-        if not self.established:
+        if not self.established or self.is_rescue_king:
+            # A Rescue King is in the air: no pads (see total_aircraft_parking).
             return
         heading = self.farp_heading
         if self.is_fat_cow:
@@ -326,14 +342,55 @@ class DynamicFarp(Fob):
         return self.kind is FarpKind.FAT_COW
 
     @property
+    def is_rescue_king(self) -> bool:
+        """Whether this is an airborne Rescue King rather than a FARP on the
+        ground."""
+        return getattr(self, "kind", None) is FarpKind.RESCUE_KING
+
+    def total_aircraft_parking(self, parking_type: ParkingType) -> int:
+        if self.is_rescue_king:
+            return RESCUE_KING_CAPACITY if parking_type.include_rotary_wing else 0
+        return super().total_aircraft_parking(parking_type)
+
+    def can_operate(self, aircraft: AircraftType) -> bool:
+        if self.is_rescue_king:
+            return aircraft.helicopter
+        return super().can_operate(aircraft)
+
+    def runway_is_operational(self) -> bool:
+        if self.is_rescue_king:
+            return True
+        return super().runway_is_operational()
+
+    @property
+    def required_aircraft_start_type(self) -> Optional[StartType]:
+        # The King's helicopters are in the air with it.
+        return StartType.IN_FLIGHT if self.is_rescue_king else None
+
+    def mission_types(self, for_player: Player) -> Iterator[FlightType]:
+        from game.ato.flighttype import FlightType
+
+        if self.is_rescue_king:
+            # Only the King's own orbit; the enemy can't attack a spot in the sky
+            # except by shooting the C-130 down.
+            if self.is_friendly(for_player):
+                yield FlightType.RESCUE_KING
+            return
+        yield from super().mission_types(for_player)
+
+    @property
     def upkeep_per_turn(self) -> int:
         settings = self.coalition.game.settings
+        if self.is_rescue_king:
+            return 0
         if self.is_fat_cow:
             return settings.fat_cow_farp_upkeep
         return settings.wet_wing_farp_upkeep
 
     @property
     def symbol_set_and_entity(self) -> tuple[SymbolSet, Entity]:
+        if self.is_rescue_king:
+            return SymbolSet.AIR, AirEntity.COMBAT_SEARCH_AND_RESCUE
         return (
             SymbolSet.LAND_INSTALLATIONS,
             LandInstallationEntity.HELICOPTER_LANDING_SITE,
@@ -350,3 +407,9 @@ class DynamicFarp(Fob):
     @property
     def category(self) -> str:
         return "farp"
+
+
+def is_rescue_king(control_point: object) -> bool:
+    """Whether a control point (a departure, arrival or package target) is a
+    Rescue King."""
+    return isinstance(control_point, DynamicFarp) and control_point.is_rescue_king

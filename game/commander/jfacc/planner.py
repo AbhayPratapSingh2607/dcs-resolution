@@ -194,7 +194,12 @@ def counts_toward_target(package: Any) -> bool:
 
 
 #: Support lines that don't count toward the package guidance.
-UNCOUNTED_TASKS = {FlightType.AEWC, FlightType.REFUELING, FlightType.RECOVERY}
+UNCOUNTED_TASKS = {
+    FlightType.AEWC,
+    FlightType.REFUELING,
+    FlightType.RECOVERY,
+    FlightType.RESCUE_KING,
+}
 
 #: Categories whose packages are offensive strikes: the main push takes its
 #: share of each.
@@ -812,6 +817,10 @@ class JfaccPlanner:
                 continue
             size = 1 if getattr(settings, "csar_single_flight", False) else 2
             threat = self.composer.threat_for(pilot)
+            # Rescue as soon as the package can get there.
+            tot = self.timeline.earliest
+            # Helicopters on a Rescue King (game/farps.py) are the nearest
+            # squadron when the King is near the pilot, so they go first.
             request = PackageRequest(
                 target=pilot,
                 flights=[FlightRequest(FlightType.CSAR, size)]
@@ -821,8 +830,6 @@ class JfaccPlanner:
                 risk_kind="troops_in_contact",
                 threat=threat,
             )
-            # Rescue as soon as the package can get there.
-            tot = self.timeline.earliest
             if self._commit(request, tot, None) is not None:
                 planned += 1
                 # One lift collects the whole cluster (the mission generator

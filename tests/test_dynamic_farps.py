@@ -474,7 +474,7 @@ def test_farp_limit_is_shared_by_both_types() -> None:
     world.game.theater.conflicts = lambda: []
     world.game.theater.farp_terrain = None
 
-    for kind in FarpKind:
+    for kind in (FarpKind.WET_WING, FarpKind.FAT_COW):
         reasons = manager.check_site(Point(100_000, 0, TERRAIN), kind).reasons
         assert "Limit of 2 FARP(s) reached." in reasons, kind
 

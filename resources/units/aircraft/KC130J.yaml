@@ -16,4 +16,5 @@ patrol:
 variants:
   KC-130J: {}
 tasks:
+  Rescue King: 150
   Refueling: 20

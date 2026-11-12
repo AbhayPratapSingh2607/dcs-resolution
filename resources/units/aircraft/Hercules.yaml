@@ -24,6 +24,7 @@ radios:
     intra_flight_radio_index: 1
     inter_flight_radio_index: 1
 tasks:
+  Rescue King: 100
   Air Assault: 990
   BAI: 0
   CAS: 0

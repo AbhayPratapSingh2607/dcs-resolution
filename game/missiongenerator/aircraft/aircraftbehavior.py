@@ -124,6 +124,8 @@ class AircraftBehavior:
             self.configure_transport(group, flight)
         elif self.task == FlightType.FERRY:
             self.configure_ferry(group, flight)
+        elif self.task == FlightType.RESCUE_KING:
+            self.configure_rescue_king(group, flight)
         else:
             self.configure_unknown_task(group, flight)
 
@@ -544,6 +546,24 @@ class AircraftBehavior:
             group,
             react_on_threat=OptReactOnThreat.Values.EvadeFire,
             roe=roe,
+            restrict_jettison=True,
+        )
+
+    def configure_rescue_king(self, group: FlyingGroup[Any], flight: Flight) -> None:
+        # An unarmed orbit over the King (rescueking.py): hold fire (even a
+        # gunship Hercules) and keep clear of anything shooting at it. A KC-130
+        # refuels the helicopters as well.
+        from game.ato.flightplans.rescueking import is_tanker_king
+
+        if is_tanker_king(flight):
+            self.configure_task(flight, group, Refueling)
+        else:
+            self.configure_task(flight, group, Transport, [Refueling])
+        self.configure_behavior(
+            flight,
+            group,
+            react_on_threat=OptReactOnThreat.Values.EvadeFire,
+            roe=OptROE.Values.WeaponHold,
             restrict_jettison=True,
         )
 

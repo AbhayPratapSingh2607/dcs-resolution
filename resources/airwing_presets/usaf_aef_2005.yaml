@@ -2,7 +2,8 @@
 # Source: USAF deployments of the 2000s (Operation Iraqi Freedom order of battle,
 # 2003): A-10A, F-16CJ (Block 50) SEAD, F-15C, F-15E, F-16C, E-3, KC-135/KC-10,
 # and B-1B and B-52H from Diego Garcia, Fairford and Al Udeid.
-# Differences: A-10C (2007) offered first, with the A-10A as fallback.
+# Differences: A-10C (2007) offered first, with the A-10A as fallback; KC-130J
+# (or C-130) for the HC-130P Rescue King.
 name: USAF Air Expeditionary Force (2005)
 description: >-
   2000s USAF deployment: A-10C and F-16CM Wild Weasels at the front, F-15C, F-15E
@@ -26,6 +27,7 @@ groups:
     placement: rear
     squadrons:
       - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
+      - {aircraft: ["KC-130J", "C-130J-30", "C-130"], country: USA, primary: Rescue King, secondary: [Transport], size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
       - {aircraft: ["KC-135 Stratotanker MPRS", "KC-10 Extender (Drogue)"], country: USA, primary: Refueling, size: 2}
   # T3: a bomber detachment, only where the campaign defines an off-map base

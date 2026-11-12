@@ -212,6 +212,7 @@ class Package(RadioFrequencyContainer):
             FlightType.AEWC,
             FlightType.FERRY,
             FlightType.RECOVERY,
+            FlightType.RESCUE_KING,
             FlightType.REFUELING,
             FlightType.SWEEP,
             FlightType.SEAD_ESCORT,

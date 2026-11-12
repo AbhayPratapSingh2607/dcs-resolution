@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterator, TYPE_CHECKING, Type
+from typing import Iterator, Optional, TYPE_CHECKING, Type
 
 from game.squadrons.downedpilot import DownedPilot
 from game.theater.missiontarget import MissionTarget
@@ -16,6 +16,8 @@ from ..flightwaypointtype import FlightWaypointType
 
 if TYPE_CHECKING:
     from dcs.mapping import Point
+
+    from game.sim.gameupdateevents import GameUpdateEvents
     from ..flightwaypoint import FlightWaypoint
 
 #: How far the rescue helicopter's touchdown point sits from the survivor.
@@ -105,6 +107,23 @@ class CsarFlightPlan(StandardFlightPlan[CsarLayout], UiZoneDisplay):
     def ui_zone(self) -> UiZone:
         return UiZone([self.layout.pickup.position], self.csar_target_zone_radius)
 
+    def on_waypoint_reached(
+        self, waypoint: FlightWaypoint, events: GameUpdateEvents
+    ) -> None:
+        """Records a pickup flown by the fast-forward simulation.
+
+        The mission can't report it: the flight is spawned past the pickup, or
+        has landed. The rescue is credited when the turn's results are
+        committed, if the flight survives (commit_csar_results).
+        """
+        target = self.package.target
+        if (
+            waypoint is self.layout.pickup
+            and isinstance(target, DownedPilot)
+            and not self.flight.client_count
+        ):
+            target.simulated_pickup = self.flight
+
 
 class Builder(IBuilder[CsarFlightPlan, CsarLayout]):
     def layout(self) -> CsarLayout:
@@ -124,9 +143,11 @@ class Builder(IBuilder[CsarFlightPlan, CsarLayout]):
         # overfly the pickup. Package waypoints don't exist for friendly targets,
         # so the ingress is derived from the departure->target line.
         heading = target.position.heading_between_point(self.flight.departure.position)
-        ingress_position = target.position.point_from_heading(
-            heading, self._ingress_distance.meters
+        run_in = min(
+            self._ingress_distance.meters,
+            0.5 * target.position.distance_to_point(self.flight.departure.position),
         )
+        ingress_position = target.position.point_from_heading(heading, run_in)
         ingress = builder.ingress(
             FlightWaypointType.INGRESS_CSAR, ingress_position, target
         )
@@ -139,21 +160,30 @@ class Builder(IBuilder[CsarFlightPlan, CsarLayout]):
             MissionTarget(target.name, self._landing_zone_for(target))
         )
 
+        def route(a: Point, b: Point, king: object) -> list[FlightWaypoint]:
+            # A Rescue King can sit outside the navmesh's safe airspace: its
+            # helicopters fly straight from and back to it.
+            from game.navmesh import NavMeshError
+            from game.theater.dynamicfarp import is_rescue_king
+
+            try:
+                return builder.nav_path(a, b, altitude, altitude_is_agl)
+            except NavMeshError:
+                if is_rescue_king(king):
+                    return []
+                raise
+
         return CsarLayout(
             departure=builder.takeoff(self.flight.departure),
-            nav_to=builder.nav_path(
+            nav_to=route(
                 self.flight.departure.position,
                 ingress.position,
-                altitude,
-                altitude_is_agl,
+                self.flight.departure,
             ),
             ingress=ingress,
             pickup=pickup,
-            nav_from=builder.nav_path(
-                pickup.position,
-                self.flight.arrival.position,
-                altitude,
-                altitude_is_agl,
+            nav_from=route(
+                pickup.position, self.flight.arrival.position, self.flight.arrival
             ),
             arrival=builder.land(self.flight.arrival),
             divert=builder.divert(self.flight.divert),
@@ -164,9 +194,9 @@ class Builder(IBuilder[CsarFlightPlan, CsarLayout]):
     def _landing_zone_for(self, target: MissionTarget) -> Point:
         """The pickup point: a touchdown clear of the survivor, or a hover over them.
 
-        Prefers the approach side (between the pilot and the departure airfield)
-        and falls back through other bearings if that lands in water or an
-        exclusion zone.
+        Prefers the approach side (between the pilot and the departure airfield
+        or Rescue King) and falls back through other bearings if that lands in
+        water or an exclusion zone.
         """
         toward_home = target.position.heading_between_point(
             self.flight.departure.position

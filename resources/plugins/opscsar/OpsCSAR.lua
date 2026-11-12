@@ -150,6 +150,17 @@ local function opscsar_main()
     local tracked = {}
     local tracked_by_id = {}
 
+    -- Helicopters staged from a Rescue King: their rescues count at boarding,
+    -- because they return to the King rather than to a base or MASH.
+    local king_units = {}
+    if type(cfg.kingUnits) == "table" then
+        for _, item in pairs(cfg.kingUnits) do
+            if type(item) == "table" and item.unit then
+                king_units[item.unit] = true
+            end
+        end
+    end
+
     local function tracked_by_group(group_name)
         for _, entry in pairs(tracked) do
             if entry.group_name == group_name then
@@ -221,6 +232,15 @@ local function opscsar_main()
             -- on pickup, which is the behaviour we want for a crewed rescue.
             entry.moose_boarded = true
             entry.done = true
+            if king_units[Heliname] then
+                table.insert(csar_rescued, entry.id)
+                dirty_state = true
+                opscsar_log(
+                    "Pilot " .. entry.id .. " boarded " .. Heliname
+                    .. " (Rescue King); rescue reported."
+                )
+                return
+            end
             onboard[Heliname] = onboard[Heliname] or {}
             table.insert(onboard[Heliname], entry.id)
             opscsar_log(

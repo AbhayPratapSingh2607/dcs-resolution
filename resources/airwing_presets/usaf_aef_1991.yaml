@@ -4,7 +4,8 @@
 # F-117A, F-111F, E-3, KC-135/KC-10, and B-52G from Diego Garcia, Moron, Fairford
 # and Jeddah.
 # Differences: no F-4G in DCS, so F-16s fly SEAD; the F-16CM (Block 50, 1994)
-# stands in for the Block 40/42; B-52H for the B-52G; no F-111F.
+# stands in for the Block 40/42; B-52H for the B-52G; no F-111F; a C-130 for the
+# HC-130 that stages the rescue helicopters (Rescue King).
 name: USAF Air Expeditionary Force (1991)
 description: >-
   Desert Storm style USAF deployment: F-15C air superiority, F-15E and F-117A
@@ -30,6 +31,7 @@ groups:
     squadrons:
       - {aircraft: ["F-117A Nighthawk"], country: USA, primary: Strike, size: 8}
       - {aircraft: ["E-3A"], country: USA, primary: AEW&C, size: 2}
+      - {aircraft: ["C-130"], country: USA, primary: Rescue King, secondary: [Transport], size: 2}
       - {aircraft: ["KC-135 Stratotanker"], country: USA, primary: Refueling, size: 4}
       - {aircraft: ["KC-135 Stratotanker MPRS", "KC-10 Extender (Drogue)"], country: USA, primary: Refueling, size: 2}
   # T3: a bomber detachment, only where the campaign defines an off-map base.

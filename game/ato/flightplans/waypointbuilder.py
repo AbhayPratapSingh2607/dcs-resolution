@@ -32,6 +32,8 @@ from game.utils import Distance, meters, nautical_miles, feet
 
 AGL_TRANSITION_ALT = 5000
 
+from game.theater.dynamicfarp import is_rescue_king
+
 if TYPE_CHECKING:
     from game.transfers import MultiGroupTransport
     from game.ato.flight import Flight
@@ -125,6 +127,17 @@ class WaypointBuilder:
                 description="Enter theater",
                 pretty_name="Enter theater",
             )
+        if is_rescue_king(departure):
+            # Staged on the King's orbit: the flight starts in the air there.
+            return FlightWaypoint(
+                "NAV",
+                FlightWaypointType.NAV,
+                position,
+                self.get_cruise_altitude,
+                "RADIO" if self.is_helo else "BARO",
+                description=f"Leave {departure.name}",
+                pretty_name=f"Leave {departure.name}",
+            )
 
         return FlightWaypoint(
             "TAKEOFF",
@@ -143,6 +156,18 @@ class WaypointBuilder:
             arrival: Arrival airfield or carrier.
         """
         position = arrival.position
+        if is_rescue_king(arrival):
+            # Back to the King's orbit; AI helicopters leave the mission here
+            # (PydcsWaypointBuilder.ai_despawn).
+            return FlightWaypoint(
+                "NAV",
+                FlightWaypointType.NAV,
+                position,
+                self.get_cruise_altitude,
+                "RADIO" if self.is_helo else "BARO",
+                description=f"Back to {arrival.name}",
+                pretty_name=f"Back to {arrival.name}",
+            )
         if isinstance(arrival, OffMapSpawn):
             return FlightWaypoint(
                 "NAV",
@@ -170,7 +195,7 @@ class WaypointBuilder:
         Args:
             divert: Divert airfield or carrier.
         """
-        if divert is None:
+        if divert is None or is_rescue_king(divert):
             return None
 
         position = divert.position

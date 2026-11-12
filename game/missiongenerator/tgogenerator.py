@@ -1411,8 +1411,11 @@ end"""
             )
 
     def generate(self) -> None:
-        if isinstance(self.cp, DynamicFarp) and not self.cp.established:
-            # Nothing has been delivered to the site yet.
+        if isinstance(self.cp, DynamicFarp) and (
+            not self.cp.established or self.cp.is_rescue_king
+        ):
+            # Nothing has been delivered to the site yet, or it is a Rescue King
+            # in the air (its C-130 is a flight in the ATO).
             return
         if isinstance(self.cp, DynamicFarp):
             # Each player-built FARP gets one ATC frequency that all its pads
