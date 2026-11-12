@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -60,6 +60,21 @@ from game.warfare.firemissions import (
 )
 
 
+class _FireMissionSignals(QObject):
+    #: Fire missions were planned, moved or removed: the timeline redraws.
+    changed = Signal()
+
+
+_signals: Optional[_FireMissionSignals] = None
+
+
+def fire_mission_signals() -> _FireMissionSignals:
+    global _signals
+    if _signals is None:
+        _signals = _FireMissionSignals()
+    return _signals
+
+
 def notify_map(game: Game, missions: list[FireMission]) -> None:
     """Refresh the targets' strike marks on the map."""
     from game.theater import ControlPoint
@@ -72,6 +87,7 @@ def notify_map(game: Game, missions: list[FireMission]) -> None:
         elif target is not None:
             events.update_tgo(target)  # type: ignore[arg-type]
     EventStream.put_nowait(events)
+    fire_mission_signals().changed.emit()
 
 
 def launcher_label(game: Game, launcher: Launcher, left: int) -> str:
