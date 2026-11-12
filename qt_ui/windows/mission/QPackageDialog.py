@@ -381,6 +381,15 @@ class QNewPackageDialog(QPackageDialog):
         """
         if not super().package_valid():
             return
+        button = getattr(self, "fire_mission_button", None)
+        if (
+            not self.package_model.package.flights
+            and button is not None
+            and button.property("planned_fire_mission")
+        ):
+            # Opened only to plan a fire mission: the strike stands on its
+            # own, with no empty "No mission" package in the ATO.
+            return
         super().on_save()
         self.ato_model.add_package(self.package_model.package)
 

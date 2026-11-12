@@ -87,7 +87,9 @@ def fire_mission_button(
         button.setEnabled(enabled)
 
     def plan() -> None:
-        plan_at(game, target, parent if parent is not None else button.window())
+        if plan_at(game, target, parent if parent is not None else button.window()):
+            # The package dialog doesn't keep an empty package for it.
+            button.setProperty("planned_fire_mission", True)
         refresh()
 
     button.clicked.connect(plan)
