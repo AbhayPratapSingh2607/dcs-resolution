@@ -153,6 +153,27 @@ class QBaseMenu2(QDialog):
             runway_attack_button.setProperty("style", "btn-danger")
             runway_attack_button.clicked.connect(self.new_package)
 
+        if self.can_plan_fire_mission:
+            fire_button = QPushButton("Plan fire mission…")
+            fire_button.setProperty("style", "btn-danger")
+            fire_button.setToolTip(
+                "Strike this airfield's runway with a cruise missile ship or "
+                "missile site this turn."
+            )
+            from game.warfare.firemissions import unreachable_reason
+
+            try:
+                why = unreachable_reason(
+                    self.game_model.game, self.game_model.game.blue.player, self.cp
+                )
+            except Exception:
+                why = None
+            if why:
+                fire_button.setEnabled(False)
+                fire_button.setToolTip(why)
+            fire_button.clicked.connect(self.plan_fire_mission)
+            bottom_row.addWidget(fire_button)
+
         if self.cp.captured.is_blue and self.has_transfer_destinations:
             transfer_button = QPushButton("Transfer Units")
             transfer_button.setProperty("style", "btn-success")
@@ -385,6 +406,27 @@ class QBaseMenu2(QDialog):
             return "./resources/ui/fob.png"
         else:
             return "./resources/ui/airbase.png"
+
+    @property
+    def can_plan_fire_mission(self) -> bool:
+        """An enemy airfield with a runway to hit, from turn 1 with the Fire
+        missions setting on (game.warfare.firemissions)."""
+        from game.warfare.firemissions import enabled
+
+        game = self.game_model.game
+        return (
+            game is not None
+            and self.cp.captured.is_red
+            and game.turn >= 1
+            and enabled(game)
+            and not self.cp.is_fleet
+            and self.cp.runway_is_destroyable
+        )
+
+    def plan_fire_mission(self) -> None:
+        from qt_ui.windows.QFireMissionsDialog import plan_at
+
+        plan_at(self.game_model.game, self.cp, self.window())
 
     def new_package(self) -> None:
         Dialog.open_new_package_dialog(self.cp, parent=self.window())
