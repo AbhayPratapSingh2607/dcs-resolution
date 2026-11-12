@@ -222,7 +222,9 @@ def test_red_counter_strike_on_turn_1_follows_the_surprise(
     monkeypatch.setattr(
         fm,
         "targets_for",
-        lambda g, l: [(10_000.0 * i, _target(x=10_000 * i)) for i in range(1, 6)],
+        lambda g, l, mobile=True: [
+            (10_000.0 * i, _target(x=10_000 * i)) for i in range(1, 6)
+        ],
     )
     monkeypatch.setattr(
         fm, "period_bounds", lambda g: (START, START + timedelta(hours=6))
@@ -281,3 +283,50 @@ def test_unreachable_reason_names_the_missing_launchers(
     monkeypatch.setattr(fm, "launchers", lambda game, player: [])
     why = fm.unreachable_reason(object(), Player.BLUE, object())  # type: ignore[arg-type]
     assert why is not None and "no cruise missile ships" in why
+
+
+def _stocked(magazine: int = 10, capacity: int = 8) -> fm.Launcher:
+    from dataclasses import replace
+
+    return replace(_launcher(capacity=capacity), magazine=magazine)
+
+
+def test_magazines_limit_planning_and_firing_draws_them_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game = _game()
+    launcher = _stocked(magazine=10, capacity=8)
+    target = _target(units=4)
+    _resolving(monkeypatch, game, target, launcher)
+    assert fm.stock_left(game, launcher) == 10
+    fm.plan_mission(game, launcher, target, 8, START + timedelta(minutes=10))
+    assert fm.rounds_left(game, launcher) == 0
+    results = SimulationResults(seed=1)
+    fm.FireMissionSimulation(game, results).tick(  # type: ignore[arg-type]
+        START + timedelta(minutes=30), None  # type: ignore[arg-type]
+    )
+    assert fm.stock_left(game, launcher) == 2
+    # Aborting the turn gives the missiles back.
+    results.revert(None)  # type: ignore[arg-type]
+    assert fm.stock_left(game, launcher) == 10
+    # Next turn the magazine, not the rate, is the limit.
+    fm.spend(game, launcher.key, 7)
+    game.turn = 3
+    fm.drop_old_missions(game)
+    assert fm.rounds_left(game, launcher) == 3
+    # With the setting off, only the rate counts.
+    game.settings.limited_missile_stock = False
+    assert fm.stock_left(game, launcher) is None
+    assert fm.rounds_left(game, launcher) == 8
+
+
+def test_strike_odds_follow_the_combat_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    game = _game()
+    monkeypatch.setattr(fm, "_air_defense", lambda g, t, p: 1.0)
+    launcher = _launcher()
+    odds = fm.strike_odds(game, launcher, _target(units=2), 2)  # type: ignore[arg-type]
+    assert odds.hit_chance == pytest.approx(fm.CRUISE_HIT)
+    assert odds.expected_hits == pytest.approx(2 * fm.CRUISE_HIT)
+    assert odds.outcome[0] == "site destroyed"
+    assert odds.outcome[1] == pytest.approx(fm.CRUISE_HIT**2)
+    assert odds.any_effect == pytest.approx(1 - (1 - fm.CRUISE_HIT) ** 2)

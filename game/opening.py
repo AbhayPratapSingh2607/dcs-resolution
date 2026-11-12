@@ -474,7 +474,26 @@ def fire_salvo(game: Game, events: GameUpdateEvents, rng: random.Random) -> list
         else:
             _hit_site(game, target, hits, shot, events, picture, rng)
         shots.append(shot)
+    _spend_salvo_from_ships(game)
     return shots
+
+
+def _spend_salvo_from_ships(game: Game) -> None:
+    """The ships' share of the salvo (8 a ship, up to 4 ships: salvo_size)
+    comes out of their magazines (game.warfare.firemissions)."""
+    from game.theater.player import Player
+    from game.warfare import firemissions as fm
+
+    ships_left = 4
+    for launcher in fm.launchers(game, Player.BLUE):
+        if ships_left <= 0:
+            break
+        if launcher.kind is not fm.LauncherKind.SHIP or not launcher.magazine:
+            continue
+        # A launcher is a group: 8 Tomahawks a turn for each of its ships.
+        ships = min(max(1, launcher.capacity // 8), ships_left)
+        ships_left -= ships
+        fm.spend(game, launcher.key, min(8 * ships, launcher.magazine))
 
 
 def _hit_site(

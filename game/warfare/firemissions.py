@@ -11,7 +11,15 @@ turn's 6 hour period. Launchers come from what the side has in the campaign:
 * **artillery**: the side's artillery on a front line, 10 rounds a gun per
   turn, at targets within reach of its firing positions behind the front.
 
-There is no stock to track: each launcher fires up to its capacity each turn.
+Missiles are limited for the campaign (the "Limited missile stocks" setting):
+each ship and missile site starts with a magazine (``MAGAZINE``, per unit)
+that firing draws down, and there are no reloads. Each launcher still fires at
+most its per-turn rate. Artillery ammunition isn't tracked. Blue's opening
+salvo draws on the ships' magazines too (game.opening.fire_salvo).
+
+Missiles can be fired at mobile sites the side's intelligence has located, at a
+lower hit chance (``MOBILE_HIT_FACTOR``): they may have moved since. The
+commander keeps its missiles for fixed targets.
 
 A mission whose time falls inside the DCS mission is fired by DCS: the mission
 generator gives the launcher's group a timed FireAtPoint and marks the mission
@@ -71,6 +79,19 @@ MISSILE_LAUNCHERS = {
     "Scud_B": (1, 300_000, "Scud"),
     "v1_launcher": (1, 250_000, "V-1"),
 }
+#: Missiles each unit carries for the whole campaign (no reloads), by DCS
+#: unit type id: a cruiser's and a destroyer's land attack loadout, a Scud
+#: brigade's reloads per launcher, a V-1 ramp's stock.
+MAGAZINE = {
+    "TICONDEROG": 26,
+    "USS_Arleigh_Burke_IIa": 24,
+    "Scud_B": 4,
+    "v1_launcher": 6,
+}
+#: Hit chance multiplier against a mobile site: it may have moved since it was
+#: located.
+MOBILE_HIT_FACTOR = 0.5
+
 #: Rounds a front-line artillery piece fires per turn.
 ARTILLERY_ROUNDS_PER_GUN = 10
 
@@ -125,6 +146,9 @@ class Launcher:
     group_name: Optional[str] = None
     #: Artillery: the front line and the side's artillery types there.
     front: Any = None
+    #: Missiles the launcher's units carried at the start of the campaign
+    #: (``MAGAZINE``); None for artillery, whose ammunition isn't tracked.
+    magazine: Optional[int] = None
 
     @property
     def label(self) -> str:
@@ -160,6 +184,7 @@ def _group_launchers(
                     weapon=weapon,
                     player=player,
                     group_name=group.group_name,
+                    magazine=sum(MAGAZINE.get(u.type.id, 0) for u in units),
                 )
 
 
@@ -249,9 +274,11 @@ class FireMission:
 @dataclass
 class FirePlan:
     missions: list[FireMission] = field(default_factory=list)
+    #: Missiles fired over the campaign, by launcher key.
+    spent: dict[str, int] = field(default_factory=dict)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        self.__dict__.update({"missions": [], **state})
+        self.__dict__.update({"missions": [], "spent": {}, **state})
 
 
 def fire_plan_of(game: Game) -> FirePlan:
@@ -291,10 +318,50 @@ def rounds_planned(
     )
 
 
+def stock_limited(game: Game) -> bool:
+    return bool(getattr(game.settings, "limited_missile_stock", True))
+
+
+def stock_left(game: Game, launcher: Launcher) -> Optional[int]:
+    """Missiles the launcher has left for the campaign, fired ones taken off;
+    None when they aren't counted (artillery, or the setting is off)."""
+    if launcher.magazine is None or not stock_limited(game):
+        return None
+    spent = fire_plan_of(game).spent.get(launcher.key, 0)
+    return max(0, launcher.magazine - spent)
+
+
+def stock_free(
+    game: Game, launcher: Launcher, exclude: Optional[FireMission] = None
+) -> Optional[int]:
+    """Missiles left for the campaign that aren't already planned this turn."""
+    left = stock_left(game, launcher)
+    if left is None:
+        return None
+    pending = sum(
+        m.rounds
+        for m in missions_this_turn(game)
+        if m.launcher_key == launcher.key
+        and m is not exclude
+        and m.status in (FireStatus.PLANNED, FireStatus.IN_MISSION)
+    )
+    return max(0, left - pending)
+
+
+def spend(game: Game, launcher_key: str, rounds: int) -> None:
+    """Takes fired missiles off the launcher's magazine (negative to undo)."""
+    spent = fire_plan_of(game).spent
+    spent[launcher_key] = max(0, spent.get(launcher_key, 0) + rounds)
+
+
 def rounds_left(
     game: Game, launcher: Launcher, exclude: Optional[FireMission] = None
 ) -> int:
-    return max(0, launcher.capacity - rounds_planned(game, launcher.key, exclude))
+    """What the launcher can still be given this turn: its per-turn rate less
+    what is planned, and no more than its magazine holds."""
+    left = max(0, launcher.capacity - rounds_planned(game, launcher.key, exclude))
+    free = stock_free(game, launcher, exclude)
+    return left if free is None else min(left, free)
 
 
 def enabled(game: Game) -> bool:
@@ -354,10 +421,13 @@ def _knows(game: Game, player: Player, tgo: TheaterGroundObject) -> bool:
         return True
 
 
-def targets_for(game: Game, launcher: Launcher) -> list[tuple[float, MissionTarget]]:
+def targets_for(
+    game: Game, launcher: Launcher, mobile: bool = True
+) -> list[tuple[float, MissionTarget]]:
     """Enemy targets the launcher can reach, nearest first, as (distance, target).
     Only what the side's intelligence knows of; artillery doesn't fire at
-    airfields."""
+    airfields. ``mobile=False`` leaves out mobile sites for missiles (the
+    commander's choice)."""
     from game.theater import ControlPoint
     from game.theater.controlpoint import ControlPointType
     from game.warfare.intel import is_mobile
@@ -380,8 +450,12 @@ def targets_for(game: Game, launcher: Launcher) -> list[tuple[float, MissionTarg
             if tgo.is_dead or tgo.sea_object:
                 # Land attack weapons: ships are left to anti-ship strikes.
                 continue
-            if launcher.kind is not LauncherKind.ARTILLERY and is_mobile(tgo):
-                # Missiles are fired at fixed points; mobile sites move.
+            if (
+                not mobile
+                and launcher.kind is not LauncherKind.ARTILLERY
+                and is_mobile(tgo)
+            ):
+                # The commander keeps its missiles for fixed targets.
                 continue
             if not _knows(game, player, tgo):
                 continue
@@ -422,14 +496,7 @@ def unreachable_reason(
         km = best.position.distance_to_point(target.position) / 1000
         return f"{best.name} is {km:.0f} km away (reach {best.range_m / 1000:.0f} km)"
 
-    if isinstance(target, TheaterGroundObject) and is_mobile(target):
-        reason = (
-            f"{name} is a mobile site: cruise missiles and ballistic missiles are "
-            "fired at fixed points, so only front-line artillery can hit it"
-        )
-        if artillery:
-            return f"{reason}, and none is in reach: {nearest(artillery)}."
-        return f"{reason}, and your side has no artillery at a front line."
+    del is_mobile
     if isinstance(target, ControlPoint) and not missiles:
         return "Artillery doesn't fire at airfields, and your side has no missiles."
     return f"Out of reach: {nearest(found)}."
@@ -528,7 +595,7 @@ def plan_ai_fire_missions(
         if budget <= 0:
             continue
         options = []
-        for distance, target in targets_for(game, launcher):
+        for distance, target in targets_for(game, launcher, mobile=False):
             weight = TARGET_WEIGHT.get(target_class_of(target), 0.5)
             # Nearer targets first among similar ones.
             options.append((weight * (1.0 - 0.3 * distance / launcher.range_m), target))
@@ -561,6 +628,131 @@ def rounds_for(launcher: Launcher, target: MissionTarget) -> int:
         return 4
     units = sum(1 for u in getattr(target, "units", []) if u.alive)
     return max(2, min(4, units + 1))
+
+
+def best_launcher(
+    game: Game, player: Player, target: MissionTarget
+) -> Optional[Launcher]:
+    """The launcher to propose against the target: of those in reach with
+    rounds left this turn, the one with the most."""
+    best: Optional[tuple[Launcher, int]] = None
+    for launcher in launchers(game, player):
+        if not any(t is target for _, t in targets_for(game, launcher)):
+            continue
+        left = rounds_left(game, launcher)
+        if left > 0 and (best is None or left > best[1]):
+            best = (launcher, left)
+    return best[0] if best else None
+
+
+def hit_chance(game: Game, launcher: Launcher, target: MissionTarget) -> float:
+    """Chance one missile hits: the weapon's accuracy, less for SAM cover
+    (cruise missiles) and for a mobile site that may have moved."""
+    from game.theater.theatergroundobject import TheaterGroundObject
+    from game.warfare.intel import is_mobile
+
+    p = CRUISE_HIT if launcher.kind is LauncherKind.SHIP else BALLISTIC_HIT
+    if launcher.kind is LauncherKind.SHIP:
+        p *= _air_defense(game, target, launcher.player)
+    if isinstance(target, TheaterGroundObject) and is_mobile(target):
+        p *= MOBILE_HIT_FACTOR
+    return p
+
+
+def _binomial(n: int, p: float) -> list[float]:
+    """P(k hits) for k = 0..n."""
+    from math import comb
+
+    return [comb(n, k) * p**k * (1 - p) ** (n - k) for k in range(n + 1)]
+
+
+@dataclass(frozen=True)
+class StrikeOdds:
+    """What a planned strike can expect, from the combat model's own rules."""
+
+    rounds: int
+    hit_chance: float
+    expected_hits: float
+    #: Chance at least one round hits (missiles) or kills (artillery).
+    any_effect: float
+    #: The headline: (what, chance), e.g. ("runway cut", 0.82).
+    outcome: tuple[str, float]
+    lines: tuple[str, ...]
+
+
+def strike_odds(
+    game: Game, launcher: Launcher, target: MissionTarget, rounds: int
+) -> StrikeOdds:
+    from game.theater import ControlPoint
+    from game.theater.theatergroundobject import TheaterGroundObject
+    from game.warfare.intel import is_mobile
+
+    lines: list[str] = []
+    if launcher.kind is LauncherKind.ARTILLERY:
+        alive = [u for u in getattr(target, "units", []) if u.alive]
+        expected = min(rounds * ARTILLERY_KILL_PER_ROUND, len(alive))
+        any_kill = 1.0 if expected >= 1 else expected
+        lines.append(
+            f"{ARTILLERY_KILL_PER_ROUND:.0%} of a vehicle per round: about "
+            f"{expected:.1f} of {len(alive)} destroyed"
+        )
+        return StrikeOdds(
+            rounds,
+            ARTILLERY_KILL_PER_ROUND,
+            expected,
+            any_kill,
+            ("at least one destroyed", any_kill),
+            tuple(lines),
+        )
+    p = hit_chance(game, launcher, target)
+    dist = _binomial(rounds, p)
+    expected = rounds * p
+    any_hit = 1.0 - dist[0]
+    notes = []
+    if (
+        launcher.kind is LauncherKind.SHIP
+        and _air_defense(game, target, launcher.player) < 1
+    ):
+        notes.append("SAM cover")
+    if isinstance(target, TheaterGroundObject) and is_mobile(target):
+        notes.append("mobile: may have moved")
+    lines.append(
+        f"Hit chance per {launcher.weapon}: {p:.0%}"
+        + (f" ({', '.join(notes)})" if notes else "")
+    )
+    lines.append(f"Expected hits: {expected:.1f} of {rounds}")
+    if isinstance(target, ControlPoint):
+        cut = sum(dist[RUNWAY_HITS:])
+        if target.runway_is_operational():
+            outcome = ("runway cut", cut)
+            lines.append(f"Runway cut ({RUNWAY_HITS}+ hits): {cut:.0%}")
+        else:
+            outcome = ("a hit", any_hit)
+            lines.append("The runway is already out of action.")
+        from game.opening import parked_in_open
+
+        exposure = parked_in_open(game, target.captured)
+        lines.append(
+            f"Aircraft destroyed on the ground: about {expected * 0.4 * exposure:.1f}"
+        )
+    else:
+        alive = [u for u in getattr(target, "units", []) if u.alive]
+        units = len(alive)
+        kills = sum(min(k, units) * q for k, q in enumerate(dist))
+        lines.append(f"Expected destroyed: {kills:.1f} of {units} units")
+        if units and rounds >= units:
+            whole = sum(dist[units:])
+            outcome = ("site destroyed", whole)
+            lines.append(f"Whole site destroyed: {whole:.0%}")
+        else:
+            outcome = ("at least one hit", any_hit)
+        if any(
+            "radar" in str(getattr(u, "name", "")).lower()
+            or " sr" in str(getattr(u, "name", "")).lower()
+            for u in alive
+        ):
+            lines.append(f"Radar destroyed (aimed at first): {any_hit:.0%}")
+    return StrikeOdds(rounds, p, expected, any_hit, outcome, tuple(lines))
 
 
 # ------------------------------------------------------------- resolution
@@ -622,10 +814,11 @@ def resolve(
     if launcher.kind is LauncherKind.ARTILLERY:
         text = _resolve_artillery(target, mission.rounds, results, events, rng)
     else:
-        p = CRUISE_HIT if launcher.kind is LauncherKind.SHIP else BALLISTIC_HIT
-        if launcher.kind is LauncherKind.SHIP:
-            p *= _air_defense(game, target, player)
+        p = hit_chance(game, launcher, target)
         hits = sum(1 for _ in range(mission.rounds) if rng.random() < p)
+        spend(game, launcher.key, mission.rounds)
+        key, rounds = launcher.key, mission.rounds
+        results._undo.append(lambda _events: spend(game, key, -rounds))
         if isinstance(target, ControlPoint):
             text = _resolve_airfield(game, target, hits, results, rng)
         else:
@@ -777,6 +970,8 @@ def resolve_pending(
             # DCS fired it; the mission's own results have the damage.
             mission.status = FireStatus.FIRED
             mission.result = "fired in the DCS mission"
+            if mission.kind is not LauncherKind.ARTILLERY:
+                spend(game, mission.launcher_key, mission.rounds)
     if not due:
         return []
     from game.debriefing import Debriefing

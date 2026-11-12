@@ -1435,6 +1435,20 @@ class Settings:
             "DCS mission are fired in DCS; the rest by the combat model."
         ),
     )
+    limited_missile_stock: bool = boolean_option(
+        "Limited missile stocks",
+        page=CAMPAIGN_DOCTRINE_PAGE,
+        section=WARFARE_SECTION,
+        default=True,
+        detail=(
+            "Cruise missile ships and missile sites have a magazine for the "
+            "whole campaign, with no reloads: 26 Tomahawks a Ticonderoga, 24 an "
+            "Arleigh Burke, 4 missiles a Scud launcher, 6 a V-1 ramp. The "
+            "opening salvo draws on the ships' magazines too. Artillery "
+            "ammunition isn't counted. Off: each launcher fires its per-turn "
+            "rate every turn."
+        ),
+    )
     space_and_agency_intel: bool = boolean_option(
         "Satellites and intelligence agencies",
         page=CAMPAIGN_DOCTRINE_PAGE,

@@ -39,6 +39,7 @@ from game.sim.atoperiod import window
 from game.warfare.firemissions import (
     FireMission,
     FireStatus,
+    best_launcher,
     Launcher,
     default_time,
     enabled,
@@ -51,6 +52,9 @@ from game.warfare.firemissions import (
     remove_mission,
     rounds_for,
     rounds_left,
+    stock_free,
+    stock_left,
+    strike_odds,
     target_class_of,
     target_of,
     targets_for,
@@ -85,6 +89,18 @@ def notify_map(game: Game, missions: list[FireMission]) -> None:
     EventStream.put_nowait(events)
 
 
+def launcher_label(game: Game, launcher: Launcher, left: int) -> str:
+    stock = stock_left(game, launcher)
+    campaign = (
+        f", {stock} of {launcher.magazine} in magazine" if stock is not None else ""
+    )
+    return (
+        f"{launcher.name} — {launcher.kind.value}, {left} of "
+        f"{launcher.capacity} {launcher.weapon} this turn{campaign}, "
+        f"{launcher.range_m / 1000:.0f} km"
+    )
+
+
 def in_window_note(game: Game, when: Any) -> str:
     bounds = window(game)
     if bounds is not None and bounds[0] <= when <= bounds[1]:
@@ -115,12 +131,12 @@ class QFireMissionEditor(QDialog):
                 t is target for _, t in targets_for(game, launcher)
             ):
                 continue
-            self.launcher.addItem(
-                f"{launcher.name} — {launcher.kind.value}, {left} of "
-                f"{launcher.capacity} {launcher.weapon} left, "
-                f"{launcher.range_m / 1000:.0f} km",
-                launcher,
-            )
+            self.launcher.addItem(launcher_label(game, launcher, left), launcher)
+        if target is not None:
+            best = best_launcher(game, game.blue.player, target)
+            for index in range(self.launcher.count()):
+                if best is not None and self.launcher.itemData(index) == best:
+                    self.launcher.setCurrentIndex(index)
         form.addRow("Launcher:", self.launcher)
         self.target = QComboBox()
         form.addRow("Target:", self.target)
@@ -133,6 +149,10 @@ class QFireMissionEditor(QDialog):
         self.time.setMaximumDateTime(_qt(end))
         self.time.setDateTime(_qt(default_time(game)))
         form.addRow("Time:", self.time)
+        self.odds = QLabel()
+        self.odds.setWordWrap(True)
+        self.odds.setTextFormat(Qt.TextFormat.RichText)
+        layout.addWidget(self.odds)
         self.note = QLabel()
         self.note.setWordWrap(True)
         layout.addWidget(self.note)
@@ -148,6 +168,7 @@ class QFireMissionEditor(QDialog):
         self.launcher.currentIndexChanged.connect(lambda *_: self._fill_targets())
         self.target.currentIndexChanged.connect(lambda *_: self._update())
         self.time.dateTimeChanged.connect(lambda *_: self._update())
+        self.rounds.valueChanged.connect(lambda *_: self._update_odds())
         self._fill_targets()
 
     @property
@@ -175,6 +196,7 @@ class QFireMissionEditor(QDialog):
         launcher = self.selected_launcher
         target = self.target.currentData()
         ok = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self.odds.setText("")
         if launcher is None:
             self.note.setWordWrap(True)
             self.note.setText(
@@ -192,12 +214,47 @@ class QFireMissionEditor(QDialog):
             self.rounds.setValue(min(left, rounds_for(launcher, target)))
         ok.setEnabled(target is not None and left > 0)
         if left <= 0:
-            self.note.setText(f"{launcher.name} has fired all it can this turn.")
+            free = stock_free(self.game, launcher)
+            self.note.setText(
+                f"{launcher.name}'s magazine is empty: no {launcher.weapon} left "
+                "for the campaign."
+                if free == 0 and stock_left(self.game, launcher) == 0
+                else f"{launcher.name} has fired all it can this turn."
+            )
             return
         if target is None:
             self.note.setText("No known enemy target within reach.")
             return
         self.note.setText(in_window_note(self.game, _py(self.time.dateTime())))
+        self._update_odds()
+
+    def _update_odds(self) -> None:
+        launcher = self.selected_launcher
+        target = self.target.currentData()
+        rounds = self.rounds.value()
+        if launcher is None or target is None or rounds <= 0:
+            self.odds.setText("")
+            return
+        try:
+            odds = strike_odds(self.game, launcher, target, rounds)
+        except Exception:
+            self.odds.setText("")
+            return
+        what, chance = odds.outcome
+        lines = [
+            f"<b style='font-size:13px'>Chance of {what}: {chance:.0%}</b>",
+            *odds.lines,
+        ]
+        left = stock_left(self.game, launcher)
+        if left is not None:
+            free = stock_free(self.game, launcher) or 0
+            lines.append(
+                f"Uses {rounds} {launcher.weapon}: {launcher.name} keeps "
+                f"{max(free - rounds, 0)} of {launcher.magazine} for the campaign"
+            )
+        else:
+            lines.append(f"Uses {rounds} {launcher.weapon}")
+        self.odds.setText("<br>".join(lines))
 
     def accept(self) -> None:
         launcher = self.selected_launcher
@@ -311,6 +368,11 @@ class QFireMissionsDialog(QDialog):
         else:
             text = "Left this turn: " + "; ".join(
                 f"{l.name} {rounds_left(self.game, l)}/{l.capacity} {l.weapon}"
+                + (
+                    f" ({stock_left(self.game, l)}/{l.magazine} for the campaign)"
+                    if stock_left(self.game, l) is not None
+                    else ""
+                )
                 for l in available
             )
         self.capacity.setText(text)
