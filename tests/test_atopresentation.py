@@ -114,6 +114,7 @@ def _game(*blue: _Package) -> Any:
         (FlightType.BAI, "interdiction"),
         (FlightType.CAS, "cas"),
         (FlightType.CSAR, "pr"),
+        (FlightType.RESCUE_KING, "pr"),
         (FlightType.AIR_ASSAULT, "lift"),
         (FlightType.TRANSPORT, "lift"),
         (FlightType.FERRY, "lift"),

@@ -86,7 +86,8 @@ def package_group(package: Package) -> Group:
     task = package.primary_task
     if task is None:
         return GROUP_BY_KEY["other"]
-    if task is FlightType.CSAR:
+    if task in (FlightType.CSAR, FlightType.RESCUE_KING):
+        # The King's C-130 stages the rescue helicopters: it belongs with them.
         return GROUP_BY_KEY["pr"]
     if task in LIFT_TASKS:
         return GROUP_BY_KEY["lift"]
