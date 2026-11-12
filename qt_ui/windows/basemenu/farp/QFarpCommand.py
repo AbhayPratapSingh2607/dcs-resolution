@@ -81,6 +81,30 @@ class QFarpCommand(QFrame):
             king_layout.addWidget(self.king_button)
             self.main_layout.addWidget(king_box)
 
+            station_box = QGroupBox("Time on station")
+            station_layout = QHBoxLayout()
+            station_box.setLayout(station_layout)
+            self.on_station_spinner = QSpinBox()
+            self.on_station_spinner.setRange(30, 360)
+            self.on_station_spinner.setSingleStep(5)
+            self.on_station_spinner.setSuffix(" min")
+            minutes = farp.king_on_station_minutes
+            if minutes is None:
+                minutes = self.game.settings.csar_king_on_station
+            self.on_station_spinner.setValue(minutes)
+            self.on_station_spinner.setToolTip(
+                "How long the C-130 stays on its orbit. The rescue helicopters "
+                "must appear after it is there and be back before it leaves. "
+                "Drag the King on the ATO timeline to move its time."
+            )
+            station_layout.addWidget(self.on_station_spinner)
+            self.on_station_button = QPushButton("Set")
+            self.on_station_button.setProperty("style", "btn-success")
+            self.on_station_button.clicked.connect(self._set_on_station)
+            station_layout.addWidget(self.on_station_button)
+            station_layout.addStretch()
+            self.main_layout.addWidget(station_box)
+
         self.detachments_box = QGroupBox("Stationed detachments")
         self.detachments_layout = QVBoxLayout()
         self.detachments_box.setLayout(self.detachments_layout)
@@ -198,10 +222,28 @@ class QFarpCommand(QFrame):
         else:
             origin = "from outside your air wing"
         tanker = ", refueling helicopters" if is_tanker_king(flight) else ""
-        return (
+        text = (
             f"A {flight.unit_type.display_name} {origin} circles here this "
             f"turn{tanker}."
         )
+        window = manager.king_window(self.farp)
+        if window is not None:
+            text += f" On station {window[0]:%H:%M}-{window[1]:%H:%M}."
+        for _, why in manager.king_conflicts(self.farp):
+            text += f"<br/><span style='color:#e8a33d'>⚠ {why}</span>"
+        return text
+
+    def _set_on_station(self) -> None:
+        from qt_ui.windows.basemenu.farp.kingguard import warn_king_conflicts
+
+        manager = self.farp.coalition.farps
+        events = GameUpdateEvents()
+        manager.set_king_on_station(self.farp, self.on_station_spinner.value(), events)
+        self._publish(events)
+        package = manager.king_package(self.farp)
+        if package is not None:
+            warn_king_conflicts(self, self.game_model, package)
+        self.refresh()
 
     def _setup_text(self) -> str:
         package = self.farp.coalition.farps.setup_package(self.farp)
@@ -314,6 +356,10 @@ class QFarpCommand(QFrame):
                 "The orbit couldn't be planned; see the log.",
             )
         self._publish(events)
+        if flight is not None:
+            from qt_ui.windows.basemenu.farp.kingguard import warn_king_conflicts
+
+            warn_king_conflicts(self, self.game_model, flight.package)
         self.refresh()
 
     def refresh(self) -> None:

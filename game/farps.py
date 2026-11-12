@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterable, Optional, TYPE_CHECKING
 
 from dcs.mapping import Point
@@ -681,7 +681,10 @@ class FarpManager:
                 raise ValueError(f"{squadron} can't fly Rescue King.")
             if available[squadron] is not None:
                 raise ValueError(f"{squadron}: {available[squadron]}.")
+        tot: Optional[datetime] = None
         if package is not None:
+            if not package.auto_asap:
+                tot = package.time_over_target
             for flight in list(package.flights):
                 if events is not None:
                     events.delete_flight(flight)
@@ -690,7 +693,7 @@ class FarpManager:
         king.king_squadron_choice = squadron
         king.king_outside_tanker = squadron is None
         return self.plan_king_flight(
-            king, now or self.game.conditions.start_time, events
+            king, now or self.game.conditions.start_time, events, tot
         )
 
     def _king_orbit_squadron(self, king: DynamicFarp) -> Optional[Squadron]:
@@ -941,6 +944,7 @@ class FarpManager:
         king: DynamicFarp,
         now: datetime,
         events: Optional[GameUpdateEvents] = None,
+        tot: Optional[datetime] = None,
     ) -> Optional[Flight]:
         """The aircraft that orbits the King this turn (_king_orbit_squadron):
         a C-130/KC-130 of the air wing, or with no transport needed
@@ -970,6 +974,10 @@ class FarpManager:
             start_type,
             divert=None,
         )
+        if king.king_on_station_minutes is not None:
+            flight.patrol_duration_override = timedelta(
+                minutes=king.king_on_station_minutes
+            )
         package.add_flight(flight)
         try:
             flight.recreate_flight_plan()
@@ -977,8 +985,126 @@ class FarpManager:
             logging.exception(f"Could not plan the C-130 for {king.name}")
             package.remove_flight(flight)
             return None
-        package.set_tot_asap(now)
+        if tot is not None:
+            # Replanned with another aircraft: keep the time the player set.
+            package.auto_asap = False
+            package.time_over_target = tot
+        else:
+            package.set_tot_asap(now)
         self.coalition.ato.add_package(package)
         if events is not None:
             events.new_flight(flight)
         return flight
+
+    # The King's time on station, and the rescues flown from it
+
+    def king_window(self, king: DynamicFarp) -> Optional[tuple[datetime, datetime]]:
+        """When the King is on its orbit: its helicopters can start there and
+        come back to it in this window. None if nothing orbits it."""
+        flight = self.king_flight(self.king_package(king))
+        if flight is None:
+            return None
+        plan = flight.flight_plan
+        return plan.patrol_start_time, plan.patrol_end_time  # type: ignore[attr-defined]
+
+    def set_king_on_station(
+        self,
+        king: DynamicFarp,
+        minutes: int,
+        events: Optional[GameUpdateEvents] = None,
+    ) -> list[tuple[Package, str]]:
+        """Sets how long the King stays on its orbit and replans it. Returns
+        the rescues that no longer fit in its window."""
+        king.king_on_station_minutes = minutes
+        flight = self.king_flight(self.king_package(king))
+        if flight is not None:
+            flight.patrol_duration_override = timedelta(minutes=minutes)
+            flight.recreate_flight_plan()
+            if events is not None:
+                events.update_flight(flight)
+        return self.king_conflicts(king)
+
+    @staticmethod
+    def _king_of(package: Package) -> Optional[DynamicFarp]:
+        for flight in package.flights:
+            departure = flight.departure
+            if (
+                flight.flight_type is not FlightType.RESCUE_KING
+                and isinstance(departure, DynamicFarp)
+                and departure.is_rescue_king
+            ):
+                return departure
+        return None
+
+    def king_rescues(self, king: DynamicFarp) -> list[Package]:
+        """Packages with helicopters flying from the King."""
+        return [p for p in self.coalition.ato.packages if self._king_of(p) is king]
+
+    @staticmethod
+    def _rescue_span(package: Package) -> Optional[tuple[datetime, datetime]]:
+        """From when the package's helicopters appear at the King until they
+        are back at it."""
+        starts: list[datetime] = []
+        ends: list[datetime] = []
+        for flight in package.flights:
+            departure = flight.departure
+            if not (isinstance(departure, DynamicFarp) and departure.is_rescue_king):
+                continue
+            plan = flight.flight_plan
+            starts.append(plan.startup_time())
+            ends.append(plan.landing_time)
+        if not starts:
+            return None
+        return min(starts), max(ends)
+
+    def rescue_conflict(self, package: Package) -> Optional[str]:
+        """Why the package's helicopters fall outside their King's time on
+        station, or None if they fit (or don't fly from a King)."""
+        king = self._king_of(package)
+        if king is None:
+            return None
+        window = self.king_window(king)
+        span = self._rescue_span(package)
+        if window is None or span is None:
+            return None
+        (start, end), (first, last) = span, window
+        if start >= first and end <= last:
+            return None
+        return (
+            f"The helicopters from {king.name} fly {start:%H:%M}-{end:%H:%M}, "
+            f"outside its time on station ({first:%H:%M}-{last:%H:%M}): "
+            + (
+                "they would appear before the C-130 is there."
+                if start < first
+                else "the C-130 would be gone before they are back."
+            )
+        )
+
+    def fit_to_king(self, package: Package) -> Optional[datetime]:
+        """The TOT nearest the package's that keeps its helicopters inside
+        their King's time on station; None if it already fits. If the rescue
+        is longer than the window, its start is kept inside."""
+        king = self._king_of(package)
+        if king is None:
+            return None
+        window = self.king_window(king)
+        span = self._rescue_span(package)
+        if window is None or span is None:
+            return None
+        (start, end), (first, last) = span, window
+        shift = timedelta()
+        if end > last:
+            shift = last - end
+        if start + shift < first:
+            shift = first - start
+        if not shift:
+            return None
+        return package.time_over_target + shift
+
+    def king_conflicts(self, king: DynamicFarp) -> list[tuple[Package, str]]:
+        conflicts = []
+        for package in self.king_rescues(king):
+            why = self.rescue_conflict(package)
+            if why is not None:
+                conflicts.append((package, why))
+        return conflicts

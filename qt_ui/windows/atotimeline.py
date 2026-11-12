@@ -677,9 +677,19 @@ class TimelineWidget(QWidget):
             return False
         if not all(f.state.is_waiting_for_start for f in package.flights):
             return False
+        if self._is_king(package):
+            # A Rescue King is already on its orbit when the mission starts:
+            # its orbit can be moved until it takes up its station.
+            return True
         first, _ = ap.package_span(package)
         now = self.sim_now()
         return first is not None and (now is None or first >= now)
+
+    @staticmethod
+    def _is_king(package: Package) -> bool:
+        from game.ato.flighttype import FlightType
+
+        return any(f.flight_type is FlightType.RESCUE_KING for f in package.flights)
 
     def _drag_package_to(self, x: float) -> None:
         assert self._package_drag is not None
@@ -687,25 +697,39 @@ class TimelineWidget(QWidget):
         minutes = (x - press_x) / self.px_per_min
         step = self.PACKAGE_STEP_MIN
         new_tot = tot + timedelta(minutes=round(minutes / step) * step)
-        # Keep the first startup at or after the current time.
         now = self.sim_now()
-        first, _ = ap.package_span(package)
-        if now is not None and first is not None:
-            earliest = now + (package.time_over_target - first)
-            if new_tot < earliest:
-                late = (earliest - tot).total_seconds()
-                new_tot = tot + timedelta(minutes=-(-late // 60))
+        if self._is_king(package):
+            # The King's TOT no earlier than now (or than it was).
+            if now is not None:
+                new_tot = max(new_tot, min(tot, now))
+        else:
+            # Keep the first startup at or after the current time.
+            first, _ = ap.package_span(package)
+            if now is not None and first is not None:
+                earliest = now + (package.time_over_target - first)
+                if new_tot < earliest:
+                    late = (earliest - tot).total_seconds()
+                    new_tot = tot + timedelta(minutes=-(-late // 60))
         _, end = self.bounds()
         new_tot = min(new_tot, end)
         if new_tot != package.time_over_target:
             package.auto_asap = False
             package.time_over_target = new_tot
-            self.update()
+        # Helicopters flying from a Rescue King stay inside its time on station.
+        note = ""
+        farps = self.game.blue.farps if self.game is not None else None
+        if farps is not None and not self._is_king(package):
+            fitted = farps.fit_to_king(package)
+            if fitted is not None:
+                package.time_over_target = fitted
+                new_tot = fitted
+                note = "\nkept inside the Rescue King's time on station"
+        self.update()
         shift = (new_tot - tot) // timedelta(minutes=1)
         sign = "+" if shift >= 0 else "\u2212"
         QToolTip.showText(
             self.mapToGlobal(QPoint(int(x), int(self._drag_y))),
-            f"TOT {new_tot:%H:%M} ({sign}{abs(shift)} min)",
+            f"TOT {new_tot:%H:%M} ({sign}{abs(shift)} min){note}",
             self,
         )
 
@@ -988,6 +1012,9 @@ class AtoTimelineDialog(QDialog):
         if model is not None:
             model.set_tot(package.time_over_target)
         EventStream.put_nowait(GameUpdateEvents().update_flights_in_package(package))
+        from qt_ui.windows.basemenu.farp.kingguard import warn_king_conflicts
+
+        warn_king_conflicts(self, self.game_model, package)
 
     def fire_mission_moved(self, mission: object) -> None:
         from qt_ui.windows.QFireMissionsDialog import notify_map

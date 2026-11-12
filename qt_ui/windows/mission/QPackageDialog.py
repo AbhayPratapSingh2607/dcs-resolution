@@ -121,6 +121,15 @@ class QPackageDialog(QDialog):
         self.tot_help_label.setOpenExternalLinks(True)
         self.tot_column.addWidget(self.tot_help_label)
 
+        # Guardrail for rescue helicopters flying from a Rescue King: their
+        # time must fall in the King's time on station (kingguard.py).
+        self.king_warning = QLabel()
+        self.king_warning.setWordWrap(True)
+        self.king_warning.setStyleSheet("color: #e8a33d;")
+        self.king_warning.setVisible(False)
+        self.layout.addWidget(self.king_warning)
+        self.update_king_warning()
+
         rationale = getattr(self.package_model.package, "planning_rationale", "")
         if rationale:
             self.rationale_label = QLabel(
@@ -201,6 +210,16 @@ class QPackageDialog(QDialog):
         EventStream.put_nowait(
             GameUpdateEvents().update_flights_in_package(self.package_model.package)
         )
+        from qt_ui.windows.basemenu.farp.kingguard import warn_king_conflicts
+
+        warn_king_conflicts(self, self.game_model, self.package_model.package)
+
+    def update_king_warning(self) -> None:
+        from qt_ui.windows.basemenu.farp.kingguard import conflict_text
+
+        why = conflict_text(self.game_model, self.package_model.package)
+        self.king_warning.setText(f"⚠ {why}" if why else "")
+        self.king_warning.setVisible(why is not None)
 
     def on_save(self) -> None:
         # TODO: Cache package start state and only update if valid
@@ -216,6 +235,8 @@ class QPackageDialog(QDialog):
                 hour=time.hour(), minute=time.minute(), second=time.second()
             )
         )
+        if hasattr(self, "king_warning"):
+            self.update_king_warning()
 
     def set_asap(self, checked: bool) -> None:
         self.package_model.set_asap(checked)
@@ -224,6 +245,8 @@ class QPackageDialog(QDialog):
 
     def update_tot(self) -> None:
         self.tot_spinner.setTime(self.tot_qtime())
+        if hasattr(self, "king_warning"):
+            self.update_king_warning()
 
     def on_selection_changed(
         self, selected: QItemSelection, _deselected: QItemSelection

@@ -351,6 +351,9 @@ class DynamicFarp(Fob):
     #: Placed from the map, its menu open, and not confirmed with Deploy King
     #: yet: closing the menu takes it away again (QBaseMenu2).
     king_pending: bool = False
+    #: The King's time on station in minutes as set in its menu; None for the
+    #: "Rescue King: time on station" setting.
+    king_on_station_minutes: Optional[int] = None
 
     @property
     def is_rescue_king(self) -> bool:

@@ -4,7 +4,7 @@ rescue helicopters for one turn."""
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator, Optional, cast
@@ -353,7 +353,7 @@ def _planned(manager: FarpManager) -> list[Any]:
     """Stubs plan_king_flight: records who would fly the orbit."""
     calls: list[Any] = []
 
-    def plan(king: Any, now: Any, events: Any = None) -> Any:
+    def plan(king: Any, now: Any, events: Any = None, tot: Any = None) -> Any:
         squadron = manager._king_orbit_squadron(king)
         calls.append(squadron)
         return SimpleNamespace(squadron=squadron)
@@ -541,3 +541,128 @@ def test_both_king_helicopters_are_ready_to_fly() -> None:
     )
     # Unlike an ordinary squadron, none of the pair is down for maintenance.
     assert ledger.mission_capable(det) == 2
+
+
+# ------------------------------------------- time on station and guardrail
+
+
+class _Plan:
+    """Times relative to the package TOT, as real flight plans are."""
+
+    def __init__(self, package: Any, start_min: int, end_min: int) -> None:
+        self.package, self.start, self.end = package, start_min, end_min
+
+    def _at(self, minutes: int) -> datetime:
+        return self.package.time_over_target + timedelta(minutes=minutes)
+
+    @property
+    def patrol_start_time(self) -> datetime:
+        return self._at(self.start)
+
+    @property
+    def patrol_end_time(self) -> datetime:
+        return self._at(self.end)
+
+    def startup_time(self) -> datetime:
+        return self._at(self.start)
+
+    @property
+    def landing_time(self) -> datetime:
+        return self._at(self.end)
+
+
+def _timed_package(
+    target: Any,
+    task: FlightType,
+    departure: Any,
+    tot: datetime,
+    start_min: int,
+    end_min: int,
+) -> Any:
+    package = SimpleNamespace(
+        target=target, time_over_target=tot, auto_asap=False, flights=[]
+    )
+    flight = SimpleNamespace(flight_type=task, departure=departure, package=package)
+    flight.flight_plan = _Plan(package, start_min, end_min)
+    package.flights.append(flight)
+    return package
+
+
+def _king_and_rescue(rescue_tot: datetime) -> tuple[FarpManager, Any, Any, Any]:
+    world = _world()
+    king = _king(world)
+    # The King on station 11:40-13:10 (TOT 12:00, 20 min lead, 90 min).
+    king_pkg = _timed_package(king, FlightType.RESCUE_KING, _base(100), NOW, -20, 70)
+    # The helicopters appear 4 min before their TOT and are back 30 min after.
+    pilot = SimpleNamespace(name="pilot")
+    rescue = _timed_package(pilot, FlightType.CSAR, king, rescue_tot, -4, 30)
+    world.coalition.ato.packages = [king_pkg, rescue]
+    return FarpManager(cast(Any, world.coalition)), king, king_pkg, rescue
+
+
+def test_king_window_is_its_orbit() -> None:
+    manager, king, _, _ = _king_and_rescue(NOW)
+    assert manager.king_window(king) == (
+        NOW - timedelta(minutes=20),
+        NOW + timedelta(minutes=70),
+    )
+
+
+def test_a_rescue_inside_the_window_fits() -> None:
+    manager, king, _, rescue = _king_and_rescue(NOW + timedelta(minutes=10))
+    assert manager.king_rescues(king) == [rescue]
+    assert manager.rescue_conflict(rescue) is None
+    assert manager.fit_to_king(rescue) is None
+    assert manager.king_conflicts(king) == []
+
+
+def test_a_rescue_after_the_king_leaves_is_moved_back_in() -> None:
+    # Back at 13:20, ten minutes after the King leaves at 13:10.
+    manager, king, _, rescue = _king_and_rescue(NOW + timedelta(minutes=50))
+    why = manager.rescue_conflict(rescue)
+    assert why is not None and "gone before they are back" in why
+    assert manager.fit_to_king(rescue) == NOW + timedelta(minutes=40)
+    assert [p for p, _ in manager.king_conflicts(king)] == [rescue]
+
+
+def test_a_rescue_before_the_king_arrives_is_moved_later() -> None:
+    # Appears 11:26, before the King is there at 11:40.
+    manager, _, _, rescue = _king_and_rescue(NOW - timedelta(minutes=30))
+    why = manager.rescue_conflict(rescue)
+    assert why is not None and "before the C-130 is there" in why
+    assert manager.fit_to_king(rescue) == NOW - timedelta(minutes=16)
+
+
+def test_a_rescue_longer_than_the_window_keeps_its_start_inside() -> None:
+    manager, _, king_pkg, rescue = _king_and_rescue(NOW)
+    king_pkg.flights[0].flight_plan.end = -10  # on station 11:40-11:50 only
+    assert manager.fit_to_king(rescue) == NOW - timedelta(minutes=16)
+
+
+def test_rescues_from_other_bases_are_not_checked() -> None:
+    manager, _, _, rescue = _king_and_rescue(NOW + timedelta(minutes=50))
+    rescue.flights[0].departure = _base(10)
+    assert manager.rescue_conflict(rescue) is None
+    assert manager.fit_to_king(rescue) is None
+
+
+def test_time_on_station_is_kept_on_the_king_and_replans_its_orbit() -> None:
+    manager, king, king_pkg, rescue = _king_and_rescue(NOW + timedelta(minutes=10))
+    flight = king_pkg.flights[0]
+    flight.patrol_duration_override = None
+    replanned: list[bool] = []
+
+    def recreate() -> None:
+        # The orbit ends 60 min after it starts now.
+        flight.flight_plan.end = -20 + 60
+        replanned.append(True)
+
+    flight.recreate_flight_plan = recreate
+    conflicts = manager.set_king_on_station(king, 60)
+    assert king.king_on_station_minutes == 60
+    assert flight.patrol_duration_override == timedelta(minutes=60)
+    assert replanned == [True]
+    # Back at 12:40, the King now leaves at 12:40: still fits.
+    assert conflicts == []
+    conflicts = manager.set_king_on_station(king, 45)
+    assert king.king_on_station_minutes == 45
