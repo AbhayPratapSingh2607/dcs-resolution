@@ -94,8 +94,8 @@ def mission_zero(game: Game) -> Any:
 
 
 class OffsetTimeEdit(QSpinBox):
-    """A time as minutes from the DCS mission start, shown "+2:15" ("+0:00" at
-    the start, "-0:30" before it), like the package TOT."""
+    """A time as minutes from the DCS mission start, shown like the package
+    TOT box: "00:00:00" at the start, "02:15:00", "-00:30:00" before it."""
 
     STEP_MIN = 5
 
@@ -111,23 +111,27 @@ class OffsetTimeEdit(QSpinBox):
         )
         self.setSingleStep(self.STEP_MIN)
         self.setAccelerated(True)
+        self.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
+        self.setFixedWidth(92)
         self.setToolTip(
-            "Time from the start of the DCS mission (+0:00). Before it is "
-            "negative; up and down step 5 minutes, or type e.g. +2:15."
+            "Time from the start of the DCS mission (00:00:00). Before it is "
+            "negative; up and down step 5 minutes, or type e.g. 02:15:00."
         )
 
     def textFromValue(self, value: int) -> str:
-        sign = "-" if value < 0 else "+"
+        sign = "-" if value < 0 else ""
         value = abs(value)
-        return f"{sign}{value // 60}:{value % 60:02d}"
+        return f"{sign}{value // 60:02d}:{value % 60:02d}:00"
 
     def valueFromText(self, text: str) -> int:
         text = text.strip().replace(" ", "")
         sign = -1 if text.startswith("-") else 1
         text = text.lstrip("+-")
-        hours, _, minutes = text.partition(":")
+        hours, _, rest = text.partition(":")
+        minutes, _, seconds = rest.partition(":")
         try:
             value = int(hours or 0) * 60 + int(minutes or 0)
+            value += round(int(seconds or 0) / 60)
         except ValueError:
             return self.value()
         return sign * value
@@ -137,7 +141,7 @@ class OffsetTimeEdit(QSpinBox):
 
         from PySide6.QtGui import QValidator
 
-        if re.fullmatch(r"\s*[+-]?\d{0,2}(:\d{0,2})?\s*", text):
+        if re.fullmatch(r"\s*[+-]?\d{0,2}(:\d{0,2}(:\d{0,2})?)?\s*", text):
             return (
                 QValidator.State.Intermediate
                 if text.strip() in ("", "+", "-")
