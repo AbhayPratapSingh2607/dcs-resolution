@@ -5,7 +5,7 @@ import {
 } from "../../api/liberationApi";
 import WaypointMarker from "../waypointmarker";
 import { Polyline as LPolyline } from "leaflet";
-import { ReactElement, useEffect, useRef } from "react";
+import { memo, ReactElement, useEffect, useRef } from "react";
 import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
 
 const BLUE_PATH = "#0084ff";
@@ -214,7 +214,7 @@ function CommitBoundaryIfSelected(props: CommitBoundaryProps) {
   return <CommitBoundary {...props} />;
 }
 
-export default function FlightPlan(props: FlightPlanProps) {
+function FlightPlan(props: FlightPlanProps) {
   return (
     <>
       <FlightPlanPath {...props} />
@@ -226,3 +226,33 @@ export default function FlightPlan(props: FlightPlanProps) {
     </>
   );
 }
+
+/** Same flight apart from where the aircraft is: the route doesn't change. */
+function sameRoute(prev: Flight, next: Flight): boolean {
+  if (prev === next) {
+    return true;
+  }
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  for (const key of Array.from(keys)) {
+    if (key === "position") {
+      continue;
+    }
+    if (
+      (prev as unknown as Record<string, unknown>)[key] !==
+      (next as unknown as Record<string, unknown>)[key]
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// While fast forwarding every flight's position changes several times a
+// second; without this every route on the map was redrawn each time.
+export default memo(
+  FlightPlan,
+  (prev, next) =>
+    prev.selected === next.selected &&
+    prev.highlight === next.highlight &&
+    sameRoute(prev.flight, next.flight)
+);

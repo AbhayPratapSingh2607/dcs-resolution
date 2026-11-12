@@ -46,10 +46,58 @@ class GameUpdateEvents:
     game_unloaded: bool = False
     new_turn: bool = False
     shutting_down: bool = False
+    #: The whole turn is being fast-forwarded: the map glides aircraft
+    #: between position updates instead of jumping them.
+    glide: bool = False
 
     @property
     def empty(self) -> bool:
         return self == GameUpdateEvents()
+
+    @property
+    def mergeable(self) -> bool:
+        """Whether this update only changes things (positions, combats, flights,
+        sites) and can be folded into the one before it. Loading, a new turn,
+        shutdown, re-centering, selection and deletions keep their order."""
+        return not (
+            self.shutting_down
+            or self.game_unloaded
+            or self.new_turn
+            or self.reset_on_map_center is not None
+            or self.selected_flight is not None
+            or self.deselected_flight
+            or self.farp_placement_kind is not None
+            or self.deleted_flights
+            or self.deleted_front_lines
+            or self.deleted_control_points
+            or self.deleted_iads_connections
+        )
+
+    def merge(self, later: GameUpdateEvents) -> GameUpdateEvents:
+        """Folds a later mergeable update into this one: the latest position
+        of each flight, every combat change in order, and the union of the
+        rest. Used to send one update for everything queued while the map
+        was busy, instead of falling ever further behind."""
+        self.simulation_complete = self.simulation_complete or later.simulation_complete
+        self.glide = later.glide
+        self.new_combats.extend(later.new_combats)
+        self.updated_combats.extend(later.updated_combats)
+        self.ended_combats.extend(later.ended_combats)
+        self.updated_flight_positions.extend(later.updated_flight_positions)
+        self.navmesh_updates.update(later.navmesh_updates)
+        if later.unculled_zones_updated:
+            self.unculled_zones_updated = later.unculled_zones_updated
+        self.threat_zones_updated.update(later.threat_zones_updated)
+        self.new_flights |= later.new_flights
+        self.updated_flights |= later.updated_flights
+        self.updated_front_lines |= later.updated_front_lines
+        self.updated_tgos |= later.updated_tgos
+        self.updated_control_points |= later.updated_control_points
+        self.updated_iads |= later.updated_iads
+        self.updated_supply_routes = (
+            self.updated_supply_routes or later.updated_supply_routes
+        )
+        return self
 
     def complete_simulation(self) -> GameUpdateEvents:
         self.simulation_complete = True

@@ -7,11 +7,14 @@ import { LatLng } from "leaflet";
 interface FlightsState {
   flights: { [id: string]: Flight };
   selected: string | null;
+  /** Aircraft glide between position updates (whole turn fast-forwarded). */
+  glide?: boolean;
 }
 
 const initialState: FlightsState = {
   flights: {},
   selected: null,
+  glide: false,
 };
 
 export const flightsSlice = createSlice({
@@ -44,10 +47,16 @@ export const flightsSlice = createSlice({
     },
     updateFlightPositions: (
       state,
-      action: PayloadAction<[string, LatLng][]>
+      action: PayloadAction<{ positions: [string, LatLng][]; glide: boolean }>
     ) => {
-      for (const [id, position] of action.payload) {
-        state.flights[id].position = position;
+      state.glide = action.payload.glide;
+      for (const [id, position] of action.payload.positions) {
+        // Positions come before new flights in an update; a flight the map
+        // doesn't know yet gets its position when it is registered.
+        const flight = state.flights[id];
+        if (flight != null) {
+          flight.position = position;
+        }
       }
     },
   },

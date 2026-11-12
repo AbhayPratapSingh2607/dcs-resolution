@@ -17,6 +17,14 @@ if TYPE_CHECKING:
     from game.debriefing import Debriefing
 
 
+#: How often a running sim updates the UI.
+UPDATE_INTERVAL = timedelta(seconds=1 / 60)
+#: While the whole turn is fast-forwarded: the map glides aircraft between
+#: updates, so fewer are needed. Each one repaints the ATO list and the
+#: timeline in Qt, and 60 a second starved the sim and backed up the map.
+GLIDE_UPDATE_INTERVAL = timedelta(seconds=1 / 20)
+
+
 class GameLoop:
     def __init__(self, game: Game, callbacks: GameUpdateCallbacks) -> None:
         self.game = game
@@ -192,7 +200,10 @@ class GameLoop:
         # pass the events through to Qt.
         now = datetime.now()
         time_since_update = now - self.last_update_time
-        if not rate_limit or time_since_update >= timedelta(seconds=1 / 60):
+        glide = self.sim.fights_whole_turn
+        interval = GLIDE_UPDATE_INTERVAL if glide else UPDATE_INTERVAL
+        if not rate_limit or time_since_update >= interval:
+            self.events.glide = glide
             self.callbacks.on_update(self.events)
             self.events = GameUpdateEvents()
             self.last_update_time = now

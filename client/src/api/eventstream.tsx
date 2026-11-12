@@ -38,6 +38,7 @@ import { supplyRoutesUpdated } from "./supplyRoutesSlice";
 
 interface GameUpdateEvents {
   updated_flight_positions: { [id: string]: LatLng };
+  glide_positions: boolean;
   new_combats: Combat[];
   updated_combats: Combat[];
   ended_combats: string[];
@@ -69,7 +70,10 @@ export const handleStreamedEvents = (
 ) => {
   if (Object.keys(events.updated_flight_positions).length) {
     dispatch(
-      updateFlightPositions(Object.entries(events.updated_flight_positions))
+      updateFlightPositions({
+        positions: Object.entries(events.updated_flight_positions),
+        glide: events.glide_positions,
+      })
     );
   }
 

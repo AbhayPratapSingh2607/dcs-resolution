@@ -43,7 +43,7 @@ manager = ConnectionManager()
 async def event_stream(websocket: WebSocket) -> None:
     await manager.connect(websocket)
     while True:
-        if not (events := await EventStream.get()).empty:
+        if not (events := await EventStream.get_merged()).empty:
             if events.shutting_down:
                 await manager.shutdown()
                 return

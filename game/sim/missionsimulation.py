@@ -91,6 +91,18 @@ class MissionSimulation:
         self.completed = events.simulation_complete
         return events
 
+    @property
+    def fights_whole_turn(self) -> bool:
+        """The combat model fights the whole turn ("Fast-forward the turn", or
+        "Simulate entire turn"); nothing is flown in DCS."""
+        from game.settings.settings import FastForwardStopCondition
+
+        return (
+            self.whole_turn
+            or self.game.settings.fast_forward_stop_condition
+            is FastForwardStopCondition.END_OF_TURN
+        )
+
     def advance_to_window(
         self,
         events: GameUpdateEvents,

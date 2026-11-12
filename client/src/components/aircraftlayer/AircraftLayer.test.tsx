@@ -9,9 +9,10 @@ jest.mock("react-leaflet", () => ({
     mockLayerGroup(props);
     return <>{props.children}</>;
   },
-  Marker: (props: any) => {
+  Marker: require("react").forwardRef((props: any, _ref: any) => {
     mockMarker(props);
-  },
+    return null;
+  }),
 }));
 
 test("layer is empty by default", async () => {

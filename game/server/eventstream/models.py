@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 class GameUpdateEventsJs(BaseModel):
     updated_flight_positions: dict[UUID, LeafletPoint]
+    #: Glide aircraft to their new positions (the whole turn is fast-forwarded).
+    glide_positions: bool
     new_combats: list[FrozenCombatJs]
     updated_combats: list[FrozenCombatJs]
     ended_combats: list[UUID]
@@ -92,10 +94,16 @@ class GameUpdateEventsJs(BaseModel):
             ]
 
         return GameUpdateEventsJs(
+            glide_positions=events.glide,
             updated_flight_positions={
-                f[0].id: f[1].latlng()
-                for f in events.updated_flight_positions
-                if flight_visible(game, f[0])
+                flight.id: point.latlng()
+                for flight, point in {
+                    # The latest position of each flight (merged updates hold
+                    # many).
+                    f[0].id: f
+                    for f in events.updated_flight_positions
+                }.values()
+                if flight_visible(game, flight)
             },
             new_combats=new_combats,
             updated_combats=updated_combats,

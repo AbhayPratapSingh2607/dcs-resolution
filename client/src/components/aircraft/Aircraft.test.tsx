@@ -4,9 +4,10 @@ import { Icon } from "leaflet";
 
 const mockMarker = jest.fn();
 jest.mock("react-leaflet", () => ({
-  Marker: (props: any) => {
+  Marker: require("react").forwardRef((props: any, _ref: any) => {
     mockMarker(props);
-  },
+    return null;
+  }),
 }));
 
 test("grounded aircraft do not render", async () => {
