@@ -124,6 +124,31 @@ def _badge(painter: QPainter, right: int, top: int, height: int, text: str, colo
     return rect.left() - 4
 
 
+FOLD_TAB_COLOR = QColor("#4f5f6f")
+
+
+def _fold_tab(painter: QPainter, rect: QRect, fold_open: bool, count: int, metrics: QFontMetrics) -> None:
+    """The open/close tab of a fold: its own strip on the card's right edge,
+    the arrow above the count."""
+    with painter_context(painter):
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(FOLD_TAB_COLOR))
+        painter.drawRoundedRect(rect, 4, 4)
+        painter.setPen(QPen(QColor("#ffffff")))
+        half = rect.height() // 2
+        painter.drawText(
+            QRect(rect.left(), rect.top(), rect.width(), half),
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+            "▾" if fold_open else "▸",
+        )
+        painter.drawText(
+            QRect(rect.left(), rect.top() + half, rect.width(), rect.height() - half),
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+            str(count),
+        )
+
+
 class PackageRowDelegate(QStyledItemDelegate):
     def __init__(self, game_model: GameModel) -> None:
         super().__init__()
@@ -235,26 +260,31 @@ class PackageRowDelegate(QStyledItemDelegate):
             title_metrics = QFontMetrics(title_font)
             body_metrics = QFontMetrics(body_font)
             small_metrics = QFontMetrics(small_font)
-            line1 = QRect(inner.left(), inner.top(), inner.width(), title_metrics.height())
-            line2 = QRect(inner.left(), line1.bottom() + VMARGIN, inner.width(), body_metrics.height())
 
             fold, fold_open = self.fold_state(index)
             self.fold_badges.pop(id(package), None)
+            if fold is not None and (not fold_open or fold.representative is package):
+                # The fold's open/close tab: a strip of its own on the right
+                # edge, not one of the badges. A closed fold shows it on its one
+                # row; an open fold on its first row.
+                painter.setFont(small_font)
+                tab_width = small_metrics.horizontalAdvance(str(max(fold.count, 99))) + 12
+                tab = QRect(inner.right() - tab_width + 1, inner.top(), tab_width, inner.height())
+                _fold_tab(painter, tab, fold_open, fold.count, small_metrics)
+                self.fold_badges[id(package)] = tab
+                inner.setRight(tab.left() - 6)
+
+            line1 = QRect(inner.left(), inner.top(), inner.width(), title_metrics.height())
+            line2 = QRect(inner.left(), line1.bottom() + VMARGIN, inner.width(), body_metrics.height())
+
             if fold is not None and not fold_open:
                 # A closed fold: one row for the line or the wave.
-                painter.setFont(small_font)
-                badge_height = min(line1.height(), small_metrics.height() + 2)
-                top = line1.top() + (line1.height() - badge_height) // 2
-                right = _badge(
-                    painter, line1.right(), top, badge_height, f"▸ {fold.count}", QColor("#4f5f6f"), small_metrics
-                )
-                self.fold_badges[id(package)] = QRect(right + 4, top, line1.right() - right - 4, badge_height)
                 painter.setFont(title_font)
                 painter.setPen(QPen(TEXT))
                 painter.drawText(
-                    QRect(line1.left(), line1.top(), right - line1.left(), line1.height()),
+                    line1,
                     Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                    title_metrics.elidedText(fold.label, Qt.TextElideMode.ElideRight, max(right - line1.left(), 20)),
+                    title_metrics.elidedText(fold.label, Qt.TextElideMode.ElideRight, max(line1.width(), 20)),
                 )
                 painter.setFont(body_font)
                 painter.setPen(QPen(DIM))
@@ -288,10 +318,6 @@ class PackageRowDelegate(QStyledItemDelegate):
             right = line2.right()
             badge_height = min(line2.height(), small_metrics.height() + 2)
             top = line2.top() + (line2.height() - badge_height) // 2
-            if fold is not None and fold.representative is package:
-                # The first row of an open fold closes it.
-                right = _badge(painter, right, top, badge_height, f"▾ {fold.count}", QColor("#4f5f6f"), small_metrics)
-                self.fold_badges[id(package)] = QRect(right + 4, top, line2.right() - right - 4, badge_height)
             risk = ap.risk_badge(package)
             if risk is not None:
                 right = _badge(painter, right, top, badge_height, risk.text, QColor(risk.color), small_metrics)
@@ -330,7 +356,7 @@ class PackageRowDelegate(QStyledItemDelegate):
                     lines.append(f"{ap.fmt(member.time_over_target)} {escape(ap.title(member))}")
                 if fold.count > 12:
                     lines.append(f"and {fold.count - 12} more")
-                lines.append("<i>Click the badge to open</i>")
+                lines.append("<i>Click the ▸ tab on the right to open</i>")
                 QToolTip.showText(event.globalPos(), "<br/>".join(lines), view)
                 return True
             QToolTip.showText(event.globalPos(), ap.package_tooltip(game, package), view)
