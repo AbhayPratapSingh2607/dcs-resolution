@@ -60,9 +60,15 @@ class TimelineWidget(QWidget):
     package_double_clicked = Signal(object)
     #: The player dragged the DCS window; minutes after the period start.
     window_moved = Signal(int)
+    #: The player dragged a package to a new TOT (on release).
+    package_moved = Signal(object)
 
     #: The dragged window snaps to this many minutes (the picker's step).
     WINDOW_STEP_MIN = 15
+    #: A dragged package's TOT snaps to this many minutes.
+    PACKAGE_STEP_MIN = 1
+    #: Pixels the mouse must move before a press on a package becomes a drag.
+    DRAG_THRESHOLD_PX = 4
 
     MIN_PPM = 0.6
     MAX_PPM = 14.0
@@ -88,6 +94,10 @@ class TimelineWidget(QWidget):
         self._hits: list[tuple[QRect, Package]] = []
         #: (press x, window offset then) while the DCS window is dragged.
         self._window_drag: Optional[tuple[float, int]] = None
+        #: (package, press x, its TOT then, dragging yet) while a package is
+        #: pressed; it becomes a drag once the mouse moves a few pixels.
+        self._package_drag: Optional[tuple[Package, float, datetime, bool]] = None
+        self._drag_y = 0.0
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.refresh()
@@ -157,7 +167,9 @@ class TimelineWidget(QWidget):
 
     def x_for(self, when: datetime) -> float:
         start, _ = self.bounds()
-        return self.label_width + (when - start) / timedelta(minutes=1) * self.px_per_min
+        return (
+            self.label_width + (when - start) / timedelta(minutes=1) * self.px_per_min
+        )
 
     # ------------------------------------------------------------ paint
 
@@ -168,7 +180,9 @@ class TimelineWidget(QWidget):
         self._hits = []
         if game is None:
             painter.setPen(QPen(DIM))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No game loaded")
+            painter.drawText(
+                self.rect(), Qt.AlignmentFlag.AlignCenter, "No game loaded"
+            )
             return
         start, end = self.bounds()
         small = QFont(self.font())
@@ -238,14 +252,20 @@ class TimelineWidget(QWidget):
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         metrics = QFontMetrics(small)
-        bars_clip = QRect(self.label_width, top, self.width() - self.label_width, bottom - top)
+        bars_clip = QRect(
+            self.label_width, top, self.width() - self.label_width, bottom - top
+        )
         for y, lane in lane_rows:
             height = self.lane_px(lane)
             painter.setPen(QPen(DIM if not self.compact else TEXT))
             painter.drawText(
-                QRect(6 + (6 if not self.compact else 0), y, self.label_width - 16, height),
+                QRect(
+                    6 + (6 if not self.compact else 0), y, self.label_width - 16, height
+                ),
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                metrics.elidedText(lane.label, Qt.TextElideMode.ElideRight, self.label_width - 16),
+                metrics.elidedText(
+                    lane.label, Qt.TextElideMode.ElideRight, self.label_width - 16
+                ),
             )
             painter.save()
             painter.setClipRect(bars_clip)
@@ -328,7 +348,10 @@ class TimelineWidget(QWidget):
         last = last or package.time_over_target
         pad = 2 if height < 16 else 4
         bar = QRectF(
-            self.x_for(takeoff), y + pad, max(self.x_for(last) - self.x_for(takeoff), 2), height - 2 * pad
+            self.x_for(takeoff),
+            y + pad,
+            max(self.x_for(last) - self.x_for(takeoff), 2),
+            height - 2 * pad,
         )
         # Startup to takeoff: a thin line.
         painter.setPen(QPen(color, 2))
@@ -343,13 +366,25 @@ class TimelineWidget(QWidget):
             patrol = ap.key_times(flight).patrol
             if patrol is None or flight is not package.primary_flight:
                 continue
-            band = QRectF(self.x_for(patrol[0]), bar.top() + 2, self.x_for(patrol[1]) - self.x_for(patrol[0]), bar.height() - 4)
+            band = QRectF(
+                self.x_for(patrol[0]),
+                bar.top() + 2,
+                self.x_for(patrol[1]) - self.x_for(patrol[0]),
+                bar.height() - 4,
+            )
             painter.setBrush(QBrush(QColor(255, 255, 255, 70 if not dimmed else 35)))
             painter.drawRect(band)
         # TOT diamond.
         x = self.x_for(package.time_over_target)
         r = (height - 2 * pad) / 2 + 1
-        diamond = QPolygonF([QPointF(x, mid - r), QPointF(x + r, mid), QPointF(x, mid + r), QPointF(x - r, mid)])
+        diamond = QPolygonF(
+            [
+                QPointF(x, mid - r),
+                QPointF(x + r, mid),
+                QPointF(x, mid + r),
+                QPointF(x - r, mid),
+            ]
+        )
         painter.setBrush(QBrush(QColor("#ffffff") if not dimmed else DIM))
         painter.setPen(QPen(QColor("#1e262c"), 1))
         painter.drawPolygon(diamond)
@@ -407,6 +442,52 @@ class TimelineWidget(QWidget):
             self.update()
             self.window_moved.emit(game.air_campaign.window_offset_min)
 
+    def sim_now(self) -> Optional[datetime]:
+        controller = getattr(self.game_model, "sim_controller", None)
+        return getattr(controller, "current_time_in_sim_if_game_loaded", None)
+
+    def package_draggable(self, package: Package) -> bool:
+        """Your own packages can be moved in time until any of their flights
+        has started up."""
+        if self.game_model is None or self.compact:
+            # The compact view (DCS window dialog) only shows the plan.
+            return False
+        if not self.blue or self.game is None or not package.flights:
+            return False
+        if not all(f.state.is_waiting_for_start for f in package.flights):
+            return False
+        first, _ = ap.package_span(package)
+        now = self.sim_now()
+        return first is not None and (now is None or first >= now)
+
+    def _drag_package_to(self, x: float) -> None:
+        assert self._package_drag is not None
+        package, press_x, tot, _ = self._package_drag
+        minutes = (x - press_x) / self.px_per_min
+        step = self.PACKAGE_STEP_MIN
+        new_tot = tot + timedelta(minutes=round(minutes / step) * step)
+        # Keep the first startup at or after the current time.
+        now = self.sim_now()
+        first, _ = ap.package_span(package)
+        if now is not None and first is not None:
+            earliest = now + (package.time_over_target - first)
+            if new_tot < earliest:
+                late = (earliest - tot).total_seconds()
+                new_tot = tot + timedelta(minutes=-(-late // 60))
+        _, end = self.bounds()
+        new_tot = min(new_tot, end)
+        if new_tot != package.time_over_target:
+            package.auto_asap = False
+            package.time_over_target = new_tot
+            self.update()
+        shift = (new_tot - tot) // timedelta(minutes=1)
+        sign = "+" if shift >= 0 else "\u2212"
+        QToolTip.showText(
+            self.mapToGlobal(QPoint(int(x), int(self._drag_y))),
+            f"TOT {new_tot:%H:%M} ({sign}{abs(shift)} min)",
+            self,
+        )
+
     def package_at(self, pos: QPoint) -> Optional[Package]:
         for rect, package in reversed(self._hits):
             if rect.contains(pos):
@@ -414,10 +495,14 @@ class TimelineWidget(QWidget):
         return None
 
     def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.ToolTip and self._package_drag is not None:
+            return True
         if event.type() == QEvent.Type.ToolTip and self.game is not None:
             package = self.package_at(event.pos())  # type: ignore[attr-defined]
-            if package is None and self.window_draggable() and self.in_window_band(
-                event.pos()  # type: ignore[attr-defined]
+            if (
+                package is None
+                and self.window_draggable()
+                and self.in_window_band(event.pos())  # type: ignore[attr-defined]
             ):
                 QToolTip.showText(
                     event.globalPos(),  # type: ignore[attr-defined]
@@ -440,6 +525,18 @@ class TimelineWidget(QWidget):
             self.selected = package
             self.update()
             self.package_clicked.emit(package)
+            if event.button() == Qt.MouseButton.LeftButton and self.package_draggable(
+                package
+            ):
+                self._package_drag = (
+                    package,
+                    event.position().x(),
+                    package.time_over_target,
+                    False,
+                )
+                self._drag_y = event.position().y()
+                event.accept()
+                return
         elif (
             event.button() == Qt.MouseButton.LeftButton
             and self.window_draggable()
@@ -457,13 +554,29 @@ class TimelineWidget(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._package_drag is not None:
+            package, press_x, tot, dragging = self._package_drag
+            x = event.position().x()
+            if not dragging and abs(x - press_x) >= self.DRAG_THRESHOLD_PX:
+                self._package_drag = (package, press_x, tot, True)
+                self.setCursor(Qt.CursorShape.SizeHorCursor)
+                dragging = True
+            if dragging:
+                self._drag_package_to(x)
+            event.accept()
+            return
         if self._window_drag is not None:
             self._drag_window_to(event.position().x())
             event.accept()
             return
         pos = event.position().toPoint()
-        if self.package_at(pos) is not None:
-            cursor = Qt.CursorShape.PointingHandCursor
+        hovered = self.package_at(pos)
+        if hovered is not None:
+            cursor = (
+                Qt.CursorShape.SizeHorCursor
+                if self.package_draggable(hovered)
+                else Qt.CursorShape.PointingHandCursor
+            )
         elif self.window_draggable() and self.in_window_band(pos):
             cursor = Qt.CursorShape.OpenHandCursor
         else:
@@ -472,6 +585,16 @@ class TimelineWidget(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._package_drag is not None:
+            package, _, tot, dragging = self._package_drag
+            if dragging:
+                self._drag_package_to(event.position().x())
+            self._package_drag = None
+            QToolTip.hideText()
+            if dragging and package.time_over_target != tot:
+                self.package_moved.emit(package)
+            event.accept()
+            return
         if self._window_drag is not None:
             self._drag_window_to(event.position().x())
             self._window_drag = None
@@ -519,14 +642,17 @@ class AtoTimelineDialog(QDialog):
             "<span style='color:#9aa7b2'>— startup &nbsp; ▬ airborne &nbsp; ◆ TOT &nbsp;"
             " ▒ on station &nbsp; <span style='color:#82e05a'>▢</span> player flight"
             " &nbsp; <span style='color:#3592c4'>▒</span> DCS window"
-            " (drag to move it) &nbsp; · Ctrl+wheel to zoom, double-click to edit</span>"
+            " (drag to move it) &nbsp; · drag a package to move its TOT,"
+            " Ctrl+wheel to zoom, double-click to edit</span>"
         )
         toolbar.addWidget(legend)
         for text, factor in (("−", 1 / 1.4), ("+", 1.4)):
             button = QPushButton(text)
             button.setFixedWidth(28)
             button.clicked.connect(
-                lambda _=False, f=factor: self.timeline.set_zoom(self.timeline.px_per_min * f)
+                lambda _=False, f=factor: self.timeline.set_zoom(
+                    self.timeline.px_per_min * f
+                )
             )
             toolbar.addWidget(button)
         fit = QPushButton("Fit")
@@ -536,6 +662,7 @@ class AtoTimelineDialog(QDialog):
         self.timeline = TimelineWidget(game_model)
         self.timeline.package_clicked.connect(self.package_selected)
         self.timeline.package_double_clicked.connect(self.edit_package)
+        self.timeline.package_moved.connect(self.package_moved)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.timeline)
         self.scroll_area.setWidgetResizable(True)
@@ -573,11 +700,24 @@ class AtoTimelineDialog(QDialog):
         width = self.scroll_area.viewport().width() - self.timeline.label_width - 24
         self.timeline.set_zoom(width / minutes)
 
+    def package_moved(self, package: Package) -> None:
+        """A package dragged to a new TOT: apply it as the package dialog does,
+        so open dialogs, the ATO list and the map follow."""
+        from game.server import EventStream
+        from game.sim import GameUpdateEvents
+
+        model = self.game_model.ato_model.find_matching_package_model(package)
+        if model is not None:
+            model.set_tot(package.time_over_target)
+        EventStream.put_nowait(GameUpdateEvents().update_flights_in_package(package))
+
     def edit_package(self, package: Package) -> None:
         from qt_ui.dialogs import Dialog
 
         model = (
-            self.game_model.red_ato_model if self.opfor.isChecked() else self.game_model.ato_model
+            self.game_model.red_ato_model
+            if self.opfor.isChecked()
+            else self.game_model.ato_model
         ).find_matching_package_model(package)
         if model is not None:
             Dialog.open_edit_package_dialog(model)
