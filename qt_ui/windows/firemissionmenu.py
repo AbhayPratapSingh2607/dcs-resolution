@@ -79,9 +79,10 @@ def fire_mission_button(
         try:
             text, hint, enabled = strike_summary(game, target)
         except Exception:
-            text, hint, enabled = "Plan fire mission…", "", True
-        button.setText(text)
-        button.setToolTip(hint)
+            text, hint, enabled = "", "", True
+        # The odds are in the dialog the button opens; disabled, it says why.
+        button.setText("Plan Fire Mission")
+        button.setToolTip("" if enabled else hint)
         button.setEnabled(enabled)
 
     def plan() -> None:
