@@ -2,22 +2,23 @@ import { LatLng } from "../../api/_liberationApi";
 import { divIcon } from "leaflet";
 import { Marker } from "react-leaflet";
 
-const COLOR = "#ff3b30";
-const SIZE = 44;
+const COLOR = "#ff5a4f";
+const SIZE = 30;
 
-/** A target crosshair: a ring with four ticks and a center dot, drawn in
- * screen pixels so it reads the same at every zoom. */
+/** A minimal target crosshair: a thin ring and four short ticks off its
+ * edge, drawn in screen pixels so it reads the same at every zoom. A faint
+ * dark halo keeps it legible on bright terrain. */
+const TICKS = "M15 1.5v5M15 23.5v5M1.5 15h5M23.5 15h5";
 const CROSSHAIR_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 44 44">
-  <g fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round">
-    <circle cx="22" cy="22" r="14"/>
-    <path d="M22 2v10M22 32v10M2 22h10M32 22h10"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 30 30">
+  <g fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round">
+    <circle cx="15" cy="15" r="7.5"/>
+    <path d="${TICKS}"/>
   </g>
-  <g fill="none" stroke="${COLOR}" stroke-width="2.5" stroke-linecap="round">
-    <circle cx="22" cy="22" r="14"/>
-    <path d="M22 2v10M22 32v10M2 22h10M32 22h10"/>
+  <g fill="none" stroke="${COLOR}" stroke-opacity="0.9" stroke-width="1.25" stroke-linecap="round">
+    <circle cx="15" cy="15" r="7.5"/>
+    <path d="${TICKS}"/>
   </g>
-  <circle cx="22" cy="22" r="2" fill="${COLOR}"/>
 </svg>`;
 
 const crosshairIcon = divIcon({

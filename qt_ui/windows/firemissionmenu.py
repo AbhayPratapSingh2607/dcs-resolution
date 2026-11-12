@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from PySide6.QtWidgets import QPushButton, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 
 from game import Game
 
@@ -92,3 +93,89 @@ def fire_mission_button(
     button.clicked.connect(plan)
     refresh()
     return button
+
+
+def planned_against(game: Game, target: Any) -> list:
+    """This turn's fire missions (yours) at the target, by time."""
+    from game.warfare.firemissions import FireStatus, missions_this_turn
+
+    target_id = getattr(target, "id", None)
+    return sorted(
+        (
+            m
+            for m in missions_this_turn(game, game.blue.player)
+            if m.target_id == target_id and m.status is not FireStatus.CANCELLED
+        ),
+        key=lambda m: m.time,
+    )
+
+
+def fire_mission_banner(
+    game: Optional[Game], target: Any, parent: Optional[QWidget] = None
+) -> Optional[QLabel]:
+    """A line for the package dialog naming the fire missions planned at the
+    package's target; hidden when there are none. Follows planning and moves
+    (QFireMissionsDialog.fire_mission_signals)."""
+    if game is None or not strike_target(game, target):
+        return None
+    from game.warfare.firemissions import FireStatus
+    from qt_ui.windows.QFireMissionsDialog import fire_mission_signals, mission_zero
+
+    label = QLabel(parent)
+    label.setWordWrap(True)
+    label.setTextFormat(Qt.TextFormat.RichText)
+    label.setStyleSheet(
+        "QLabel { background: rgba(255, 107, 61, 40); border: 1px solid #ff6b3d;"
+        " border-radius: 3px; padding: 4px 8px; }"
+    )
+
+    def clock(when: Any) -> str:
+        minutes = int((when - mission_zero(game)).total_seconds() // 60)
+        sign = "-" if minutes < 0 else ""
+        minutes = abs(minutes)
+        return f"{sign}{minutes // 60:02d}:{minutes % 60:02d}:00"
+
+    def refresh() -> None:
+        try:
+            missions = planned_against(game, target)
+        except Exception:
+            missions = []
+        if not missions:
+            label.hide()
+            return
+        parts = []
+        for m in missions:
+            status = (
+                m.result or "fired"
+                if m.status is FireStatus.FIRED
+                else (
+                    "in the DCS mission"
+                    if m.status is FireStatus.IN_MISSION
+                    else "planned"
+                )
+            )
+            parts.append(
+                f"<b>{clock(m.time)}</b> {m.rounds} {m.weapon} from "
+                f"{m.launcher_name} ({status})"
+            )
+        count = len(missions)
+        label.setText(
+            f"<span style='color:#ff6b3d'>&#9673;</span> <b>{count} fire "
+            f"mission{'s' if count != 1 else ''} at {target.name}:</b> "
+            + " &middot; ".join(parts)
+        )
+        label.show()
+
+    fire_mission_signals().changed.connect(refresh)
+    label.destroyed.connect(lambda *_: _disconnect(refresh))
+    refresh()
+    return label
+
+
+def _disconnect(slot: Any) -> None:
+    from qt_ui.windows.QFireMissionsDialog import fire_mission_signals
+
+    try:
+        fire_mission_signals().changed.disconnect(slot)
+    except (RuntimeError, TypeError):
+        pass

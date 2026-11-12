@@ -133,6 +133,15 @@ class QPackageDialog(QDialog):
         self.package_view.selectionModel().selectionChanged.connect(
             self.on_selection_changed
         )
+        # Fire missions already planned at the target (game.warfare.firemissions).
+        from qt_ui.windows.firemissionmenu import fire_mission_banner
+
+        self.fire_mission_banner = fire_mission_banner(
+            self.game_model.game, self.package_model.package.target, self
+        )
+        if self.fire_mission_banner is not None:
+            self.layout.addWidget(self.fire_mission_banner)
+
         self.layout.addWidget(self.package_view)
 
         self.button_layout = QHBoxLayout()
