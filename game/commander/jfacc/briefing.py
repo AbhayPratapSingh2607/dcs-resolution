@@ -250,6 +250,9 @@ class PackageResult:
     aborts: int
     #: The decoy call (game.warfare.deception), when the target was a decoy.
     decoy: str = ""
+    #: CSAR: True when the downed pilot was rescued, False when not, None
+    #: for any other package.
+    rescued: Optional[bool] = None
 
     @property
     def result(self) -> str:
@@ -258,6 +261,10 @@ class PackageResult:
         parts = []
         if self.decoy:
             parts.append(self.decoy)
+        if self.rescued:
+            parts.append("pilot rescued")
+        elif self.rescued is False:
+            parts.append("pilot not picked up")
         if self.target_destroyed:
             parts.append("target destroyed")
         elif self.target_hits:
@@ -490,6 +497,25 @@ def _decoy_note(package: Package) -> str:
     )
 
 
+def _rescued(debriefing: object, target: object) -> Optional[bool]:
+    """For a CSAR package: whether its downed pilot was rescued this turn,
+    in DCS or by an AI flight the simulation resolved. None otherwise."""
+    from game.squadrons.downedpilot import DownedPilot
+
+    if not isinstance(target, DownedPilot):
+        return None
+    rescued = getattr(debriefing, "rescued_pilots", None) or {}
+    if target.id in rescued:
+        return True
+    pending = getattr(debriefing, "pending_simulated_rescues", None)
+    if pending is not None and target in pending(target.player):
+        return True
+    remainder = getattr(debriefing, "remainder", None)
+    if remainder is not None and remainder is not debriefing:
+        return _rescued(remainder, target)
+    return False
+
+
 def _plan_debrief(
     debriefing: object,
     blue: bool,
@@ -535,6 +561,7 @@ def _plan_debrief(
             air_kills=outcome.credit.get((key, "air_kill"), 0),
             aborts=outcome.credit.get((key, "abort"), 0),
             decoy=_decoy_note(package),
+            rescued=_rescued(debriefing, target),
         )
 
     def routine_lines(results: dict[str, list[PackageResult]]) -> list[str]:

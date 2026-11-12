@@ -585,8 +585,29 @@ class Debriefing:
                 if capture.captured_by_player == player.opponent
             ),
             runways_destroyed=len(airfields),
-            pilots_rescued=len(self.rescued_pilots_for(player)),
+            pilots_rescued=len(self.rescued_pilots_for(player))
+            + len(self.pending_simulated_rescues(player)),
         )
+
+    def pending_simulated_rescues(self, player: Player) -> list[Any]:
+        """Downed pilots AI CSAR flights rescued in the simulation that are
+        credited only when the results are committed: counted now so the
+        results window and the debrief agree. Empty once committed (the
+        pilots are recorded in rescued_pilots and leave the downed list)."""
+        game = getattr(self, "game", None)
+        if game is None:
+            return []
+        try:
+            from game.sim.missionresultsprocessor import simulated_rescues
+
+            return [
+                downed
+                for downed, _ in simulated_rescues(game, self)
+                if downed.player == player and downed.id not in self.rescued_pilots
+            ]
+        except Exception:
+            logging.exception("Could not count simulated CSAR rescues")
+            return []
 
     def dead_aircraft(self) -> AirLosses:
         player_losses = []
