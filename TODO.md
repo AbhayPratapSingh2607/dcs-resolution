@@ -764,7 +764,8 @@ default since W8). D11 checks the 6 hour turn.
   autosave of 2026-11-11, turn 2): red's DEAD, CAS and SEAD escort flights from Maykop and
   Krasnodar appear in the air 6–15 km from their field, at low level, and late activate at
   their start time; ones already airborne at mission start spawn along their route. Nothing
-  sits on the cratered field's ramp. They land back at the field.
+  sits on the cratered field's ramp. They land back at the field. Blue never flies from
+  road bases: a blue flight at a cratered field is grounded.
 - [ ] **D25. Fire missions in DCS (2026-11-11).** On turn 2 of the autosave, plan a few
   Tomahawk strikes from AARDWOLF and the carrier group's escort 10–20 minutes into the window,
   and an artillery strike at the front. **Expect:** the ships launch Tomahawks at their time
@@ -831,7 +832,7 @@ user changes a decision.
 
 10. Fire missions in regular turns for both sides, with a per-turn capacity and no stock
     (replaces 5's "turn 0 only, blue only").
-11. Road bases, and the enemy's reaction to the salvo follows the surprise.
+11. Road bases (red only; blue has none, 2026-11-12), and the enemy's reaction to the salvo follows the surprise.
 
 **Decided 2026-11-09, earlier (user):**
 

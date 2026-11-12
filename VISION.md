@@ -171,8 +171,9 @@ replaces, and then `TODO.md` and the memory notes are brought in line.
     there is still no missile stock. Strikes inside the DCS mission are fired by DCS.
     *Replaces* decision 5's "turn 0 only" and "blue only", and the "not doing" item
     "missile strikes by red, and missile salvos after turn 0".
-11. **Road bases.** A cratered runway grounds only part of a squadron: the rest flies from
-    road strips, starting in the air near its airfield. The enemy's reaction to the
+11. **Road bases.** A cratered red runway grounds only part of a squadron: the rest flies
+    from road strips, starting in the air near its airfield. Blue has no road bases
+    (user, 2026-11-12): a cratered blue runway grounds everything there. The enemy's reaction to the
     opening salvo (runway repair, road base share, counter-strike) follows the strategic
     surprise.
 

@@ -1415,12 +1415,12 @@ class Settings:
         section=WARFARE_SECTION,
         default=True,
         detail=(
-            "When an airfield's runway is cratered, part of its fighters and "
+            "When a red airfield's runway is cratered, part of its fighters and "
             "attack aircraft keep flying from road strips nearby: they start "
             "in the air a few miles from the field. Helicopters all fly on; "
             "bombers, tankers, AWACS and transports stay grounded. Red's share "
-            "at the opening follows the strategic surprise. Off: a cratered "
-            "runway grounds everything there."
+            "at the opening follows the strategic surprise. Blue never flies "
+            "from road bases. Off: a cratered runway grounds everything there."
         ),
     )
     fire_missions: bool = boolean_option(

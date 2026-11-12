@@ -50,9 +50,31 @@ def test_red_road_share_follows_the_surprise_and_grows() -> None:
     assert expected > caught
     later = roadbases.road_share(_game(Surprise.FULL, turn=3), Player.RED)
     assert caught < later <= roadbases.ORGANISED_SHARE
-    assert roadbases.road_share(_game(Surprise.FULL), Player.BLUE) == (
-        roadbases.ORGANISED_SHARE
-    )
+    assert roadbases.road_share(_game(Surprise.FULL), Player.BLUE) == 0.0
+
+
+def test_blue_airfields_are_never_road_bases(monkeypatch: pytest.MonkeyPatch) -> None:
+    from game.theater.controlpoint import Airfield
+
+    game = _game(Surprise.NONE)
+
+    class _Field(Airfield):
+        def __init__(self, owner: Player) -> None:
+            self._owner = owner
+
+        @property
+        def captured(self) -> Player:  # type: ignore[override]
+            return self._owner
+
+        @property
+        def coalition(self) -> Any:  # type: ignore[override]
+            return SimpleNamespace(game=game)
+
+        def runway_is_operational(self) -> bool:
+            return False
+
+    assert roadbases.is_road_base(_Field(Player.RED))
+    assert not roadbases.is_road_base(_Field(Player.BLUE))
 
 
 def test_road_capacity_on_a_cratered_field(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -13,7 +13,10 @@ the side was:
 * red at the opening follows the strategic surprise: with no surprise it had
   dispersed and prepared its road strips, with full surprise it is caught at
   its main bases. Each turn after the first it organises a little more.
-* blue (and red once organised) flies a steady share.
+* red once organised flies a steady share.
+
+Only red flies from road bases: a cratered blue runway grounds everything
+there.
 
 Helicopters don't need a runway, so they all fly. Aircraft too big for a road
 (bombers, tankers, AWACS, transports) don't.
@@ -36,7 +39,7 @@ if TYPE_CHECKING:
     from game.theater import ControlPoint
     from game.theater.player import Player
 
-#: Share of a squadron that flies from road bases once a side is organised.
+#: Share of a squadron that flies from road bases once red is organised.
 ORGANISED_SHARE = 0.4
 #: Red's share on turn 1 by strategic surprise (game.opening.Surprise name).
 OPENING_SHARE = {"NONE": 0.5, "PARTIAL": 0.25, "FULL": 0.1}
@@ -59,9 +62,10 @@ def enabled(game: Game) -> bool:
 
 
 def road_share(game: Game, player: Player) -> float:
-    """Share of a capable squadron's aircraft that can fly from road bases."""
+    """Share of a capable squadron's aircraft that can fly from road bases.
+    Blue doesn't fly from road bases."""
     if player.is_blue:
-        return ORGANISED_SHARE
+        return 0.0
     from game.opening import opening_of, surprise_of
 
     if not opening_of(game).begun:
@@ -74,10 +78,12 @@ def road_share(game: Game, player: Player) -> float:
 
 def is_road_base(control_point: ControlPoint) -> bool:
     """Whether the base's squadrons fly from road bases now: a land airfield
-    whose runway is out of action, with the setting on."""
+    whose runway is out of action, held by red, with the setting on."""
     from game.theater.controlpoint import Airfield
 
     if not isinstance(control_point, Airfield):
+        return False
+    if control_point.captured.is_blue:
         return False
     if control_point.runway_is_operational():
         return False
