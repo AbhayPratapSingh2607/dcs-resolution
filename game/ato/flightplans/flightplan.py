@@ -300,7 +300,11 @@ class FlightPlan(ABC, Generic[LayoutT]):
 
     def completes_at(self, waypoint: FlightWaypoint) -> bool:
         """Whether the flight's simulated mission ends on reaching waypoint."""
-        return waypoint.waypoint_type is FlightWaypointType.LANDING_POINT
+        if waypoint.waypoint_type is FlightWaypointType.LANDING_POINT:
+            return True
+        # A flight bound for an off-map base ends at its "Exit theater" point,
+        # a NAV waypoint (WaypointBuilder.land).
+        return waypoint is getattr(self.layout, "arrival", None)
 
     def on_waypoint_reached(
         self, waypoint: FlightWaypoint, events: GameUpdateEvents

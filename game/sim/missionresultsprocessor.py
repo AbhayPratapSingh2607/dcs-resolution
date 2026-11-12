@@ -222,34 +222,45 @@ class MissionResultsProcessor:
             rescued.add(downed)
 
         # Fallback: AI-flown CSAR flights that reached the pilot and survived.
+        # A flight the simulation completed has left the ATO; its pilot
+        # remembers it (CsarFlightPlan.on_waypoint_reached).
         for coalition in self.game.coalitions:
-            for package in coalition.ato.packages:
-                for flight in package.flights:
-                    if flight.flight_type is not FlightType.CSAR:
-                        continue
-                    target = flight.package.target
-                    if not isinstance(target, DownedPilot) or target in rescued:
-                        continue
-                    if flight.client_count > 0:
-                        # Player-flown: only the Ops.CSAR result counts, so an
-                        # unflown or botched player CSAR correctly fails.
-                        continue
-                    if flight in flown:
-                        # It flew, so Ops.CSAR had its say. Not reported means not
-                        # rescued.
-                        continue
-                    if debriefing.air_losses.surviving_flight_members(flight) > 0:
-                        # Worth saying out loud: this credits a rescue the mission
-                        # never confirmed, and it is the only reason the debrief
-                        # can show more rescues than the in-progress screen did.
-                        logging.info(
-                            "Crediting %s to surviving AI CSAR flight %s, which "
-                            "the simulation resolved before the mission was "
-                            "generated.",
-                            target.pilot.name,
-                            flight,
-                        )
-                        rescued.add(target)
+            candidates = [
+                flight
+                for package in coalition.ato.packages
+                for flight in package.flights
+            ]
+            for pilot in coalition.downed_pilots:
+                pickup = getattr(pilot, "simulated_pickup", None)
+                if pickup is not None and pickup not in candidates:
+                    candidates.append(pickup)
+                pilot.simulated_pickup = None
+            for flight in candidates:
+                if flight.flight_type is not FlightType.CSAR:
+                    continue
+                target = flight.package.target
+                if not isinstance(target, DownedPilot) or target in rescued:
+                    continue
+                if flight.client_count > 0:
+                    # Player-flown: only the Ops.CSAR result counts, so an
+                    # unflown or botched player CSAR correctly fails.
+                    continue
+                if flight in flown:
+                    # It flew, so Ops.CSAR had its say. Not reported means not
+                    # rescued.
+                    continue
+                if debriefing.air_losses.surviving_flight_members(flight) > 0:
+                    # Worth saying out loud: this credits a rescue the mission
+                    # never confirmed, and it is the only reason the debrief
+                    # can show more rescues than the in-progress screen did.
+                    logging.info(
+                        "Crediting %s to surviving AI CSAR flight %s, which "
+                        "the simulation resolved before the mission was "
+                        "generated.",
+                        target.pilot.name,
+                        flight,
+                    )
+                    rescued.add(target)
 
         for downed in rescued:
             # Record before rescuing: csar.rescue removes the pilot from the db,

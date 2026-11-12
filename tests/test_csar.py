@@ -795,11 +795,15 @@ def _csar_flight_targeting(downed: DownedPilot, client_count: int) -> Any:
     return flight
 
 
-def _game_with_csar_package(downed: DownedPilot, flight: Any) -> Any:
+def _game_with_csar_package(
+    downed: DownedPilot, flight: Any, in_ato: bool = True
+) -> Any:
     game = _make_game()
-    package = SimpleNamespace(flights=[flight])
-    blue = SimpleNamespace(ato=SimpleNamespace(packages=[package]))
-    red = SimpleNamespace(ato=SimpleNamespace(packages=[]))
+    packages = [SimpleNamespace(flights=[flight])] if in_ato else []
+    blue = SimpleNamespace(
+        ato=SimpleNamespace(packages=packages), downed_pilots=[downed]
+    )
+    red = SimpleNamespace(ato=SimpleNamespace(packages=[]), downed_pilots=[])
     game.coalitions = [blue, red]
     return game
 
@@ -857,6 +861,57 @@ def test_simulated_ai_flight_rescues_via_the_fallback() -> None:
     processor = MissionResultsProcessor(game)
     processor.commit_csar_results(debriefing)
     assert downed.pilot.recovering
+
+
+def test_completed_simulated_flight_rescues_from_outside_the_ato() -> None:
+    """The simulation takes a completed flight out of the ATO before results
+    are committed: the pilot remembers the flight that reached the pickup."""
+    downed = _standalone_downed()
+    flight = _csar_flight_targeting(downed, client_count=0)
+    game = _game_with_csar_package(downed, flight, in_ato=False)
+    downed.simulated_pickup = flight
+    debriefing = MagicMock()
+    debriefing.state_data.rescued_pilot_ids = []
+    debriefing.unit_map.aircraft.values.return_value = _flown_in_mission()
+    debriefing.air_losses.surviving_flight_members.return_value = 1
+    MissionResultsProcessor(game).commit_csar_results(debriefing)
+    assert downed.pilot.recovering
+    assert downed.simulated_pickup is None
+
+
+def test_completed_flight_lost_after_the_pickup_rescues_nobody() -> None:
+    downed = _standalone_downed()
+    flight = _csar_flight_targeting(downed, client_count=0)
+    game = _game_with_csar_package(downed, flight, in_ato=False)
+    downed.simulated_pickup = flight
+    debriefing = MagicMock()
+    debriefing.state_data.rescued_pilot_ids = []
+    debriefing.unit_map.aircraft.values.return_value = _flown_in_mission()
+    debriefing.air_losses.surviving_flight_members.return_value = 0
+    MissionResultsProcessor(game).commit_csar_results(debriefing)
+    assert not downed.pilot.recovering
+
+
+def test_simulated_pickup_is_recorded_on_the_pilot() -> None:
+    from game.ato.flightplans.csar import CsarFlightPlan
+
+    downed = _standalone_downed()
+    plan = CsarFlightPlan.__new__(CsarFlightPlan)
+    pickup = MagicMock()
+    flight = MagicMock()
+    flight.client_count = 0
+    flight.package.target = downed
+    plan.flight = flight
+    plan.layout = SimpleNamespace(pickup=pickup)  # type: ignore[assignment]
+    plan.on_waypoint_reached(MagicMock(), MagicMock())
+    assert downed.simulated_pickup is None
+    plan.on_waypoint_reached(pickup, MagicMock())
+    assert downed.simulated_pickup is flight
+    # A player's rescue is only what the mission reports.
+    downed.simulated_pickup = None
+    flight.client_count = 1
+    plan.on_waypoint_reached(pickup, MagicMock())
+    assert downed.simulated_pickup is None
 
 
 def test_flown_ai_flight_needs_the_mission_to_confirm_the_rescue() -> None:

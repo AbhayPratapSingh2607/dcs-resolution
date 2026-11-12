@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterator, TYPE_CHECKING
+from typing import Iterator, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from dcs.mapping import Point
@@ -18,6 +18,7 @@ from game.theater.player import Player
 from game.utils import Distance
 
 if TYPE_CHECKING:
+    from game.ato.flight import Flight
     from game.ato.flighttype import FlightType
     from game.coalition import Coalition
     from game.settings import Settings
@@ -57,6 +58,10 @@ class DownedPilot(SidcDescribable, MissionTarget):
     #: is created, and persisted: the landmap does not change, and every consumer
     #: needs the same answer.
     in_water: bool = False
+    #: The AI rescue flight the fast-forward simulation flew to this pilot's
+    #: pickup. A completed flight leaves the ATO before the turn's results are
+    #: committed, so MissionResultsProcessor.commit_csar_results finds it here.
+    simulated_pickup: Optional[Flight] = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         MissionTarget.__init__(self, self.display_name, self._position)
@@ -64,6 +69,7 @@ class DownedPilot(SidcDescribable, MissionTarget):
     def __setstate__(self, state: dict[str, object]) -> None:
         # Saves from before water rescues existed put every pilot on land.
         state.setdefault("in_water", False)
+        state.setdefault("simulated_pickup", None)
         self.__dict__.update(state)
 
     def cluster(self, radius: Distance) -> list[DownedPilot]:
