@@ -128,7 +128,9 @@ class OffsetTimeEdit(QSpinBox):
         self.setSingleStep(self.STEP_MIN)
         self.setAccelerated(True)
         self.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
-        self.setFixedWidth(92)
+        # Room for "-00:00:00" plus the arrows (the app stylesheet's spin box
+        # min-width would otherwise win over a minimum set here).
+        self.setStyleSheet("QSpinBox { min-width: 78px; }")
         self.setToolTip(
             "Time from the start of the DCS mission (00:00:00). Before it is "
             "negative; up and down step 5 minutes, or type e.g. 02:15:00."
