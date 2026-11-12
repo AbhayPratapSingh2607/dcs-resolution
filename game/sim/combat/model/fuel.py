@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from functools import lru_cache
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -57,6 +58,42 @@ ABORT_MARGIN = 0.1
 class FuelProfile:
     radius_km: float
     can_refuel: bool
+
+
+class RefuelingSystem(Enum):
+    """How fuel passes from tanker to receiver. A tanker refuels only
+    aircraft of its own system."""
+
+    BOOM = "boom"
+    DROGUE = "drogue"
+
+    @property
+    def label(self) -> str:
+        return "boom" if self is RefuelingSystem.BOOM else "drogue"
+
+
+def tanker_system(aircraft: AircraftType) -> Optional[RefuelingSystem]:
+    """The system a tanker refuels with (fuel.yaml boom_tankers), or None
+    if the aircraft isn't a tanker."""
+    from game.ato.flighttype import FlightType
+
+    if not aircraft.capable_of(FlightType.REFUELING):
+        return None
+    dcs_id = getattr(aircraft.dcs_unit_type, "id", "")
+    if dcs_id in set(_data().get("boom_tankers", [])):
+        return RefuelingSystem.BOOM
+    return RefuelingSystem.DROGUE
+
+
+def receiver_system(aircraft: AircraftType) -> Optional[RefuelingSystem]:
+    """The system an aircraft takes fuel with (fuel.yaml boom_receivers), or
+    None if it can't refuel in the air."""
+    if not fuel_profile(aircraft).can_refuel:
+        return None
+    dcs_id = getattr(aircraft.dcs_unit_type, "id", "")
+    if dcs_id in set(_data().get("boom_receivers", [])):
+        return RefuelingSystem.BOOM
+    return RefuelingSystem.DROGUE
 
 
 @lru_cache(maxsize=1)
@@ -137,10 +174,16 @@ def _airborne_tankers(model: CombatModel, flight: Flight, now: datetime) -> list
 
 
 def tanker_support(model: CombatModel, flight: Flight, now: datetime) -> bool:
-    """Whether a live friendly tanker can top this flight up."""
-    if not fuel_profile(flight.unit_type).can_refuel:
+    """Whether a live friendly tanker of the flight's own refueling system
+    (boom or drogue) can top it up."""
+    system = receiver_system(flight.unit_type)
+    if system is None:
         return False
-    tankers = _airborne_tankers(model, flight, now)
+    tankers = [
+        t
+        for t in _airborne_tankers(model, flight, now)
+        if tanker_system(t.unit_type) is system
+    ]
     if not tankers:
         return False
     if any(t.package is flight.package for t in tankers):

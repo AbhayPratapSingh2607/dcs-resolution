@@ -4,7 +4,8 @@
 # loitering and re-attacking once it reaches its target. It comes from the
 # distance between the flight's base and its target, compared with the
 # aircraft's combat radius. A friendly tanker in reach tops it up, but only
-# for aircraft that can refuel in the air.
+# for aircraft that can refuel in the air, from a tanker of their own system
+# (boom or drogue, below).
 #
 # Combat radius is derived from internal fuel (250 km + 0.08 km per kg of
 # fuel_max, which gives an F-16 about 510 km and a Su-27 about 1000 km).
@@ -35,6 +36,57 @@ radius_km:
   Tu-95MS: 3500
   Tu-160: 3500
   Tu-22M3: 2000
+
+# Air-to-air refueling systems. A tanker refuels only aircraft of its own
+# system: a flying boom (mostly USAF) or probe-and-drogue (US Navy and Marines,
+# and most other air forces). The planner puts boom tankers where the boom
+# receivers fly and drogue tankers where the probe aircraft fly, near the
+# carriers for carrier air wings.
+#
+# Tankers listed here use a boom; every other tanker trails drogues (KC-135
+# MPRS, KC-10 Drogue, KC-130, S-3B, IL-78M, F/A-18E/F and A-6E tankers).
+boom_tankers:
+  - KC-135
+  - KC_10_Extender
+# Aircraft with a boom receptacle; every other aircraft that can refuel has a
+# probe. The F-105 and RF-101 had both: they are listed here.
+boom_receivers:
+  - A-10A
+  - A-10C
+  - A-10C_2
+  - B-1B
+  - B-52H
+  - B2_Spirit
+  - B_58
+  - C-17A
+  - C5_Galaxy
+  - CH_B-21
+  - CLP_E7A
+  - E-3A
+  - F-117A
+  - F-15C
+  - F-15D
+  - F-15E
+  - F-15ESE
+  - F-16A
+  - F-16A MLU
+  - F-16C_50
+  - F-16D_50
+  - F-16D_50_NS
+  - F-16D_52
+  - F-16D_52_NS
+  - F-16D_Barak_30
+  - F-16D_Barak_40
+  - F-16I
+  - F-22A
+  - F-4E
+  - F-4E-45MC
+  - F111C
+  - VSN_F105G
+  - VSN_F35A
+  - VSN_F35A_AG
+  - VSN_F4C
+  - vwv_rf101b
 
 # Fixed-wing aircraft without air-to-air refueling (no probe or receptacle as
 # modelled in DCS). Helicopters and aircraft from before 1960 never refuel.

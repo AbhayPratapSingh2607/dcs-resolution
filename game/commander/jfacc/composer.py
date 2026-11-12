@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from game.ato import Flight
     from game.coalition import Coalition
     from game.dcs.aircrafttype import AircraftType
+    from game.sim.combat.model.fuel import RefuelingSystem
     from game.squadrons import Squadron
     from game.theater import ControlPoint, MissionTarget
 
@@ -83,6 +84,8 @@ class FlightRequest:
     returning: bool = False
     #: Time on station instead of the default (returning flights).
     patrol_minutes: Optional[float] = None
+    #: Tankers: only those that refuel with this system (boom or drogue).
+    refueling_system: Optional[RefuelingSystem] = None
 
 
 @dataclass
@@ -434,6 +437,15 @@ class PackageComposer:
         if request.home is not None:
             candidates = [s for s in candidates if s.location is request.home]
         why = "no suitable squadron in range"
+        if request.refueling_system is not None:
+            from game.sim.combat.model.fuel import tanker_system
+
+            candidates = [
+                s
+                for s in candidates
+                if tanker_system(s.aircraft) is request.refueling_system
+            ]
+            why = f"no {request.refueling_system.label} tanker in range"
         for squadron in candidates:
             if request.jammer and not getattr(
                 squadron.aircraft, "has_built_in_jamming", False

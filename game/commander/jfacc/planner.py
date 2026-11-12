@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from game import Game
     from game.coalition import Coalition
     from game.profiling import MultiEventTracer
+    from game.sim.combat.model.fuel import RefuelingSystem
     from game.theater import ControlPoint, MissionTarget
     from game.theater.player import Player
     from game.squadrons import Squadron
@@ -850,6 +851,7 @@ class JfaccPlanner:
         max_packages: int = 12,
         first: Optional[datetime] = None,
         until: Optional[datetime] = None,
+        refueling_system: Optional[RefuelingSystem] = None,
     ) -> list[ComposedPackage]:
         """A continuous line: relief arrives as the previous flight leaves."""
         planned: list[ComposedPackage] = []
@@ -862,7 +864,7 @@ class JfaccPlanner:
                 break
             request = PackageRequest(
                 target=target,
-                flights=[FlightRequest(task, size)],
+                flights=[FlightRequest(task, size, refueling_system=refueling_system)],
                 category_name=task.value,
                 reason=reason,
             )
@@ -967,14 +969,26 @@ class JfaccPlanner:
         # Tankers are doctrine, not a player toggle: the "Automatic Theater
         # tanker package planning" setting only gates the legacy planner.
         if enablers.get("tanker_continuous", True):
-            for target in self.state.refueling_targets:
-                packages = self._plan_line(
-                    target,
-                    FlightType.REFUELING,
-                    "Theater tanker track",
-                    None,
-                )
-                self._plan_hvaa_cap(packages, "tanker")
+            # One line per tanker track: boom tankers where the boom receivers
+            # fly, drogue tankers off the carriers and for probe aircraft
+            # ashore (tankers.py).
+            from game.theater import ControlPoint
+
+            from .tankers import tanker_tracks
+
+            max_tracks = int(enablers.get("tanker_tracks_max", 3))
+            for front in self.state.refueling_targets:
+                if not isinstance(front, ControlPoint):
+                    continue
+                for track in tanker_tracks(self.coalition, front, max_tracks):
+                    packages = self._plan_line(
+                        track.anchor,
+                        FlightType.REFUELING,
+                        track.reason,
+                        None,
+                        refueling_system=track.system,
+                    )
+                    self._plan_hvaa_cap(packages, "tanker")
 
     def _plan_hvaa_cap(self, packages: list[ComposedPackage], label: str) -> None:
         if not packages or not self.profile.get("dca", "hvaa_cap", True):
@@ -1167,9 +1181,17 @@ class JfaccPlanner:
             target, mission, strikers, False, this_turn=False
         )
         if best is not None and self.composer.needs_tanker(target, best.aircraft):
+            # A tanker of the strikers' own system: a boom can't refuel a
+            # probe, nor a drogue a receptacle.
+            from game.sim.combat.model.fuel import receiver_system
+
             flights.append(
                 FlightRequest(
-                    FlightType.REFUELING, 1, required=False, note="package tanker"
+                    FlightType.REFUELING,
+                    1,
+                    required=False,
+                    note="package tanker",
+                    refueling_system=receiver_system(best.aircraft),
                 )
             )
         reason = (

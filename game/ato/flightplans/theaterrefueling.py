@@ -1,12 +1,26 @@
 from __future__ import annotations
 
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 from game.utils import Heading, meters, nautical_miles
 from .ibuilder import IBuilder
 from .patrolling import PatrollingLayout
 from .refuelingflightplan import RefuelingFlightPlan
 from .waypointbuilder import WaypointBuilder
+
+if TYPE_CHECKING:
+    from game.ato.flight import Flight
+
+
+#: How much further back from the threat a land base's drogue track sits than
+#: its boom track.
+DROGUE_TRACK_SETBACK = nautical_miles(20)
+
+
+def is_drogue_tanker(flight: Flight) -> bool:
+    from game.sim.combat.model.fuel import RefuelingSystem, tanker_system
+
+    return tanker_system(flight.unit_type) is RefuelingSystem.DROGUE
 
 
 class TheaterRefuelingFlightPlan(RefuelingFlightPlan):
@@ -34,6 +48,11 @@ class Builder(IBuilder[TheaterRefuelingFlightPlan, PatrollingLayout]):
         threat_buffer = nautical_miles(
             self.coalition.game.settings.tanker_threat_buffer_min_distance
         )
+        if not getattr(location, "is_fleet", False) and is_drogue_tanker(self.flight):
+            # A land base's boom and drogue tracks start from the same base:
+            # the drogue track sits further back so they don't overlap
+            # (jfacc/tankers.py).
+            threat_buffer = threat_buffer + DROGUE_TRACK_SETBACK
         if self.threat_zones.threatened(location.position):
             orbit_distance = distance_to_threat + threat_buffer
         else:
