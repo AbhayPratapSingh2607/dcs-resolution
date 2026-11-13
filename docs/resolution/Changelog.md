@@ -216,6 +216,21 @@ is now. Retribution's own changes are in its [changelog](../../changelog.md).
 
 ## Fixes
 
+* **[Fast forward]** A base whose front is spent falls to an attacker with 1.5 times its
+  remaining armor. Before, it had to lose every vehicle, so a beaten defender held on with the
+  reinforcements it bought each turn.
+* **[Fast forward]** Opposing flights wait 5 minutes after any engagement before engaging again.
+  Before, only an engagement in which nobody fired started the wait. Fighters that fired and
+  missed re-engaged on the next tick, until an unescorted AWACS or tanker went down.
+* **[Commanders]** The first HVAA CAP of a line starts On Station when it can't reach the track
+  as early as the AEW&C or tanker it protects. Before, the AEW&C was alone for the first 20–25
+  minutes of every period.
+* **[Rescue King]** Placing a King within 120 nm of an enemy fighter base warns you with the bases
+  and their fighters. It is still allowed.
+* **[Map]** Aircraft no longer lag behind and jitter while fast forwarding. Queued updates are
+  merged, aircraft and routes only redraw when they change, and aircraft glide between updates
+  while the whole turn is fast-forwarded.
+
 * **[Air wing]** Presets only offer the faction's aircraft as its mod settings leave them.
   Carrier presets include a tanker and SH-60B Seahawks. The S-3B's refueling priority of 0 had
   been read as "can't refuel".

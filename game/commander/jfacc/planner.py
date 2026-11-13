@@ -48,6 +48,7 @@ from . import weaponeering
 
 if TYPE_CHECKING:
     from game import Game
+    from game.ato import Package
     from game.coalition import Coalition
     from game.profiling import MultiEventTracer
     from game.sim.combat.model.fuel import RefuelingSystem
@@ -852,8 +853,13 @@ class JfaccPlanner:
         first: Optional[datetime] = None,
         until: Optional[datetime] = None,
         refueling_system: Optional[RefuelingSystem] = None,
+        on_station_first: bool = False,
     ) -> list[ComposedPackage]:
-        """A continuous line: relief arrives as the previous flight leaves."""
+        """A continuous line: relief arrives as the previous flight leaves.
+
+        ``on_station_first``: when the first sortie can't reach the station by
+        ``first``, it starts On Station there at that time instead, as the
+        line carried over from the period before would be."""
         planned: list[ComposedPackage] = []
         tot = first or self.timeline.earliest
         end = until or self.timeline.end
@@ -873,6 +879,12 @@ class JfaccPlanner:
                 # Try the next relief slot: maybe aircraft are free later.
                 tot += timedelta(minutes=30)
                 continue
+            if (
+                on_station_first
+                and not planned
+                and composed.package.time_over_target > tot
+            ):
+                self._start_on_station(composed.package, tot)
             planned.append(composed)
             next_tot = patrol_end(composed.package)
             if next_tot is None or next_tot <= tot:
@@ -881,6 +893,24 @@ class JfaccPlanner:
                 break
             tot = next_tot - timedelta(minutes=5)
         return planned
+
+    @staticmethod
+    def _start_on_station(package: Package, tot: datetime) -> None:
+        """Put a package's flights on station at ``tot`` (StartType.ON_STATION)
+        when they couldn't take off in time to be there."""
+        from game.ato.starttype import StartType
+
+        late = package.time_over_target
+        for flight in package.flights:
+            if flight.departure.required_aircraft_start_type is not None:
+                return
+        for flight in package.flights:
+            flight.start_type = StartType.ON_STATION
+        package.time_over_target = tot
+        logging.info(
+            f"{package} starts On Station at {tot:%H:%M}: it couldn't be there "
+            f"before {late:%H:%M}"
+        )
 
     def _plan_returning(self) -> None:
         """Focused turns (F3): a few CAPs that flew the shift before this one
@@ -1023,6 +1053,9 @@ class JfaccPlanner:
             size=int(self.profile.get("dca", "cap_flight_size", 2)),
             first=start,
             until=end_time,
+            # The AEW&C or tanker it protects may be on station before a CAP
+            # from its base can get there: the first one is already there.
+            on_station_first=True,
         )
 
     # ============================================================== DCA

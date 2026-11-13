@@ -75,9 +75,16 @@ def test_base_with_strength_left_holds() -> None:
     assert fast_forward_captures(_game(blue, red)) == []
 
 
-def test_base_with_armor_left_holds() -> None:
-    blue, red = _front(blue_strength=0.0, blue_armor=3)
+def test_base_holds_while_its_armor_matches_the_attack() -> None:
+    blue, red = _front(blue_strength=0.0, blue_armor=14, red_armor=20)
     assert fast_forward_captures(_game(blue, red)) == []
+
+
+def test_spent_base_falls_to_a_clearly_stronger_attacker() -> None:
+    """Sukhumi in a test save: front spent, 24 armor left against 36."""
+    blue, red = _front(blue_strength=0.0, blue_armor=24, red_armor=36)
+    captures = fast_forward_captures(_game(blue, red))
+    assert [c.control_point for c in captures] == [blue]
 
 
 def test_defensive_attacker_does_not_take_the_base() -> None:

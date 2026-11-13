@@ -43,7 +43,12 @@ def check_farp_site(
 ) -> FarpSiteCheckJs:
     point = Point.from_latlng(LatLng(lat, lng), game.theater.terrain)
     check = game.blue.farps.check_site(point, _parse_farp_kind(kind))
-    return FarpSiteCheckJs(valid=check.valid, reasons=check.reasons, cost=check.cost)
+    return FarpSiteCheckJs(
+        valid=check.valid,
+        reasons=check.reasons,
+        warnings=check.warnings,
+        cost=check.cost,
+    )
 
 
 @router.post(

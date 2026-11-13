@@ -98,6 +98,10 @@ and click where the King should orbit. The map says why a spot won't do:
 * no C-130 or KC-130 squadron with **Rescue King** turned on has an aircraft and crew free;
 * no CSAR-capable helicopter and crew is free.
 
+**Enemy fighters.** A spot within 120 nm of an enemy fighter base is allowed, but the tooltip
+and the King's menu warn you, naming the bases and their fighters. Nothing escorts the King, so
+cover it with a CAP or place it further back.
+
 The spot can be over land or sea, and the front line doesn't matter. Only blue can place a
 King, and the FARPs menu is the only way to deploy one.
 

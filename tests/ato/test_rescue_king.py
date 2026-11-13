@@ -666,3 +666,38 @@ def test_time_on_station_is_kept_on_the_king_and_replans_its_orbit() -> None:
     assert conflicts == []
     conflicts = manager.set_king_on_station(king, 45)
     assert king.king_on_station_minutes == 45
+
+
+def test_king_near_an_enemy_fighter_base_is_warned_not_refused() -> None:
+    from types import SimpleNamespace
+
+    from dcs.mapping import Point
+
+    from game.ato.flighttype import FlightType
+    from game.farps import FarpManager
+    from game.theater import Player
+
+    king = Point(0, 0, None)  # type: ignore[arg-type]
+    base = SimpleNamespace(
+        name="Mineralnye Vody",
+        captured=Player.RED,
+        position=Point(0, 53 * 1852, None),  # type: ignore[arg-type]
+    )
+    mig = SimpleNamespace(
+        location=base,
+        owned_aircraft=12,
+        aircraft=SimpleNamespace(
+            display_name="MiG-29A", capable_of=lambda t: t is FlightType.BARCAP
+        ),
+    )
+    red = SimpleNamespace(
+        player=Player.RED, air_wing=SimpleNamespace(iter_squadrons=lambda: [mig])
+    )
+    manager = FarpManager.__new__(FarpManager)
+    manager.coalition = SimpleNamespace(  # type: ignore[assignment]
+        opponent=red,
+        game=SimpleNamespace(theater=SimpleNamespace(controlpoints=[base])),
+    )
+    warnings = manager.king_fighter_warnings(king)
+    assert len(warnings) == 1
+    assert "Mineralnye Vody (12 MiG-29A) is 53 nm away" in warnings[0]

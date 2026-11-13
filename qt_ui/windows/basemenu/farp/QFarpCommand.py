@@ -60,6 +60,19 @@ class QFarpCommand(QFrame):
         self.status_label.setWordWrap(True)
         self.main_layout.addWidget(self.status_label)
 
+        if farp.is_rescue_king:
+            # Enemy fighter bases within reach: a warning, not a refusal.
+            try:
+                coalition = self.game_model.game.coalition_for(farp.captured)
+                warnings = coalition.farps.king_fighter_warnings(farp.position)
+            except Exception:
+                warnings = []
+            if warnings:
+                warning = QLabel(" ".join(warnings))
+                warning.setWordWrap(True)
+                warning.setStyleSheet("color: #ffb347;")
+                self.main_layout.addWidget(warning)
+
         self.king_selector: Optional[QComboBox] = None
         self.king_button: Optional[QPushButton] = None
         #: Index of the aircraft orbiting now in king_selector.

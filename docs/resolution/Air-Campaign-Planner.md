@@ -92,7 +92,9 @@ mission type can't use go to the others, in the order set in the profile.
   * CAP stations sit on each enemy threat axis, outside SAM coverage. Axes run toward enemy
     fighter bases, and toward where the side has actually seen enemy aircraft come from (see
     [Adaptation](#adaptation)).
-  * HVAA CAP covers the AEW&C and tanker tracks.
+  * HVAA CAP covers the AEW&C and tanker tracks. When a CAP from its base can't reach the
+    track as early as the AEW&C or tanker does, the line's first CAP starts On Station there,
+    as the line carried over from the period before would be.
   * Point defense covers carriers.
   * Ground alert pairs wait at threatened bases and are scrambled by GCI (see
     [Ground alert and GCI](#ground-alert-and-gci)).

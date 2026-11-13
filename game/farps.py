@@ -47,6 +47,9 @@ if TYPE_CHECKING:
 MIN_CONTROL_POINT_SPACING = nautical_miles(3)
 #: Minimum spacing between a FARP and any ground object.
 MIN_TGO_SPACING = nautical_miles(1)
+#: A Rescue King this close to an enemy fighter base gets a warning: its
+#: fighters can be on the King within minutes of taking off.
+KING_FIGHTER_WARNING = nautical_miles(120)
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,8 @@ class SiteCheck:
     kind: FarpKind
     cost: int
     reasons: list[str] = field(default_factory=list)
+    #: Risks worth knowing that don't stop the site being used.
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def valid(self) -> bool:
@@ -771,7 +776,51 @@ class FarpManager:
             ):
                 reasons.append(f"Too close to {king.name}.")
                 break
+        try:
+            check.warnings.extend(self.king_fighter_warnings(point))
+        except Exception:
+            # Advisory only: never let it stop a placement.
+            logging.exception("Could not check enemy fighter bases near a King")
         return check
+
+    def king_fighter_warnings(self, point: Point) -> list[str]:
+        """Enemy fighter bases within reach of a King at this point. Not a
+        reason to refuse it (the player may cover it with CAP), but a C-130
+        circling alone near a fighter base is easy prey."""
+        bases: list[tuple[float, str]] = []
+        enemy = self.coalition.opponent
+        for cp in self.game.theater.controlpoints:
+            if cp.captured != enemy.player:
+                continue
+            distance = cp.position.distance_to_point(point)
+            if distance > KING_FIGHTER_WARNING.meters:
+                continue
+            fighters: dict[str, int] = {}
+            for squadron in enemy.air_wing.iter_squadrons():
+                if squadron.location is not cp or squadron.owned_aircraft <= 0:
+                    continue
+                if not squadron.aircraft.capable_of(FlightType.BARCAP):
+                    continue
+                name = squadron.aircraft.display_name
+                fighters[name] = fighters.get(name, 0) + squadron.owned_aircraft
+            if fighters:
+                listed = ", ".join(f"{n} {t}" for t, n in fighters.items())
+                bases.append(
+                    (
+                        distance,
+                        f"{cp.name} ({listed}) is "
+                        f"{meters(distance).nautical_miles:.0f} nm away",
+                    )
+                )
+        if not bases:
+            return []
+        bases.sort()
+        return [
+            "Warning: enemy fighters can reach the King, and nothing escorts "
+            "it. Cover it with a CAP. "
+            + "; ".join(text for _, text in bases[:3])
+            + "."
+        ]
 
     def _next_king_name(self) -> str:
         used = {cp.name for cp in self.game.theater.controlpoints}

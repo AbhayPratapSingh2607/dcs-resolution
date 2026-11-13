@@ -69,6 +69,9 @@ class ControlPointJs(BaseModel):
 class FarpSiteCheckJs(BaseModel):
     valid: bool
     reasons: list[str]
+    #: Risks that don't stop the site being used (a Rescue King near enemy
+    #: fighter bases).
+    warnings: list[str] = []
     cost: int
 
     class Config:

@@ -202,8 +202,9 @@ class CombatModel:
         self.quiet_pairs: dict[frozenset[int], datetime] = {}
 
     def mark_quiet(self, flights: list[Flight], now: datetime) -> None:
-        """Records that these flights just fought an engagement in which nobody
-        fired, so opposing pairs among them stay apart for a while."""
+        """Records that these flights just fought an engagement, so opposing
+        pairs among them stay apart for a while (break off, reposition, set
+        up again) instead of fighting a fresh engagement every tick."""
         until = now + QUIET_ENGAGEMENT_COOLDOWN
         for a in flights:
             for b in flights:

@@ -45,6 +45,7 @@ function tooltipLines(
       kind === "rescue_king"
         ? "Click to place: a C-130 or KC-130 circles here this turn; choose its rescue helicopters in the menu that opens. Right click or Esc to cancel."
         : "Click to establish. Right click or Esc to cancel.",
+      ...(candidate.check.warnings ?? []),
     ];
   }
   return [header, ...candidate.check.reasons];

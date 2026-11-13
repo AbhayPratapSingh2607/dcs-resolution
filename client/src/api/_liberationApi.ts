@@ -485,6 +485,7 @@ export type ControlPoint = {
 export type FarpSiteCheck = {
   valid: boolean;
   reasons: string[];
+  warnings?: string[];
   cost: number;
 };
 export type NewFarp = {

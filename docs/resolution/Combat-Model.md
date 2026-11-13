@@ -53,7 +53,9 @@ Each engagement runs in 10 second rounds:
    break off when out of missiles, after heavy losses, when badly outnumbered or at bingo.
    Strikers engaged without cover abort, jettison and go home, and support aircraft run.
 
-A CAP that can't catch an enemy inside its commit range waits 5 minutes before trying again.
+After an engagement ends, the same opposing flights wait 5 minutes before engaging again, to
+break off, reposition and set up. Fighters that fired and missed don't get a fresh shot every
+tick.
 
 ## Surface-to-air
 
@@ -113,10 +115,10 @@ killing power grows with how many weapons it brings and what they are good again
 * **Night and weather** blunt direct fire, unless the unit has thermal sights.
 * **Morale** changes how hard units fight. A collapsing front may surrender units without a
   fight (see [Morale](Intelligence.md#morale)).
-* **Base capture.** A base falls in a fast-forwarded turn when its front strength is spent, it
-  has no armor left, and the side attacking across that front still has at least 4 ground units
-  on an aggressive, elimination or breakthrough stance. DCS missions still capture bases only
-  through their triggers.
+* **Base capture.** A base falls in a fast-forwarded turn when its front strength is spent and
+  the side attacking across that front, on an aggressive, elimination or breakthrough stance,
+  has at least 4 armor units and 1.5 times the armor the defender has left. DCS missions still
+  capture bases only through their triggers.
 
 ## Weather and light
 

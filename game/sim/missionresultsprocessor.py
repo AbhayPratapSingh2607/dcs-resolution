@@ -27,6 +27,11 @@ STRONG_DEFEAT_INFLUENCE = 0.5
 #: fast-forwarded turn.
 FAST_FORWARD_CAPTURE_MIN_UNITS = 4
 
+#: How many times the defender's remaining armor the attacker needs to take a
+#: base whose front is spent. Requiring none left let a beaten defender hold
+#: forever on the reinforcements it bought each turn.
+FAST_FORWARD_CAPTURE_RATIO = 1.5
+
 #: Stances that drive into an undefended base.
 OFFENSIVE_STANCES = (
     CombatStance.AGGRESSIVE,
@@ -40,8 +45,9 @@ def fast_forward_captures(game: Game) -> list[BaseCaptureEvent]:
 
     In DCS a base changes hands when ground units drive into its capture zone.
     The fast forward has no such trigger, so a base falls when the front has
-    reached it: its strength is spent, it has no armor left, and the attacker
-    across that front still has a force on an offensive stance.
+    reached it: its strength is spent, and the attacker across that front has
+    a force on an offensive stance at least FAST_FORWARD_CAPTURE_RATIO times
+    the armor the defender has left.
     """
     from game.theater.base import BASE_MIN_STRENGTH
 
@@ -60,9 +66,12 @@ def fast_forward_captures(game: Game) -> list[BaseCaptureEvent]:
                 continue
             if defender.base.strength > BASE_MIN_STRENGTH:
                 continue
-            if defender.base.total_armor > 0:
-                continue
             if attacker.base.total_armor < FAST_FORWARD_CAPTURE_MIN_UNITS:
+                continue
+            if (
+                attacker.base.total_armor
+                < FAST_FORWARD_CAPTURE_RATIO * defender.base.total_armor
+            ):
                 continue
             if attacker.stances.get(defender.id) not in OFFENSIVE_STANCES:
                 continue
