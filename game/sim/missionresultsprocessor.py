@@ -11,6 +11,7 @@ from game.ground_forces.combat_stance import CombatStance
 from game.profiling import logged_duration
 from game.squadrons.csarservice import CsarService
 from game.squadrons.downedpilot import DownedPilot
+from game.squadrons.pilot import PilotStatus
 from game.theater import ControlPoint
 from .gameupdateevents import GameUpdateEvents
 from ..ato.airtaaskingorder import AirTaskingOrder
@@ -314,6 +315,20 @@ class MissionResultsProcessor:
         """
         pilot = loss.pilot
         if pilot is None:
+            return
+
+        # Only a pilot still on duty can be lost now. One already downed, dead,
+        # missing or recovering had their fate settled earlier (the same seat
+        # reported twice, or a flight carried over with a lost member still on
+        # its roster); deciding it again would leave a stale CSAR entry behind
+        # whose countdown then fails at turn end.
+        if pilot.status not in (PilotStatus.Active, PilotStatus.OnLeave):
+            logging.warning(
+                "Ignoring loss of %s from %s: pilot is already %s.",
+                pilot.name,
+                loss.flight.squadron,
+                pilot.status.value,
+            )
             return
 
         # Invulnerable player pilots survive untouched, exactly as before.

@@ -322,6 +322,18 @@ class CsarService:
         underlying list.
         """
         for downed in list(coalition.downed_pilots):
+            if not downed.pilot.downed:
+                # Their fate was settled some other way while they were on the
+                # map (saves made before losses were checked for this can hold
+                # such entries). Nothing left to count down; just clear it.
+                logging.warning(
+                    "Dropping CSAR entry for %s from %s: pilot is %s, not downed.",
+                    downed.pilot.name,
+                    downed.squadron,
+                    downed.pilot.status.value,
+                )
+                self._remove(downed)
+                continue
             downed.turns_remaining -= 1
             if downed.turns_remaining <= 0:
                 self.go_mia(downed)

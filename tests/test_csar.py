@@ -635,6 +635,21 @@ def test_advance_turn_decrements_without_expiry() -> None:
     assert downed.pilot.downed
 
 
+def test_advance_turn_drops_entries_whose_pilot_is_no_longer_downed() -> None:
+    # A stale entry (the pilot's fate settled again after they went down) used
+    # to raise "Only downed pilots may go missing in action" at turn end.
+    from game.theater.player import Player
+
+    game = _make_game()
+    downed = _make_downed(game, Player.RED, was_player=False)
+    downed.turns_remaining = 1
+    downed.pilot.kill()
+    coalition = downed.squadron.coalition
+    CsarService(game).advance_turn_for(coalition)
+    assert downed not in coalition.downed_pilots
+    assert downed.pilot.status is PilotStatus.Dead
+
+
 # ---------------------------------------------------------------------------
 # Aircraft CSAR capability derivation
 # ---------------------------------------------------------------------------
@@ -780,6 +795,24 @@ def test_csar_disabled_kills() -> None:
     debriefing.air_loss_by_pilot = {}
     processor._process_lost_pilot(loss, debriefing, CsarService(game))
     assert pilot.status is PilotStatus.Dead
+
+
+def test_loss_of_an_already_downed_pilot_is_ignored() -> None:
+    # The same seat lost a second time must not settle the pilot's fate again
+    # (killing them would strand their CSAR entry).
+    from game.theater.player import Player
+
+    game = _make_game(csar_ejection_chance=0)
+    game.settings.invulnerable_player_pilots = False
+    processor = MissionResultsProcessor(game)
+    pilot = Pilot("P", player=False)
+    pilot.go_down()
+    loss = _loss(pilot, Player.RED)
+    debriefing = MagicMock()
+    debriefing.ejected_pilot_positions = {}
+    debriefing.air_loss_by_pilot = {}
+    processor._process_lost_pilot(loss, debriefing, CsarService(game))
+    assert pilot.downed
 
 
 # ---------------------------------------------------------------------------
